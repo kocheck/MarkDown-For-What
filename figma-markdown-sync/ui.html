@@ -7,10 +7,16 @@
 </head>
 <body>
     <h2>MarkDown For What</h2>
+    <script>console.log('Inline script check: UI HTML loaded');</script>
 
     <div id="drop-zone" class="drop-zone">
-        <p>Drag & Drop Markdown File<br>or Click to Browse</p>
-        <input type="file" id="file-input" accept=".md,.markdown,.txt" style="display: none;">
+        <p><strong>Drag & Drop Markdown Files</strong></p>
+        <p style="font-size: 11px; color: #999;">or Click to Browse</p>
+        <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple>
+    </div>
+
+    <div class="help-text">
+        <p><strong>Batch Import:</strong> Files must match text layer names exactly (e.g., "About.md" updates layer "About").</p>
     </div>
 
     <div id="preview-area" class="preview-area">
@@ -21,6 +27,13 @@
     <button id="import-btn" disabled>Import to Selected Layers</button>
     <div id="status-message" class="status-message"></div>
 
+    <!-- Loader -->
+    <div id="loader" class="loader-overlay">
+        <div class="loader-content">
+            <div class="spinner"></div>
+            <p>Importing...<br>Please do not close this window.</p>
+        </div>
+    </div>
 
 </body>
 </html>

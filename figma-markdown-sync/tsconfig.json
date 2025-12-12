@@ -1,14 +1,18 @@
 {
   "compilerOptions": {
-    "target": "es6",
+    "target": "es5",
     "lib": [
       "dom",
+      "es5",
       "es6"
     ],
     "strict": true,
+    "allowJs": true,
     "typeRoots": [
       "./node_modules/@types",
       "./node_modules/@figma"
     ]
-  }
+  },
+  "include": ["src/**/*.ts", "code.ts"],
+  "exclude": ["node_modules", "dist"]
 }

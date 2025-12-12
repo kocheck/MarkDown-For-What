@@ -1,6 +1,6 @@
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 const InlineChunkHtmlPlugin = require('html-inline-script-webpack-plugin');
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => ({
   mode: argv.mode === 'production' ? 'production' : 'development',
@@ -16,9 +16,9 @@ module.exports = (env, argv) => ({
   module: {
     rules: [
       {
-        test: /\.tsx?$/,
+        test: /\.(tsx?|jsx?)$/,
         use: 'ts-loader',
-        exclude: /node_modules/,
+        exclude: /node_modules\/(?!marked)/,
       },
       {
         test: /\.css$/,
@@ -34,16 +34,18 @@ module.exports = (env, argv) => ({
   output: {
     filename: '[name].js',
     path: path.resolve(__dirname, 'dist'), // Compile into a folder called "dist"
+    publicPath: '', // Ensure relative paths work
   },
 
-  // Tells Webpack to generate "ui.html" and to inline "ui.ts" into it
+  // Tells Webpack to generate "ui.html" and to inject "ui.ts" as a script tag
   plugins: [
     new HtmlWebpackPlugin({
       template: './ui.html',
       filename: 'ui.html',
       chunks: ['ui'],
-      inject: 'body'
+      inject: 'body',
+      scriptLoading: 'blocking' // Use blocking script tag <script src> instead of defer/module if needed for simplicity
     }),
-    new InlineChunkHtmlPlugin()
+    new InlineChunkHtmlPlugin(HtmlWebpackPlugin, [/ui/]),
   ],
 });
