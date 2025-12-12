@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MarkDown For What // Figma Plugin</title>
+    <meta name="description" content="Sync Markdown to Figma with perfect Auto Layout. Install from Figma Community.">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;900&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <nav class="top-nav">
+        <div class="logo">MD // FW</div>
+        <a href="https://github.com/kocheck/MarkDown-For-What" class="github-link" target="_blank">GitHub</a>
+    </nav>
+
+    <header class="hero-section">
+        <div class="badge">v1.2.0 &bull; AUTO-MATION</div>
+        <h1 class="hero-title">MarkDown <span class="highlight">For What</span></h1>
+        <p class="subtitle">The definitive <strong>Sync Protocol</strong> to bridge raw Markdown and Figma Auto Layout. <br>Stop manual entry. Initialize automation.</p>
+
+        <div class="cta-group">
+            <a href="https://www.figma.com/community/plugin/your-plugin-id" class="cta-button primary" target="_blank">
+                <span class="icon">❖</span> Install from Community
+            </a>
+            <a href="https://github.com/kocheck/MarkDown-For-What" class="cta-button secondary" target="_blank">
+                View Source
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <section id="features" class="grid-container">
+            <div class="feature-card">
+                <div class="card-header">
+                    <h3>01 // Auto Layout Matrix</h3>
+                </div>
+                <p>Constructs vertical stacks automatically. Headings, Paragraphs, Lists, and Code blocks are segregated into discrete, responsive layers.</p>
+            </div>
+
+            <div class="feature-card">
+                <div class="card-header">
+                    <h3>02 // Smart Styling</h3>
+                </div>
+                <p>Generates local text styles on the fly. <br>
+                <code class="inline-code">Markdown/H1</code> <code class="inline-code">Markdown/Body</code> <code class="inline-code">Markdown/Code</code></p>
+            </div>
+
+            <div class="feature-card">
+                <div class="card-header">
+                    <h3>03 // Batch Processing</h3>
+                </div>
+                <p>Multi-file ingestion engine. Drag-and-drop entire repositories to update your documentation system instantly.</p>
+            </div>
+             <div class="feature-card">
+                <div class="card-header">
+                    <h3>04 // Typography Core</h3>
+                </div>
+                <p>Normalized font loading:<br>
+                UI: <strong>Inter</strong> // Code: <strong>Roboto Mono</strong></p>
+            </div>
+        </section>
+
+        <section id="preview" class="preview-section">
+            <div class="terminal-window">
+                <div class="window-header">
+                    <span class="dot red"></span>
+                    <span class="dot yellow"></span>
+                    <span class="dot green"></span>
+                    <span class="title">figma_import_log.txt</span>
+                </div>
+                <div class="window-content">
+                    <div class="line"><span class="prompt">></span> DETECTING_INPUT: README.md</div>
+                    <div class="line"><span class="prompt">></span> PARSING_BLOCKS... [OK]</div>
+                    <div class="line"><span class="prompt">></span> GENERATING_LAYERS... [OK]</div>
+                    <div class="line"><span class="prompt">></span> APPLYING_STYLES (Inter, Roboto Mono)... [OK]</div>
+                    <div class="line success">> SYNC_COMPLETE. LAYOUT_GENERATED.</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p class="footer-text">MarkDown For What // <a href="https://www.figma.com/community/plugin/your-plugin-id">Figma Community</a> // <a href="https://github.com/kocheck/MarkDown-For-What">GitHub</a></p>
+        <p class="copyright">© 2024 System Core</p>
+    </footer>
+
+</body>
+</html>
