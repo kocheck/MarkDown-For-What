@@ -1,0 +1,23 @@
+{
+  "name": "markdown-for-what",
+  "version": "1.0.0",
+  "description": "Figma plugin to sync markdown files to text layers",
+  "license": "ISC",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "watch": "webpack --mode=development --watch"
+  },
+  "dependencies": {
+    "marked": "^5.1.1"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "^1.106.0",
+    "css-loader": "^6.8.1",
+    "html-webpack-plugin": "^5.5.3",
+    "style-loader": "^3.3.3",
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  }
+}
