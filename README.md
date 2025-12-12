@@ -1,23 +1,25 @@
 # MarkDown For What 🎵
 
-**MarkDown For What** is a Figma plugin that synchronizes Markdown content directly into your Figma text layers. It supports rich text formatting, code blocks, and batch operations, making it the perfect tool for maintaining design system documentation, changelogs, or content-heavy prototypes.
+**MarkDown For What** is a Figma plugin that synchronizes Markdown content directly into Figma as structured Auto Layout frames. It automatically generates styles, handles layout, and supports batch operations, making it the perfect tool for maintaining design system documentation, changelogs, or content-heavy prototypes.
 
 ![Plugin Preview](./doc-assets/preview.png)
 
 ## Features
 
-- **Rich Text Rendering**: Automatically parses Markdown syntax for:
-  - **Bold** (`**text**`) and *Italic* (`*text*`)
-  - **Headers** (`# H1`, `## H2`, etc.) with mapped font scaling
-  - **Lists** (Bulleted lists)
-  - **Code Blocks** (Renders in `Roboto Mono` for contrast)
+- **Structured Auto Layout**: Imports markdown as a vertical Auto Layout frame with separate layers for each element.
+  - **Headings** (H1, H2, H3)
+  - **Paragraphs**
+  - **Lists** (Bulleted)
+  - **Code Blocks** (Wrapped in styled frames)
+- **Automatic Styling**:
+  - Generates local Text Styles (`Markdown/H1`, `Markdown/Body`, etc.) automatically.
+  - Supports inline **Bold** (`**text**`), *Italic* (`*text*`), and `Code` spans.
 - **Smart Font Management**:
-  - Uses `Inter` as the default typeface.
-  - Automatically loads and applies `Roboto Mono` for code snippets.
-  - Handles mixed font styles gracefully.
+  - Uses `Inter` for UI text and `Roboto Mono` for code.
+  - Handles font loading and fallbacks.
 - **Batch Operations**:
   - **Drag & Drop**: Simply drag multiple markdown files into the plugin window.
-  - **Auto-Mapping**: Matches file names to text layer names (e.g., `button-docs.md` updates layer `button-docs`).
+  - **Auto-Mapping**: Matches file names to existing Frame or Layer names to replace content, or creates new Frames if no match is found.
 - **Content Cleaning**: Automatically strips YAML front matter (`--- ... ---`) to keep your designs clean.
 
 ## Installation
@@ -53,18 +55,22 @@
 
 ## Usage
 
-### Single Layer Import
-1. Select a **Text Layer** in your Figma file.
-2. Run the plugin (**CMD+/ search "MarkDown For What"**).
-3. Drag & drop a markdown file or click to browse.
-4. Click **"Import to Selected Layers"**.
+### Import Markdown
+1. Run the plugin (**CMD+/ search "MarkDown For What"**).
+2. Drag & drop markdown file(s) or click to browse.
+3. **Result**:
+   - A new **Auto Layout Frame** is created for each file, named after the filename.
+   - If a layer with the same name already exists, it will be **replaced/updated** with the new content, preserving its position.
 
-### Batch Import (Magic Mode 🪄)
-1. Ensure your Figma Text Layers are named exactly like your markdown files (e.g., Layer Name: `Usage`, File Name: `Usage.md`).
-2. Run the plugin **without selecting any layers**.
-3. Drag & drop multiple markdown files.
-4. Click **"Import X Files"**.
-5. The plugin will automatically find the matching layers and update their content!
+### Styles
+The plugin automatically creates the following local styles if they don't exist:
+- `Markdown/H1`, `Markdown/H2`, `Markdown/H3`
+- `Markdown/Body`
+- `Markdown/Quote`
+- `Markdown/Code`
+- `Markdown/List`
+
+You can edit these styles in Figma to globally update the look of your imported documents!
 
 ## Development
 
