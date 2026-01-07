@@ -516,7 +516,7 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
 }
 
 /**
- * --- main Logic ---
+ * --- Main Logic ---
  */
 
 async function createMarkdownFrame(name: string, markdown: string, targetNode?: SceneNode) {
