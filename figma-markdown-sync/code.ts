@@ -119,7 +119,9 @@ function parseMarkdownToBlocks(markdown: string): Block[] {
                 break;
             case 'paragraph':
                 const pToken = token as marked.Tokens.Paragraph;
-                // Check if paragraph contains only an image
+                // Check if paragraph contains only an image (standalone image)
+                // Note: Images mixed with text will be rendered as text, which is intentional
+                // to maintain document flow and readability
                 if (pToken.tokens && pToken.tokens.length === 1 && pToken.tokens[0].type === 'image') {
                     const imgToken = pToken.tokens[0] as marked.Tokens.Image;
                     blocks.push({
