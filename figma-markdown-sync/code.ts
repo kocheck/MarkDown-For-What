@@ -17,6 +17,8 @@ const STYLE_NAMES = {
     QUOTE: 'Markdown/Quote',
 };
 
+const FRAME_WIDTH = 800; // Default width for content frames
+
 interface StyleConfig {
     family: string;
     style: string;
@@ -302,6 +304,10 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
     tableFrame.strokeWeight = 1;
 
     const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+    
+    // Load fonts once at the beginning
+    const bodyConfig = DEFAULT_STYLES[STYLE_NAMES.BODY];
+    const headerFont = await loadFont(bodyConfig.family, 'Bold');
 
     // Create header row
     const headerRow = figma.createFrame();
@@ -354,8 +360,7 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
         }
         
         // Make text bold for header
-        await loadFont('Inter', 'Bold');
-        textNode.fontName = { family: 'Inter', style: 'Bold' };
+        textNode.fontName = headerFont;
 
         cellFrame.appendChild(textNode);
         headerRow.appendChild(cellFrame);
@@ -456,8 +461,8 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
         // Get image dimensions
         const imageSize = await image.getSizeAsync();
         
-        // Scale image to fit max width of 800 (parent frame width) while maintaining aspect ratio
-        const maxWidth = 800;
+        // Scale image to fit max width (parent frame width) while maintaining aspect ratio
+        const maxWidth = FRAME_WIDTH;
         if (imageSize.width > maxWidth) {
             const scale = maxWidth / imageSize.width;
             imageRect.resize(maxWidth, imageSize.height * scale);
@@ -541,7 +546,7 @@ async function createMarkdownFrame(name: string, markdown: string, targetNode?: 
     frame.paddingRight = 40;
     frame.primaryAxisSizingMode = 'AUTO';
     frame.counterAxisSizingMode = 'FIXED';
-    frame.resize(800, frame.height);
+    frame.resize(FRAME_WIDTH, frame.height);
 
     for (const block of blocks) {
         let node: SceneNode | null = null;
@@ -596,7 +601,7 @@ async function createMarkdownFrame(name: string, markdown: string, targetNode?: 
                 break;
             case 'separator':
                 const line = figma.createRectangle();
-                line.resize(800, 1);
+                line.resize(FRAME_WIDTH, 1);
                 line.fills = [{type: 'SOLID', color: {r: 0.8, g: 0.8, b: 0.8}}];
                 line.layoutAlign = 'STRETCH';
                 node = line;
