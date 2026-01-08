@@ -11,9 +11,21 @@
   - **Paragraphs**
   - **Lists** (Bulleted)
   - **Code Blocks** (Wrapped in styled frames)
+  - **Tables** (GFM-style with alignment support)
+  - **Images** (Fetched from URLs and embedded)
 - **Automatic Styling**:
   - Generates local Text Styles (`Markdown/H1`, `Markdown/Body`, etc.) automatically.
   - Supports inline **Bold** (`**text**`), *Italic* (`*text*`), and `Code` spans.
+- **Table Support**:
+  - Renders GitHub Flavored Markdown tables as Auto Layout frames
+  - Header row with distinct background styling
+  - Supports left, center, and right text alignment (`:---`, `:---:`, `---:`)
+  - Visual cell borders for clear separation
+- **Image Support**:
+  - Automatically fetches and embeds images from URLs
+  - Scales images to fit frame width while maintaining aspect ratio
+  - Error handling with placeholder for failed image loads
+  - Supports standard markdown syntax: `![Alt Text](https://example.com/image.png)`
 - **Smart Font Management**:
   - Uses `Inter` for UI text and `Roboto Mono` for code.
   - Handles font loading and fallbacks.
