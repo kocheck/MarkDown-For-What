@@ -517,6 +517,178 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
 }
 
 /**
+ * --- Editor Detection ---
+ */
+
+function isFigJam(): boolean {
+    return figma.editorType === 'figjam';
+}
+
+/**
+ * --- FigJam Renderer ---
+ */
+
+async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<SectionNode> {
+    const section = figma.createSection();
+    section.name = name;
+
+    let currentY = 0;
+    const startX = 0;
+    const spacing = 20;
+    const nodes: SceneNode[] = [];
+
+    // Load basic font
+    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+
+    for (const block of blocks) {
+        let node: SceneNode | null = null;
+
+        switch (block.type) {
+            case 'heading':
+                // Use stickies for headings (visual hierarchy)
+                const sticky = figma.createSticky();
+                sticky.text.characters = block.content || '';
+
+                // Size based on heading level
+                let stickyWidth = 700;
+                let stickyHeight = 100;
+                if (block.level === 1) {
+                    stickyWidth = 700;
+                    stickyHeight = 100;
+                } else if (block.level === 2) {
+                    stickyWidth = 600;
+                    stickyHeight = 80;
+                } else {
+                    stickyWidth = 500;
+                    stickyHeight = 70;
+                }
+
+                sticky.x = startX;
+                sticky.y = currentY;
+                currentY += stickyHeight + spacing;
+                node = sticky;
+                break;
+
+            case 'paragraph':
+                // Use shapes with text for paragraphs
+                const shape = figma.createShapeWithText();
+                shape.text.characters = block.content || '';
+                shape.shapeType = 'ROUNDED_RECTANGLE';
+                shape.resize(700, 100); // Will auto-adjust height
+                shape.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+                shape.x = startX;
+                shape.y = currentY;
+
+                // Calculate actual height after text is set
+                const shapeHeight = shape.height;
+                currentY += shapeHeight + spacing;
+                node = shape;
+                break;
+
+            case 'list':
+                // Use shapes for list items
+                const listShape = figma.createShapeWithText();
+                const listText = `• ${block.content || ''}`;
+                listShape.text.characters = listText;
+                listShape.shapeType = 'ROUNDED_RECTANGLE';
+                listShape.resize(700, 60);
+                listShape.fills = [{ type: 'SOLID', color: { r: 0.98, g: 0.98, b: 1 } }];
+                listShape.x = startX;
+                listShape.y = currentY;
+                currentY += listShape.height + spacing;
+                node = listShape;
+                break;
+
+            case 'quote':
+                // Use stickies for quotes (different visual treatment)
+                const quoteSticky = figma.createSticky();
+                quoteSticky.text.characters = block.content || '';
+                quoteSticky.x = startX;
+                quoteSticky.y = currentY;
+                const quoteHeight = 100;
+                currentY += quoteHeight + spacing;
+                node = quoteSticky;
+                break;
+
+            case 'code':
+                // Use gray shapes for code blocks
+                const codeShape = figma.createShapeWithText();
+                codeShape.text.characters = block.content || '';
+                codeShape.shapeType = 'ROUNDED_RECTANGLE';
+                codeShape.resize(700, 150);
+                codeShape.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.95, b: 0.95 } }];
+                codeShape.x = startX;
+                codeShape.y = currentY;
+                currentY += codeShape.height + spacing;
+                node = codeShape;
+                break;
+
+            case 'separator':
+                // Use a simple line shape as separator in FigJam
+                const separatorShape = figma.createShapeWithText();
+                separatorShape.text.characters = '━'.repeat(50); // Unicode line character
+                separatorShape.shapeType = 'ROUNDED_RECTANGLE';
+                separatorShape.resize(700, 30);
+                separatorShape.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+                separatorShape.x = startX;
+                separatorShape.y = currentY;
+                currentY += 30 + spacing;
+                node = separatorShape;
+                break;
+
+            case 'table':
+                // Tables are complex in FigJam - create a simple text representation
+                const tableShape = figma.createShapeWithText();
+                let tableText = '[Table]\n';
+
+                if (block.header) {
+                    tableText += block.header.map(h => h.text).join(' | ') + '\n';
+                }
+
+                if (block.rows) {
+                    block.rows.forEach(row => {
+                        tableText += row.map(cell => cell.text).join(' | ') + '\n';
+                    });
+                }
+
+                tableShape.text.characters = tableText;
+                tableShape.shapeType = 'ROUNDED_RECTANGLE';
+                tableShape.resize(700, 200);
+                tableShape.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.97, b: 1 } }];
+                tableShape.x = startX;
+                tableShape.y = currentY;
+                currentY += tableShape.height + spacing;
+                node = tableShape;
+                break;
+
+            case 'image':
+                // Images aren't directly supported in FigJam - create placeholder
+                const imagePlaceholder = figma.createShapeWithText();
+                imagePlaceholder.text.characters = `🖼️ Image: ${block.imageAlt || 'Untitled'}\nURL: ${block.imageUrl}`;
+                imagePlaceholder.shapeType = 'ROUNDED_RECTANGLE';
+                imagePlaceholder.resize(700, 80);
+                imagePlaceholder.fills = [{ type: 'SOLID', color: { r: 1, g: 0.95, b: 0.8 } }];
+                imagePlaceholder.x = startX;
+                imagePlaceholder.y = currentY;
+                currentY += imagePlaceholder.height + spacing;
+                node = imagePlaceholder;
+                break;
+        }
+
+        if (node) {
+            nodes.push(node);
+        }
+    }
+
+    // Adjust section size to fit all content
+    if (nodes.length > 0) {
+        section.resizeWithoutConstraints(750, currentY + 40);
+    }
+
+    return section;
+}
+
+/**
  * --- Main Logic ---
  */
 
@@ -525,6 +697,13 @@ async function createMarkdownFrame(name: string, markdown: string, targetNode?: 
     const cleanMarkdown = markdown.replace(frontMatterRegex, '');
 
     const blocks = parseMarkdownToBlocks(cleanMarkdown);
+
+    // Route to appropriate renderer based on editor type
+    if (isFigJam()) {
+        return await createMarkdownInFigJam(name, blocks);
+    }
+
+    // Continue with Figma rendering below
 
     // Load all base fonts
     await Promise.all(Object.keys(DEFAULT_STYLES).map(k => getOrCreateTextStyle(k, DEFAULT_STYLES[k])));
