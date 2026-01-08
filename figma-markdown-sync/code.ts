@@ -102,6 +102,24 @@ async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<
  * --- Markdown Parsing Logic ---
  */
 
+/**
+ * Helper function to extract images from inline tokens and split content into separate blocks
+ */
+function extractImagesFromTokens(tokens: marked.Token[]): { textTokens: marked.Token[], images: marked.Tokens.Image[] } {
+    const textTokens: marked.Token[] = [];
+    const images: marked.Tokens.Image[] = [];
+
+    for (const token of tokens) {
+        if (token.type === 'image') {
+            images.push(token as marked.Tokens.Image);
+        } else {
+            textTokens.push(token);
+        }
+    }
+
+    return { textTokens, images };
+}
+
 function parseMarkdownToBlocks(markdown: string): Block[] {
     const tokens = marked.lexer(markdown);
     const blocks: Block[] = [];
@@ -119,17 +137,48 @@ function parseMarkdownToBlocks(markdown: string): Block[] {
                 break;
             case 'paragraph':
                 const pToken = token as marked.Tokens.Paragraph;
-                // Check if paragraph contains only an image (standalone image)
-                // Note: Images mixed with text will be rendered as text, which is intentional
-                // to maintain document flow and readability
-                if (pToken.tokens && pToken.tokens.length === 1 && pToken.tokens[0].type === 'image') {
-                    const imgToken = pToken.tokens[0] as marked.Tokens.Image;
-                    blocks.push({
-                        type: 'image',
-                        imageUrl: imgToken.href,
-                        imageAlt: imgToken.text
+
+                // Extract inline images from the paragraph
+                if (pToken.tokens) {
+                    const { textTokens, images } = extractImagesFromTokens(pToken.tokens);
+
+                    // If there are text tokens before the images, create a paragraph block
+                    if (textTokens.length > 0) {
+                        // Reconstruct text from remaining tokens
+                        const textContent = textTokens.map(t => {
+                            if ('text' in t) return (t as any).text;
+                            if ('raw' in t) return (t as any).raw;
+                            return '';
+                        }).join('');
+
+                        if (textContent.trim()) {
+                            blocks.push({
+                                type: 'paragraph',
+                                content: textContent,
+                                tokens: textTokens
+                            });
+                        }
+                    }
+
+                    // Create separate image blocks for each extracted image
+                    images.forEach(imgToken => {
+                        blocks.push({
+                            type: 'image',
+                            imageUrl: imgToken.href,
+                            imageAlt: imgToken.text || imgToken.title || 'Image'
+                        });
                     });
+
+                    // If no text and no images, fall back to original paragraph
+                    if (textTokens.length === 0 && images.length === 0) {
+                        blocks.push({
+                            type: 'paragraph',
+                            content: pToken.text,
+                            tokens: pToken.tokens
+                        });
+                    }
                 } else {
+                    // No tokens available, use text directly
                     blocks.push({
                         type: 'paragraph',
                         content: pToken.text,
@@ -330,7 +379,7 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
         cellFrame.paddingBottom = 12;
         cellFrame.paddingLeft = 16;
         cellFrame.paddingRight = 16;
-        cellFrame.primaryAxisSizingMode = 'AUTO';
+        cellFrame.primaryAxisSizingMode = 'FIXED'; // Fill container instead of hug contents
         cellFrame.counterAxisSizingMode = 'AUTO';
         cellFrame.layoutGrow = 1; // Equal column widths
         
@@ -399,7 +448,7 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
             cellFrame.paddingBottom = 10;
             cellFrame.paddingLeft = 16;
             cellFrame.paddingRight = 16;
-            cellFrame.primaryAxisSizingMode = 'AUTO';
+            cellFrame.primaryAxisSizingMode = 'FIXED'; // Fill container instead of hug contents
             cellFrame.counterAxisSizingMode = 'AUTO';
             cellFrame.layoutGrow = 1; // Equal column widths
             
@@ -539,6 +588,9 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
     const section = figma.createSection();
     section.name = name;
 
+    // Add section to page first to ensure it has valid coordinates
+    figma.currentPage.appendChild(section);
+
     let currentY = 0;
     const startX = 0;
     const spacing = 20;
@@ -546,6 +598,10 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
 
     // Load basic font
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
+
+    const padding = 24;
+    const sectionX = section.x;
+    const sectionY = section.y;
 
     for (const block of blocks) {
         let node: SceneNode | null = null;
@@ -556,8 +612,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 const sticky = figma.createSticky();
                 sticky.text.characters = block.content || '';
 
-                sticky.x = startX;
-                sticky.y = currentY;
+                sticky.x = sectionX + padding + startX;
+                sticky.y = sectionY + padding + currentY;
                 // Sticky notes have fixed default sizes in FigJam
                 currentY += sticky.height + spacing;
                 node = sticky;
@@ -570,8 +626,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 shape.shapeType = 'ROUNDED_RECTANGLE';
                 shape.resize(700, 100); // Will auto-adjust height
                 shape.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
-                shape.x = startX;
-                shape.y = currentY;
+                shape.x = sectionX + padding + startX;
+                shape.y = sectionY + padding + currentY;
 
                 // Calculate actual height after text is set
                 const shapeHeight = shape.height;
@@ -587,8 +643,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 listShape.shapeType = 'ROUNDED_RECTANGLE';
                 listShape.resize(700, 60);
                 listShape.fills = [{ type: 'SOLID', color: { r: 0.98, g: 0.98, b: 1 } }];
-                listShape.x = startX;
-                listShape.y = currentY;
+                listShape.x = sectionX + padding + startX;
+                listShape.y = sectionY + padding + currentY;
                 currentY += listShape.height + spacing;
                 node = listShape;
                 break;
@@ -597,8 +653,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 // Use stickies for quotes (different visual treatment)
                 const quoteSticky = figma.createSticky();
                 quoteSticky.text.characters = block.content || '';
-                quoteSticky.x = startX;
-                quoteSticky.y = currentY;
+                quoteSticky.x = sectionX + padding + startX;
+                quoteSticky.y = sectionY + padding + currentY;
                 // Sticky notes have fixed default sizes in FigJam
                 currentY += quoteSticky.height + spacing;
                 node = quoteSticky;
@@ -611,8 +667,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 codeShape.shapeType = 'ROUNDED_RECTANGLE';
                 codeShape.resize(700, 150);
                 codeShape.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.95, b: 0.95 } }];
-                codeShape.x = startX;
-                codeShape.y = currentY;
+                codeShape.x = sectionX + padding + startX;
+                codeShape.y = sectionY + padding + currentY;
                 currentY += codeShape.height + spacing;
                 node = codeShape;
                 break;
@@ -624,8 +680,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 separatorShape.shapeType = 'ROUNDED_RECTANGLE';
                 separatorShape.resize(700, 30);
                 separatorShape.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-                separatorShape.x = startX;
-                separatorShape.y = currentY;
+                separatorShape.x = sectionX + padding + startX;
+                separatorShape.y = sectionY + padding + currentY;
                 currentY += 30 + spacing;
                 node = separatorShape;
                 break;
@@ -649,50 +705,69 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 tableShape.shapeType = 'ROUNDED_RECTANGLE';
                 tableShape.resize(700, 200);
                 tableShape.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.97, b: 1 } }];
-                tableShape.x = startX;
-                tableShape.y = currentY;
+                tableShape.x = sectionX + padding + startX;
+                tableShape.y = sectionY + padding + currentY;
                 currentY += tableShape.height + spacing;
                 node = tableShape;
                 break;
 
             case 'image':
-                // Images aren't directly supported in FigJam - create placeholder
-                const imagePlaceholder = figma.createShapeWithText();
-                imagePlaceholder.text.characters = `🖼️ Image: ${block.imageAlt || 'Untitled'}\nURL: ${block.imageUrl}`;
-                imagePlaceholder.shapeType = 'ROUNDED_RECTANGLE';
-                imagePlaceholder.resize(700, 80);
-                imagePlaceholder.fills = [{ type: 'SOLID', color: { r: 1, g: 0.95, b: 0.8 } }];
-                imagePlaceholder.x = startX;
-                imagePlaceholder.y = currentY;
-                currentY += imagePlaceholder.height + spacing;
-                node = imagePlaceholder;
+                // Try to fetch and display the actual image in FigJam
+                try {
+                    const imageRect = figma.createRectangle();
+                    imageRect.name = block.imageAlt || 'Image';
+                    imageRect.resize(600, 400);
+
+                    // Fetch the image
+                    const image = await figma.createImageAsync(block.imageUrl!);
+                    const imageSize = await image.getSizeAsync();
+
+                    // Scale to fit max width while maintaining aspect ratio
+                    const maxWidth = 700;
+                    if (imageSize.width > maxWidth) {
+                        const scale = maxWidth / imageSize.width;
+                        imageRect.resize(maxWidth, imageSize.height * scale);
+                    } else {
+                        imageRect.resize(imageSize.width, imageSize.height);
+                    }
+
+                    // Apply image fill
+                    imageRect.fills = [{
+                        type: 'IMAGE',
+                        imageHash: image.hash,
+                        scaleMode: 'FILL'
+                    }];
+
+                    imageRect.x = sectionX + padding + startX;
+                    imageRect.y = sectionY + padding + currentY;
+                    currentY += imageRect.height + spacing;
+                    node = imageRect;
+                } catch (error) {
+                    // Fallback to placeholder if image loading fails
+                    console.error(`Failed to load image in FigJam: ${block.imageUrl}`, error);
+                    const imagePlaceholder = figma.createShapeWithText();
+                    imagePlaceholder.text.characters = `🖼️ Image: ${block.imageAlt || 'Untitled'}\nURL: ${block.imageUrl}\n⚠️ Failed to load`;
+                    imagePlaceholder.shapeType = 'ROUNDED_RECTANGLE';
+                    imagePlaceholder.resize(700, 100);
+                    imagePlaceholder.fills = [{ type: 'SOLID', color: { r: 1, g: 0.9, b: 0.8 } }];
+                    imagePlaceholder.x = sectionX + padding + startX;
+                    imagePlaceholder.y = sectionY + padding + currentY;
+                    currentY += imagePlaceholder.height + spacing;
+                    node = imagePlaceholder;
+                }
                 break;
         }
 
         if (node) {
+            // Add node to the current page
+            figma.currentPage.appendChild(node);
             nodes.push(node);
         }
     }
 
     // Adjust section size to fit all content
     if (nodes.length > 0) {
-        section.resizeWithoutConstraints(750, currentY + 40);
-
-        // Ensure all created nodes are part of the scene and visually inside the section bounds.
-        const padding = 24;
-        const sectionX = section.x;
-        const sectionY = section.y;
-
-        for (const node of nodes) {
-            // If the node is not yet attached to the document, add it to the current page.
-            if (!node.parent) {
-                figma.currentPage.appendChild(node);
-            }
-
-            // Adjust node positions to be relative to section position (with padding)
-            node.x = sectionX + padding + node.x;
-            node.y = sectionY + padding + node.y;
-        }
+        section.resizeWithoutConstraints(750, currentY + padding * 2);
     }
 
     return section;
