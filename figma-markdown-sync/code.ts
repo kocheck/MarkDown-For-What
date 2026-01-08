@@ -942,3 +942,13 @@ figma.ui.onmessage = async (msg) => {
         });
     }
 };
+
+// Export functions for testing
+// These exports are only used in test environments and won't affect the plugin's runtime behavior
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        extractImagesFromTokens,
+        parseMarkdownToBlocks,
+        flattenTokens
+    };
+}
