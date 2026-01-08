@@ -345,8 +345,12 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
         }
 
         const textNode = figma.createText();
-        textNode.textStyleId = bodyStyle.id;
         textNode.characters = cell.text;
+        
+        // Apply header font (bold) and base text style properties
+        textNode.fontName = headerFont;
+        textNode.fontSize = bodyStyle.fontSize;
+        textNode.lineHeight = bodyStyle.lineHeight;
         
         // Apply alignment
         const alignment = block.align && block.align[i];
@@ -360,9 +364,6 @@ async function createTableFrame(block: Block): Promise<FrameNode> {
             textNode.textAlignHorizontal = 'LEFT';
             cellFrame.primaryAxisAlignItems = 'MIN';
         }
-        
-        // Make text bold for header
-        textNode.fontName = headerFont;
 
         cellFrame.appendChild(textNode);
         headerRow.appendChild(cellFrame);
@@ -503,8 +504,8 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
         placeholderFrame.layoutAlign = 'STRETCH';
 
         const errorText = figma.createText();
-        await loadFont('Inter', 'Regular');
-        errorText.fontName = { family: 'Inter', style: 'Regular' };
+        const fontName = await loadFont('Inter', 'Regular');
+        errorText.fontName = fontName;
         errorText.fontSize = 14;
         errorText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
         errorText.characters = `⚠️ Failed to load image\n${block.imageAlt || 'Unknown'}\nURL: ${block.imageUrl}`;
