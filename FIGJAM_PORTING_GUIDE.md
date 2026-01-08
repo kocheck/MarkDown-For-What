@@ -5,7 +5,7 @@
 ```json
 {
   "name": "MarkDown For What",
-  "id": "123456789",
+  "id": "YOUR_PLUGIN_ID",
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",

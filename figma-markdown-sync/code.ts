@@ -520,6 +520,13 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
  * --- Editor Detection ---
  */
 
+/**
+ * Returns true when this plugin is running in the FigJam editor.
+ *
+ * This helper centralizes the editor-type check so that any future changes
+ * to how FigJam is detected (for example, additional editor types or
+ * different detection logic) only need to be updated in one place.
+ */
 function isFigJam(): boolean {
     return figma.editorType === 'figjam';
 }
@@ -549,23 +556,10 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 const sticky = figma.createSticky();
                 sticky.text.characters = block.content || '';
 
-                // Size based on heading level
-                let stickyWidth = 700;
-                let stickyHeight = 100;
-                if (block.level === 1) {
-                    stickyWidth = 700;
-                    stickyHeight = 100;
-                } else if (block.level === 2) {
-                    stickyWidth = 600;
-                    stickyHeight = 80;
-                } else {
-                    stickyWidth = 500;
-                    stickyHeight = 70;
-                }
-
                 sticky.x = startX;
                 sticky.y = currentY;
-                currentY += stickyHeight + spacing;
+                // Sticky notes have fixed default sizes in FigJam
+                currentY += sticky.height + spacing;
                 node = sticky;
                 break;
 
@@ -605,8 +599,8 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
                 quoteSticky.text.characters = block.content || '';
                 quoteSticky.x = startX;
                 quoteSticky.y = currentY;
-                const quoteHeight = 100;
-                currentY += quoteHeight + spacing;
+                // Sticky notes have fixed default sizes in FigJam
+                currentY += quoteSticky.height + spacing;
                 node = quoteSticky;
                 break;
 
@@ -683,6 +677,22 @@ async function createMarkdownInFigJam(name: string, blocks: Block[]): Promise<Se
     // Adjust section size to fit all content
     if (nodes.length > 0) {
         section.resizeWithoutConstraints(750, currentY + 40);
+
+        // Ensure all created nodes are part of the scene and visually inside the section bounds.
+        const padding = 24;
+        const sectionX = section.x;
+        const sectionY = section.y;
+
+        for (const node of nodes) {
+            // If the node is not yet attached to the document, add it to the current page.
+            if (!node.parent) {
+                figma.currentPage.appendChild(node);
+            }
+
+            // Adjust node positions to be relative to section position (with padding)
+            node.x = sectionX + padding + node.x;
+            node.y = sectionY + padding + node.y;
+        }
     }
 
     return section;
