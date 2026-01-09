@@ -5,18 +5,24 @@
   "license": "ISC",
   "scripts": {
     "build": "webpack --mode=production",
-    "watch": "webpack --mode=development --watch"
+    "watch": "webpack --mode=development --watch",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
   },
   "dependencies": {
     "marked": "^4.3.0"
   },
   "devDependencies": {
-    "@figma/plugin-typings": "^1.106.0",
+    "@figma/plugin-typings": "^1.121.0",
+    "@types/jest": "^30.0.0",
     "@types/marked": "^4.3.0",
     "css-loader": "^6.8.1",
     "html-inline-script-webpack-plugin": "^3.2.1",
     "html-webpack-plugin": "^5.5.3",
+    "jest": "^30.2.0",
     "style-loader": "^3.3.3",
+    "ts-jest": "^29.4.6",
     "ts-loader": "^9.4.4",
     "typescript": "^5.1.6",
     "webpack": "^5.88.2",
