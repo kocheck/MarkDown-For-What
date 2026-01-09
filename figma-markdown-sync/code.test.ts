@@ -103,7 +103,6 @@ describe('parseMarkdownToBlocks', () => {
         const blocks = parseMarkdownToBlocks(markdown);
 
         const imageBlocks = blocks.filter((b: Block) => b.type === 'image');
-        const paragraphBlocks = blocks.filter((b: Block) => b.type === 'paragraph');
 
         // Should have both paragraph with text and separate image block
         expect(imageBlocks.length).toBeGreaterThan(0);
