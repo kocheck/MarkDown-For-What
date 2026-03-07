@@ -56,9 +56,9 @@ const STORAGE_KEY = 'pluginSettings';
 
 // ─── Validation Helpers ────────────────────────────────────────────────────────
 
-/** Returns true if value is a finite, non-negative number. */
+/** Returns true if value is a finite, positive number (greater than zero). */
 function isValidNumber(value: unknown): boolean {
-    return typeof value === 'number' && isFinite(value) && value >= 0;
+    return typeof value === 'number' && isFinite(value) && value > 0;
 }
 
 /** Returns true if value is a valid 6-digit CSS hex color string (e.g. '#AABBCC'). */

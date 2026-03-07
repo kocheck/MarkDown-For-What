@@ -24,7 +24,11 @@
     createShapeWithText: jest.fn(),
     createTextStyle: jest.fn(),
     getLocalTextStyles: jest.fn(() => []),
-    createImageAsync: jest.fn()
+    createImageAsync: jest.fn(),
+    clientStorage: {
+        getAsync: jest.fn().mockResolvedValue(undefined),
+        setAsync: jest.fn().mockResolvedValue(undefined),
+    }
 };
 
 (global as any).__html__ = '';

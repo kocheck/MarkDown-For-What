@@ -7,6 +7,8 @@ import {
     DEFAULT_SETTINGS,
     validateSettings,
     mergeWithDefaults,
+    loadSettings,
+    saveSettings,
     PluginSettings,
 } from './settings';
 
@@ -45,6 +47,13 @@ describe('validateSettings', () => {
     test('returns false when a numeric field is negative', () => {
         const bad = { ...DEFAULT_SETTINGS, frameWidth: -1 };
         expect(validateSettings(bad)).toBe(false);
+    });
+
+    test('returns false when a numeric field is zero', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, frameWidth: 0 })).toBe(false);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, framePadding: 0 })).toBe(false);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, blockSpacing: 0 })).toBe(false);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, listSpacing: 0 })).toBe(false);
     });
 
     test('returns false when a color field is not a valid hex string', () => {
@@ -95,5 +104,47 @@ describe('mergeWithDefaults', () => {
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);
+    });
+});
+
+describe('loadSettings', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('returns DEFAULT_SETTINGS when storage is empty (undefined)', async () => {
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue(undefined);
+        const result = await loadSettings();
+        expect(result).toEqual(DEFAULT_SETTINGS);
+    });
+
+    test('returns merged settings when storage has valid partial data', async () => {
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue({ frameWidth: 1200 });
+        const result = await loadSettings();
+        expect(result.frameWidth).toBe(1200);
+        expect(result.blockSpacing).toBe(DEFAULT_SETTINGS.blockSpacing);
+    });
+
+    test('returns DEFAULT_SETTINGS when storage throws', async () => {
+        (figma.clientStorage.getAsync as jest.Mock).mockRejectedValue(new Error('storage error'));
+        const result = await loadSettings();
+        expect(result).toEqual(DEFAULT_SETTINGS);
+    });
+});
+
+describe('saveSettings', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('calls clientStorage.setAsync with valid settings', async () => {
+        await saveSettings(DEFAULT_SETTINGS);
+        expect(figma.clientStorage.setAsync).toHaveBeenCalledWith('pluginSettings', DEFAULT_SETTINGS);
+    });
+
+    test('does NOT call clientStorage.setAsync with invalid settings', async () => {
+        const invalid = { ...DEFAULT_SETTINGS, frameWidth: 0 };
+        await saveSettings(invalid as PluginSettings);
+        expect(figma.clientStorage.setAsync).not.toHaveBeenCalled();
     });
 });
