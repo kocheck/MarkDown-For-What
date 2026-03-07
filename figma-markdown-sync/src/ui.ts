@@ -18,8 +18,6 @@ const settingInputIds = [
     'codeBackground', 'tableHeaderBackground', 'separatorColor',
 ] as const;
 
-type SettingKey = typeof settingInputIds[number];
-
 // ── State ───────────────────────────────────────────────────────────────────
 
 const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
@@ -83,10 +81,10 @@ async function handleFiles(files: FileList) {
     showStatus('Reading files\u2026', 'success');
 
     try {
-        const results = await Promise.all(Array.from(files).map(readFile));
-        currentFiles = results.filter(f =>
+        const validFiles = Array.from(files).filter(f =>
             f.name.endsWith('.md') || f.name.endsWith('.markdown') || f.name.endsWith('.txt')
         );
+        currentFiles = await Promise.all(validFiles.map(readFile));
 
         renderFileList(currentFiles);
 
@@ -98,6 +96,7 @@ async function handleFiles(files: FileList) {
             importBtn.textContent = currentFiles.length === 1 ? 'Import' : `Import ${currentFiles.length} Files`;
         }
     } catch (err) {
+        console.error('[MarkDown For What] Error reading files:', err);
         showStatus('Error reading files', 'error');
     }
     fileInput.value = '';

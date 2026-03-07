@@ -10,7 +10,7 @@
  * It does NOT create table substructure — that is tables.ts's job.
  *
  * Public API:
- *   renderBlocks(name, blocks, settings, targetNode?) — async: returns FrameNode
+ *   renderBlocks(name, blocks, settings, targetNode?) — async: returns RenderResult { frame, imageFailures }
  */
 
 import type { Block } from './parser';
@@ -98,13 +98,7 @@ async function createImageNode(block: Block, settings: PluginSettings): Promise<
         placeholderFrame.layoutAlign = 'STRETCH';
 
         const errorText = figma.createText();
-        let imgFontName: FontName;
-        try {
-            imgFontName = await loadFont('Inter', 'Regular');
-        } catch {
-            imgFontName = { family: 'Inter', style: 'Regular' };
-        }
-        errorText.fontName = imgFontName;
+        errorText.fontName = await loadFont('Inter', 'Regular');
         errorText.fontSize = 14;
         errorText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
         errorText.characters = `Failed to load image\n${block.imageAlt || 'Unknown'}\nURL: ${block.imageUrl}`;
@@ -298,6 +292,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         default:
+            console.warn(`[MarkDown For What] Unknown block type: "${(block as any).type}" — skipping`);
             return null;
     }
 }
@@ -338,6 +333,9 @@ async function applyTextStyle(node: TextNode, block: Block, styleName: string): 
         await applyInlineStyles(node, block.tokens, styleName);
     } else if (block.content) {
         node.characters = block.content;
+    } else {
+        console.warn(`[MarkDown For What] Block of type "${block.type}" has neither tokens nor content`);
+        node.characters = '';
     }
 }
 
@@ -360,13 +358,7 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errFrame.counterAxisSizingMode = 'FIXED';
 
     const errText = figma.createText();
-    let fontName: FontName;
-    try {
-        fontName = await loadFont('Inter', 'Regular');
-    } catch {
-        fontName = { family: 'Inter', style: 'Regular' };
-    }
-    errText.fontName = fontName;
+    errText.fontName = await loadFont('Inter', 'Regular');
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
     errText.characters = `Failed to render block: ${block.type}`;

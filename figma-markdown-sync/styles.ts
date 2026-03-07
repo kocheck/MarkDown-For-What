@@ -20,7 +20,7 @@
  *   applyInlineStyles(node, tokens, base)    — async: applies mixed formatting
  */
 
-import { marked } from 'marked';
+import type { marked } from 'marked';
 import { flattenTokens } from './parser';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────

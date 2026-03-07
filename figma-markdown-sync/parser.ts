@@ -3,7 +3,8 @@
  *
  * Converts raw Markdown text into a structured array of Blocks.
  *
- * This is the ONLY module that imports or uses `marked` directly.
+ * This is the primary module that imports and uses `marked` directly.
+ * (styles.ts also imports `marked` types for inline token handling.)
  * All other modules receive pre-parsed Block objects — they should never
  * need to understand Markdown syntax themselves.
  *
@@ -155,7 +156,7 @@ export function flattenTokens(
  * // → [{ type: 'heading', level: 1, content: 'Hello' }, { type: 'paragraph', ... }]
  */
 export function parseMarkdownToBlocks(markdown: string): Block[] {
-    const frontMatterRegex = /^---[\s\S]*?---\n/;
+    const frontMatterRegex = /^---[\s\S]*?---\r?\n/;
     const cleanMarkdown = markdown.replace(frontMatterRegex, '');
 
     let tokens: marked.TokensList;
@@ -198,13 +199,13 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
                         }
                     }
 
-                    images.forEach(imgToken => {
+                    for (const imgToken of images) {
                         blocks.push({
                             type: 'image',
                             imageUrl: imgToken.href,
                             imageAlt: imgToken.text || imgToken.title || 'Image',
                         });
-                    });
+                    }
 
                     if (textTokens.length === 0 && images.length === 0) {
                         blocks.push({ type: 'paragraph', content: pToken.text, tokens: pToken.tokens });
@@ -216,7 +217,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'code': {
                 const cToken = token as marked.Tokens.Code;
-                blocks.push({ type: 'code', content: cToken.text, language: cToken.lang || undefined });
+                blocks.push({ type: 'code', content: cToken.text, language: cToken.lang });
                 break;
             }
             case 'blockquote': {
@@ -226,9 +227,9 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'list': {
                 const listToken = token as marked.Tokens.List;
-                listToken.items.forEach(item => {
+                for (const item of listToken.items) {
                     blocks.push({ type: 'list', content: item.text, tokens: item.tokens });
-                });
+                }
                 break;
             }
             case 'table': {

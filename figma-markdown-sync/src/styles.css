@@ -1,9 +1,7 @@
 /* ── Design tokens ────────────────────────────────────────── */
 :root {
-    --color-block:        #1B3543;
-    --color-accent:       #52C7A0;
-    --color-accent-hover: #3FB38A;
-    --color-accent-muted: #C8E8DF;
+    --color-block:  #1B3543;
+    --color-accent: #52C7A0;
 }
 
 /* ── Reset & base ─────────────────────────────────────────── */

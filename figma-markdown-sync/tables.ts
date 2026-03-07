@@ -35,8 +35,9 @@ export function resolveAlignment(align: 'left' | 'center' | 'right' | null | und
 
 /**
  * Applies a 1px right-side-only border to a FrameNode using individual stroke weights.
- * Setting strokeWeight alone applies to all four sides — individual weights must be
- * explicitly zeroed out to achieve a single-side border in Figma's auto-layout system.
+ * Figma requires strokeWeight to be set first (it activates the stroke system), then
+ * individual side weights override it. Without the strokeWeight=1 line, the per-side
+ * weights have no effect. Setting unused sides to 0 removes them explicitly.
  */
 export function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
     frame.strokes = [{ type: 'SOLID', color }];
@@ -50,7 +51,8 @@ export function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
 
 /**
  * Applies a 1px bottom-side-only border to a FrameNode using individual stroke weights.
- * Used for data row separators in table rendering.
+ * Figma requires strokeWeight to be set first (it activates the stroke system), then
+ * individual side weights override it. Used for data row separators in table rendering.
  */
 export function applyBottomBorderOnly(frame: FrameNode, color: RGB): void {
     frame.strokes = [{ type: 'SOLID', color }];

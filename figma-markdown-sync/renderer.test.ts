@@ -182,11 +182,60 @@ describe('renderBlocks', () => {
             expect(frame.paddingLeft).toBe(20);
             expect(frame.paddingRight).toBe(20);
             expect(frame.itemSpacing).toBe(12);
+            expect(frame.width).toBe(600);
         });
 
         it('names the root frame correctly', async () => {
             const result = await renderBlocks('My Doc', [], DEFAULT_SETTINGS);
             expect(result.frame.name).toBe('My Doc');
+        });
+    });
+
+    describe('image handling', () => {
+        it('throws an error placeholder when imageUrl is missing', async () => {
+            const blocks: Block[] = [
+                { type: 'image', imageAlt: 'No URL' },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            // Missing URL throws inside renderBlock → error placeholder frame is inserted
+            expect(result.frame.children).toHaveLength(1);
+        });
+
+        it('scales images larger than frameWidth down to fit', async () => {
+            (figma.createImageAsync as jest.Mock).mockResolvedValueOnce({
+                hash: 'mock-hash',
+                getSizeAsync: jest.fn().mockResolvedValue({ width: 1200, height: 800 }),
+            });
+
+            const settings = { ...DEFAULT_SETTINGS, frameWidth: 600 };
+            const blocks: Block[] = [
+                { type: 'image', imageUrl: 'https://example.com/wide.png', imageAlt: 'Wide' },
+            ];
+
+            const result = await renderBlocks('Test', blocks, settings);
+            const imgRect = result.frame.children[0] as any;
+            // 1200 → scaled to 600; height scaled proportionally: 800 * (600/1200) = 400
+            expect(imgRect.width).toBe(600);
+            expect(imgRect.height).toBe(400);
+        });
+    });
+
+    describe('targetNode replacement edge cases', () => {
+        it('does not attempt replacement when targetNode has no parent', async () => {
+            const targetNode: any = {
+                name: 'Orphan',
+                x: 0, y: 0,
+                type: 'FRAME',
+                remove: jest.fn(),
+                parent: null,
+            };
+
+            const blocks: Block[] = [{ type: 'paragraph', content: 'Hello', tokens: [] }];
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS, targetNode);
+
+            expect(targetNode.remove).not.toHaveBeenCalled();
+            expect(result.frame).toBeDefined();
         });
     });
 });

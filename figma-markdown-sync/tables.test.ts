@@ -5,10 +5,10 @@
  * Tests guard clauses, happy path (layoutGrow, row count), and pure utility functions.
  */
 
-import { createTableFrame, resolveAlignment, applyRightBorderOnly } from './tables';
+import { createTableFrame, resolveAlignment, applyRightBorderOnly, applyBottomBorderOnly } from './tables';
 import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
-import { hexToRgb } from './utils';
+import { hexToRgb, errorMessage } from './utils';
 
 describe('createTableFrame', () => {
     describe('happy path', () => {
@@ -119,6 +119,45 @@ describe('applyRightBorderOnly', () => {
         expect(frame.strokeTopWeight).toBe(0);
         expect(frame.strokeBottomWeight).toBe(0);
         expect(frame.strokeLeftWeight).toBe(0);
+    });
+});
+
+describe('applyBottomBorderOnly', () => {
+    it('sets all 6 stroke properties correctly', () => {
+        const frame = {
+            strokes: [],
+            strokeAlign: '',
+            strokeWeight: 0,
+            strokeRightWeight: 0,
+            strokeTopWeight: 0,
+            strokeBottomWeight: 0,
+            strokeLeftWeight: 0,
+        } as any;
+        const color: RGB = { r: 0.9, g: 0.9, b: 0.9 };
+        applyBottomBorderOnly(frame, color);
+        expect(frame.strokes).toEqual([{ type: 'SOLID', color }]);
+        expect(frame.strokeAlign).toBe('CENTER');
+        expect(frame.strokeWeight).toBe(1);
+        expect(frame.strokeBottomWeight).toBe(1);
+        expect(frame.strokeTopWeight).toBe(0);
+        expect(frame.strokeLeftWeight).toBe(0);
+        expect(frame.strokeRightWeight).toBe(0);
+    });
+});
+
+describe('errorMessage', () => {
+    it('extracts message from an Error instance', () => {
+        expect(errorMessage(new Error('oops'))).toBe('oops');
+    });
+
+    it('stringifies non-Error values', () => {
+        expect(errorMessage('raw string')).toBe('raw string');
+        expect(errorMessage(42)).toBe('42');
+    });
+
+    it('handles null and undefined', () => {
+        expect(errorMessage(null)).toBe('null');
+        expect(errorMessage(undefined)).toBe('undefined');
     });
 });
 

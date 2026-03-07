@@ -9,8 +9,8 @@ figma.showUI(__html__, { width: 400, height: 500 });
 
 // This plugin only supports Figma Design — not FigJam or Slides.
 if (figma.editorType !== 'figma') {
-    figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam.');
-}
+    figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam or Slides.');
+} else {
 
 // Message handler — processes: get-settings, save-settings, reset-settings, import-markdown-batch
 figma.ui.onmessage = async (msg) => {
@@ -26,8 +26,16 @@ figma.ui.onmessage = async (msg) => {
                 figma.ui.postMessage({ type: 'status', message: 'Invalid settings payload.', error: true });
                 return;
             }
-            await saveSettings(msg.settings);
-            figma.ui.postMessage({ type: 'status', message: 'Settings saved.', error: false });
+            try {
+                await saveSettings(msg.settings);
+                figma.ui.postMessage({ type: 'status', message: 'Settings saved.', error: false });
+            } catch (saveErr) {
+                figma.ui.postMessage({
+                    type: 'status',
+                    message: `Failed to save settings: ${errorMessage(saveErr)}`,
+                    error: true
+                });
+            }
             return;
         }
 
@@ -48,21 +56,21 @@ figma.ui.onmessage = async (msg) => {
 
             const settings = await loadSettings();
 
-            // Pre-load common fonts
-            try {
-                await Promise.all([
-                    loadFont('Inter', 'Regular'),
-                    loadFont('Inter', 'Bold'),
-                    loadFont('Inter', 'Italic'),
-                    loadFont('Inter', 'Bold Italic'),
-                    loadFont('Roboto Mono', 'Regular'),
-                ]);
-            } catch (fontErr) {
-                console.warn('[MarkDown For What] Font pre-load failed — rendering will use available fallbacks:', fontErr);
+            // Pre-load common fonts — use allSettled so a single font failure doesn't abort the batch
+            const fontResults = await Promise.allSettled([
+                loadFont('Inter', 'Regular'),
+                loadFont('Inter', 'Bold'),
+                loadFont('Inter', 'Italic'),
+                loadFont('Inter', 'Bold Italic'),
+                loadFont('Roboto Mono', 'Regular'),
+            ]);
+            const fontFailures = fontResults.filter(r => r.status === 'rejected');
+            if (fontFailures.length > 0) {
+                console.warn('[MarkDown For What] Font pre-load partial failure — rendering will use available fallbacks:', fontFailures);
                 figma.ui.postMessage({
                     type: 'status',
                     message: 'Warning: some fonts unavailable. Output may use fallback fonts.',
-                    error: false
+                    error: true
                 });
             }
 
@@ -114,3 +122,5 @@ figma.ui.onmessage = async (msg) => {
         });
     }
 };
+
+} // end else (figma.editorType === 'figma')

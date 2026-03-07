@@ -167,12 +167,14 @@ code here
 `;
         const blocks = parseMarkdownToBlocks(markdown);
 
-        expect(blocks.length).toBeGreaterThan(4);
-        expect(blocks.some((b: Block) => b.type === 'heading')).toBe(true);
-        expect(blocks.some((b: Block) => b.type === 'paragraph')).toBe(true);
-        expect(blocks.some((b: Block) => b.type === 'image')).toBe(true);
-        expect(blocks.some((b: Block) => b.type === 'list')).toBe(true);
-        expect(blocks.some((b: Block) => b.type === 'code')).toBe(true);
+        // heading, paragraph, image, list×2, code
+        expect(blocks).toHaveLength(6);
+        expect(blocks[0].type).toBe('heading');
+        expect(blocks[1].type).toBe('paragraph');
+        expect(blocks[2].type).toBe('image');
+        expect(blocks[3].type).toBe('list');
+        expect(blocks[4].type).toBe('list');
+        expect(blocks[5].type).toBe('code');
     });
 });
 
@@ -277,6 +279,18 @@ describe('flattenTokens', () => {
         expect(segments).toHaveLength(0);
     });
 
+    test('default branch: unknown token with text property falls back to text', () => {
+        const tokens: marked.Token[] = [
+            { type: 'space', raw: '\n' } as any,
+            { type: 'unknown-type', raw: 'raw', text: 'fallback text' } as any,
+        ];
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        // 'space' has no 'text' property, so produces no segment
+        // 'unknown-type' has 'text', so produces one segment
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('fallback text');
+    });
+
     test('should treat links as text', () => {
         const tokens: marked.Token[] = [
             {
@@ -303,8 +317,7 @@ describe('Regression Tests', () => {
         const imageBlock = blocks.find((b: Block) => b.type === 'image');
         expect(imageBlock).toBeDefined();
         expect(imageBlock?.imageUrl).toBe('https://example.com/img.png');
-        // Alt text or title should be captured
-        expect(imageBlock?.imageAlt).toBeTruthy();
+        expect(imageBlock?.imageAlt).toBe('Alt text');
     });
 
     test('should not lose text when extracting images', () => {
@@ -318,6 +331,15 @@ describe('Regression Tests', () => {
         // Should also have text content (might be split)
         const hasText = blocks.some((b: Block) => b.type === 'paragraph' && b.content && b.content.trim().length > 0);
         expect(hasText).toBe(true);
+    });
+
+    test('strips YAML front matter with CRLF line endings', () => {
+        const markdown = '---\r\ntitle: My Doc\r\n---\r\n# Actual Content';
+        const blocks = parseMarkdownToBlocks(markdown);
+        const yamlBlock = blocks.find((b: Block) => b.content?.includes('title:'));
+        expect(yamlBlock).toBeUndefined();
+        expect(blocks[0].type).toBe('heading');
+        expect(blocks[0].content).toBe('Actual Content');
     });
 
     test('strips YAML front matter before parsing', () => {
