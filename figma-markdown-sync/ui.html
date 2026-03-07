@@ -16,11 +16,15 @@
     <!-- Import tab -->
     <div id="tab-import" class="tab-panel active">
 
-        <div id="drop-zone" class="drop-zone">
-            <div class="drop-zone-icon">↑</div>
-            <p class="drop-zone-label">Drop Markdown files here</p>
-            <p class="drop-zone-sub">or click to browse</p>
-            <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple>
+        <div class="import-color-block">
+            <p class="plugin-wordmark">Markdown For What</p>
+
+            <div id="drop-zone" class="drop-zone">
+                <div class="drop-zone-icon">↓</div>
+                <p class="drop-zone-label">Drop your Markdown here</p>
+                <p class="drop-zone-sub">or click to browse · .md .markdown .txt</p>
+                <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple>
+            </div>
         </div>
 
         <ul id="file-list" class="file-list"></ul>
