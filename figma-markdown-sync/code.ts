@@ -3,7 +3,7 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { loadFont } from './styles';
 import { renderBlocks, RenderResult } from './renderer';
 
-// Display UI
+// Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
 figma.showUI(__html__, { width: 400, height: 500 });
 
 // This plugin only supports Figma Design — not FigJam or Slides.
@@ -11,7 +11,7 @@ if (figma.editorType !== 'figma') {
     figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam.');
 }
 
-// Handle Messages
+// Message handler — processes: get-settings, save-settings, reset-settings, import-markdown-batch
 figma.ui.onmessage = async (msg) => {
     try {
         if (msg.type === 'get-settings') {

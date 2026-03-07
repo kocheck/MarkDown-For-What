@@ -37,6 +37,7 @@ export interface RenderResult {
  * @param block    - A Block with type==='image', imageUrl, and optional imageAlt
  * @param settings - Plugin settings (provides frameWidth for max-width constraint)
  * @returns A RectangleNode with the image fill, or a FrameNode placeholder on error
+ * @throws {Error} If block.imageUrl is missing — no placeholder is returned in this case
  */
 async function createImageNode(block: Block, settings: PluginSettings): Promise<RectangleNode | FrameNode> {
     if (!block.imageUrl) {
@@ -226,6 +227,7 @@ export async function renderBlocks(
 /**
  * Renders a single non-list block into a SceneNode.
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
+ * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
  */
 async function renderBlock(block: Block, settings: PluginSettings): Promise<SceneNode | null> {
     switch (block.type) {

@@ -47,12 +47,13 @@ export interface StyledSegment {
     code?: boolean;
 }
 
-// ─── Internal Helpers ──────────────────────────────────────────────────────────
+// ─── Helpers (exported for testability) ────────────────────────────────────────
 
 /**
  * Separates image tokens from non-image tokens in an inline token array.
  * Used to split inline images out of paragraphs into their own Block entries.
  *
+ * @internal Exported for testability; this is an implementation detail of parseMarkdownToBlocks.
  * @param tokens - Array of inline marked tokens from a paragraph
  * @returns Object with `textTokens` (non-image) and `images` (image tokens)
  *

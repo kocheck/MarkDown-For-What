@@ -95,6 +95,9 @@ export async function loadFont(family: string, style: string): Promise<FontName>
 
 // ─── Style Management ──────────────────────────────────────────────────────────
 
+// Module-level cache — persists for the plugin session lifetime.
+// Cleared at the start of each import by initializeStyles() to prevent
+// stale references if the designer deletes a style mid-session.
 const styleCache = new Map<string, TextStyle>();
 
 /**
@@ -131,7 +134,9 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig): P
 
 /**
  * Ensures all Markdown/* text styles exist in the document.
- * Creates any that are missing using DEFAULT_STYLES values.
+ * Clears the in-memory style cache before re-resolving, so deleted or
+ * renamed styles are picked up fresh on each import run.
+ * Creates any missing styles using DEFAULT_STYLES values.
  * Call once at the start of an import before rendering any blocks.
  */
 export async function initializeStyles(): Promise<void> {
@@ -152,7 +157,8 @@ export async function initializeStyles(): Promise<void> {
  * Note: This function sets node.characters internally — do not set it beforehand.
  *
  * @param node          - The Figma TextNode to format
- * @param tokens        - Inline marked tokens describing the rich text
+ * @param tokens        - Inline marked tokens describing the rich text, or undefined to no-op.
+ *                        Recognized token types: strong, em, codespan, text, link.
  * @param baseStyleName - Which STYLE_NAMES key applies (affects bold inheritance for headings)
  */
 export async function applyInlineStyles(

@@ -12,6 +12,8 @@
  * auto-layout system, avoiding the "squished columns" problem.
  *
  * Public API:
+ *   resolveAlignment(align)          — converts markdown align to Figma alignment constant
+ *   applyRightBorderOnly(frame, color) — applies a right-only border via individual stroke weights
  *   createTableFrame(block, settings) — async: returns a FrameNode
  */
 
@@ -20,12 +22,21 @@ import type { PluginSettings } from './settings';
 import { getOrCreateTextStyle, loadFont, STYLE_NAMES, DEFAULT_STYLES } from './styles';
 import { hexToRgb } from './utils';
 
+/**
+ * Converts a nullable Markdown table alignment value to a Figma text alignment constant.
+ * Returns 'LEFT' for null or undefined (left-align is the default).
+ */
 export function resolveAlignment(align: 'left' | 'center' | 'right' | null | undefined): 'LEFT' | 'CENTER' | 'RIGHT' {
     if (align === 'center') return 'CENTER';
     if (align === 'right') return 'RIGHT';
     return 'LEFT';
 }
 
+/**
+ * Applies a 1px right-side-only border to a FrameNode using individual stroke weights.
+ * Setting strokeWeight alone applies to all four sides — individual weights must be
+ * explicitly zeroed out to achieve a single-side border in Figma's auto-layout system.
+ */
 export function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
     frame.strokes = [{ type: 'SOLID', color }];
     frame.strokeAlign = 'CENTER';
