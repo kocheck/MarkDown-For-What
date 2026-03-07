@@ -49,6 +49,39 @@ body {
 
 .tab-panel.hidden { display: none; }
 
+/* ── Import color block ───────────────────────────────── */
+.import-color-block {
+    background: #1B3543;
+    flex-shrink: 0;
+    padding: 12px 16px 16px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Grain texture overlay — SVG feTurbulence noise at 4% opacity */
+.import-color-block::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+}
+
+.plugin-wordmark {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #52C7A0;
+    margin-bottom: 10px;
+    display: block;
+    position: relative;
+    z-index: 1;
+}
+
 /* ── Drop zone ────────────────────────────────────────────── */
 .drop-zone {
     margin: 16px;
