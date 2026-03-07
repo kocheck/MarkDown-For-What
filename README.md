@@ -22,7 +22,7 @@ No copy-paste. No style hunting. No duplicates.
 
 Currently available as a **Figma plugin**. Sketch support coming.
 
-![Plugin Preview](./doc-assets/preview.png)
+![Plugin Preview](./assets/preview.png)
 
 ## Features
 
