@@ -6,6 +6,11 @@ import { renderBlocks } from './renderer';
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });
 
+// This plugin only supports Figma Design — not FigJam or Slides.
+if (figma.editorType !== 'figma') {
+    figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam.');
+}
+
 // Handle Messages
 figma.ui.onmessage = async (msg) => {
     try {
@@ -16,13 +21,19 @@ figma.ui.onmessage = async (msg) => {
         }
 
         if (msg.type === 'save-settings') {
+            if (!msg.settings || typeof msg.settings !== 'object') {
+                figma.ui.postMessage({ type: 'status', message: 'Invalid settings payload.', error: true });
+                return;
+            }
             await saveSettings(msg.settings);
+            figma.ui.postMessage({ type: 'status', message: 'Settings saved.', error: false });
             return;
         }
 
         if (msg.type === 'reset-settings') {
             await saveSettings(DEFAULT_SETTINGS);
             figma.ui.postMessage({ type: 'settings', settings: DEFAULT_SETTINGS });
+            figma.ui.postMessage({ type: 'status', message: 'Settings reset to defaults.', error: false });
             return;
         }
 
@@ -47,7 +58,7 @@ figma.ui.onmessage = async (msg) => {
 
             let updatedCount = 0;
             let failedCount = 0;
-            const allFrames = figma.currentPage.findAll(n => n.type === 'FRAME' && n.name.length > 0);
+            const allFrames = figma.currentPage.findAll(n => n.name.length > 0);
 
             for (const file of files) {
                 const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
