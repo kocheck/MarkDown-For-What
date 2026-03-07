@@ -20,13 +20,13 @@ import type { PluginSettings } from './settings';
 import { getOrCreateTextStyle, loadFont, STYLE_NAMES, DEFAULT_STYLES } from './styles';
 import { hexToRgb } from './utils';
 
-function resolveAlignment(align: 'left' | 'center' | 'right' | null | undefined): 'LEFT' | 'CENTER' | 'RIGHT' {
+export function resolveAlignment(align: 'left' | 'center' | 'right' | null | undefined): 'LEFT' | 'CENTER' | 'RIGHT' {
     if (align === 'center') return 'CENTER';
     if (align === 'right') return 'RIGHT';
     return 'LEFT';
 }
 
-function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
+export function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
     frame.strokes = [{ type: 'SOLID', color }];
     frame.strokeAlign = 'CENTER';
     frame.strokeWeight = 1;

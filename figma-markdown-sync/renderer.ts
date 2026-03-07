@@ -175,6 +175,7 @@ export async function renderBlocks(
                     const listNode = await renderListBlock(listBlock);
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
+                    console.error(`[MarkDown For What] Failed to render list block:`, err);
                     const errFrame = await createErrorPlaceholder(listBlock);
                     listGroupFrame.appendChild(errFrame);
                 }
@@ -192,6 +193,7 @@ export async function renderBlocks(
                 frame.appendChild(node);
             }
         } catch (err) {
+            console.error(`[MarkDown For What] Failed to render block type "${block.type}":`, err);
             const errFrame = await createErrorPlaceholder(block);
             frame.appendChild(errFrame);
         }
@@ -285,8 +287,13 @@ async function renderListBlock(block: Block): Promise<TextNode> {
     const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
     node.textStyleId = style.id;
     node.layoutAlign = 'STRETCH';
-    const content = block.content ? `• ${block.content}` : '•';
-    node.characters = content;
+
+    if (block.tokens && block.tokens.length > 0) {
+        await applyInlineStyles(node, block.tokens, STYLE_NAMES.LIST);
+    } else {
+        const content = block.content ? `• ${block.content}` : '•';
+        node.characters = content;
+    }
     return node;
 }
 
@@ -325,7 +332,8 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errFrame.counterAxisSizingMode = 'FIXED';
 
     const errText = figma.createText();
-    errText.fontName = { family: 'Inter', style: 'Regular' };
+    const fontName = await loadFont('Inter', 'Regular');
+    errText.fontName = fontName;
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
     errText.characters = `Failed to render block: ${block.type}`;

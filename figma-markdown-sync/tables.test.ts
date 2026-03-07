@@ -7,7 +7,7 @@
  * function throws before calling any Figma API.
  */
 
-import { createTableFrame } from './tables';
+import { createTableFrame, resolveAlignment, applyRightBorderOnly } from './tables';
 import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
 import { hexToRgb } from './utils';
@@ -33,6 +33,51 @@ describe('createTableFrame', () => {
                 'Invalid table block: missing header or rows'
             );
         });
+    });
+});
+
+describe('resolveAlignment', () => {
+    it('returns LEFT for null', () => {
+        expect(resolveAlignment(null)).toBe('LEFT');
+    });
+
+    it('returns LEFT for undefined', () => {
+        expect(resolveAlignment(undefined)).toBe('LEFT');
+    });
+
+    it('returns LEFT for "left"', () => {
+        expect(resolveAlignment('left')).toBe('LEFT');
+    });
+
+    it('returns CENTER for "center"', () => {
+        expect(resolveAlignment('center')).toBe('CENTER');
+    });
+
+    it('returns RIGHT for "right"', () => {
+        expect(resolveAlignment('right')).toBe('RIGHT');
+    });
+});
+
+describe('applyRightBorderOnly', () => {
+    it('sets all 6 stroke properties correctly', () => {
+        const frame = {
+            strokes: [],
+            strokeAlign: '',
+            strokeWeight: 0,
+            strokeRightWeight: 0,
+            strokeTopWeight: 0,
+            strokeBottomWeight: 0,
+            strokeLeftWeight: 0,
+        } as any;
+        const color: RGB = { r: 0.8, g: 0.8, b: 0.8 };
+        applyRightBorderOnly(frame, color);
+        expect(frame.strokes).toEqual([{ type: 'SOLID', color }]);
+        expect(frame.strokeAlign).toBe('CENTER');
+        expect(frame.strokeWeight).toBe(1);
+        expect(frame.strokeRightWeight).toBe(1);
+        expect(frame.strokeTopWeight).toBe(0);
+        expect(frame.strokeBottomWeight).toBe(0);
+        expect(frame.strokeLeftWeight).toBe(0);
     });
 });
 

@@ -49,11 +49,22 @@ describe('validateSettings', () => {
         expect(validateSettings(bad)).toBe(false);
     });
 
-    test('returns false when a numeric field is zero', () => {
+    test('returns false when frameWidth is zero', () => {
         expect(validateSettings({ ...DEFAULT_SETTINGS, frameWidth: 0 })).toBe(false);
-        expect(validateSettings({ ...DEFAULT_SETTINGS, framePadding: 0 })).toBe(false);
-        expect(validateSettings({ ...DEFAULT_SETTINGS, blockSpacing: 0 })).toBe(false);
-        expect(validateSettings({ ...DEFAULT_SETTINGS, listSpacing: 0 })).toBe(false);
+    });
+
+    test('returns true when spacing fields are zero (zero is valid for spacing)', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, framePadding: 0 })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, blockSpacing: 0 })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, listSpacing: 0 })).toBe(true);
+    });
+
+    it('rejects 3-digit hex (#FFF)', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, codeBackground: '#FFF' })).toBe(false);
+    });
+
+    it('rejects 8-digit hex (#FF0000FF)', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, codeBackground: '#FF0000FF' })).toBe(false);
     });
 
     test('returns false when a color field is not a valid hex string', () => {

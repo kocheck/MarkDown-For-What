@@ -80,10 +80,15 @@ export async function loadFont(family: string, style: string): Promise<FontName>
     try {
         await figma.loadFontAsync(font);
         return font;
-    } catch {
-        console.warn(`Font not found: ${family} ${style}, falling back to Inter Regular`);
+    } catch (err) {
+        console.warn(`[MarkDown For What] Font not found: ${family} ${style}, falling back to Inter Regular`, err);
         const fallback: FontName = { family: 'Inter', style: 'Regular' };
-        await figma.loadFontAsync(fallback);
+        try {
+            await figma.loadFontAsync(fallback);
+        } catch (fallbackErr) {
+            console.error('[MarkDown For What] Fallback font Inter Regular also failed to load:', fallbackErr);
+            throw fallbackErr;
+        }
         return fallback;
     }
 }
@@ -130,6 +135,7 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig): P
  * Call once at the start of an import before rendering any blocks.
  */
 export async function initializeStyles(): Promise<void> {
+    styleCache.clear();
     await Promise.all(
         Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name]))
     );

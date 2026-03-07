@@ -56,8 +56,13 @@ const STORAGE_KEY = 'pluginSettings';
 
 // ─── Validation Helpers ────────────────────────────────────────────────────────
 
+/** Returns true if value is a finite, non-negative number (zero or greater). */
+function isNonNegativeNumber(value: unknown): boolean {
+    return typeof value === 'number' && isFinite(value) && value >= 0;
+}
+
 /** Returns true if value is a finite, positive number (greater than zero). */
-function isValidNumber(value: unknown): boolean {
+function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
 }
 
@@ -80,10 +85,10 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
     const s = obj as Record<string, unknown>;
 
     return (
-        isValidNumber(s.blockSpacing) &&
-        isValidNumber(s.listSpacing) &&
-        isValidNumber(s.framePadding) &&
-        isValidNumber(s.frameWidth) &&
+        isNonNegativeNumber(s.blockSpacing) &&
+        isNonNegativeNumber(s.listSpacing) &&
+        isNonNegativeNumber(s.framePadding) &&
+        isPositiveNumber(s.frameWidth) &&
         isValidHex(s.codeBackground) &&
         isValidHex(s.tableHeaderBackground) &&
         isValidHex(s.separatorColor)
@@ -109,10 +114,10 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
 
     const p = partial as Record<string, unknown>;
     return {
-        blockSpacing:          isValidNumber(p.blockSpacing)          ? (p.blockSpacing as number)          : DEFAULT_SETTINGS.blockSpacing,
-        listSpacing:           isValidNumber(p.listSpacing)           ? (p.listSpacing as number)           : DEFAULT_SETTINGS.listSpacing,
-        framePadding:          isValidNumber(p.framePadding)          ? (p.framePadding as number)          : DEFAULT_SETTINGS.framePadding,
-        frameWidth:            isValidNumber(p.frameWidth)            ? (p.frameWidth as number)            : DEFAULT_SETTINGS.frameWidth,
+        blockSpacing:          isNonNegativeNumber(p.blockSpacing)    ? (p.blockSpacing as number)          : DEFAULT_SETTINGS.blockSpacing,
+        listSpacing:           isNonNegativeNumber(p.listSpacing)     ? (p.listSpacing as number)           : DEFAULT_SETTINGS.listSpacing,
+        framePadding:          isNonNegativeNumber(p.framePadding)    ? (p.framePadding as number)          : DEFAULT_SETTINGS.framePadding,
+        frameWidth:            isPositiveNumber(p.frameWidth)         ? (p.frameWidth as number)            : DEFAULT_SETTINGS.frameWidth,
         codeBackground:        isValidHex(p.codeBackground)           ? (p.codeBackground as string)        : DEFAULT_SETTINGS.codeBackground,
         tableHeaderBackground: isValidHex(p.tableHeaderBackground)    ? (p.tableHeaderBackground as string) : DEFAULT_SETTINGS.tableHeaderBackground,
         separatorColor:        isValidHex(p.separatorColor)           ? (p.separatorColor as string)        : DEFAULT_SETTINGS.separatorColor,
@@ -129,7 +134,8 @@ export async function loadSettings(): Promise<PluginSettings> {
     try {
         const raw = await figma.clientStorage.getAsync(STORAGE_KEY);
         return mergeWithDefaults(raw);
-    } catch {
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to load settings:', err);
         return { ...DEFAULT_SETTINGS };
     }
 }
@@ -141,6 +147,14 @@ export async function loadSettings(): Promise<PluginSettings> {
  * @param settings - The settings object to persist
  */
 export async function saveSettings(settings: PluginSettings): Promise<void> {
-    if (!validateSettings(settings)) return;
-    await figma.clientStorage.setAsync(STORAGE_KEY, settings);
+    if (!validateSettings(settings)) {
+        console.warn('[MarkDown For What] saveSettings called with invalid settings — skipping write');
+        return;
+    }
+    try {
+        await figma.clientStorage.setAsync(STORAGE_KEY, settings);
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to save settings:', err);
+        throw err;
+    }
 }
