@@ -1,4 +1,6 @@
-import { marked } from 'marked';
+import { type marked } from 'marked';
+import { parseMarkdownToBlocks, flattenTokens } from './parser';
+import type { Block, StyledSegment } from './parser';
 
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });
@@ -37,33 +39,6 @@ const DEFAULT_STYLES: Record<string, StyleConfig> = {
 };
 
 /**
- * --- Interfaces ---
- */
-
-interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image';
-    content?: string; // For text-based blocks
-    level?: number; // For headings
-    items?: string[]; // For lists
-    language?: string; // For code
-    tokens?: marked.Token[]; // Inline tokens for rich text
-    // Table-specific fields
-    header?: marked.Tokens.TableCell[];
-    align?: ('left' | 'center' | 'right' | null)[];
-    rows?: marked.Tokens.TableCell[][];
-    // Image-specific fields
-    imageUrl?: string;
-    imageAlt?: string;
-}
-
-interface StyledSegment {
-    text: string;
-    bold?: boolean;
-    italic?: boolean;
-    code?: boolean;
-}
-
-/**
  * --- Helper Functions ---
  */
 
@@ -99,180 +74,8 @@ async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<
 }
 
 /**
- * --- Markdown Parsing Logic ---
- */
-
-/**
- * Helper function to extract images from inline tokens and split content into separate blocks
- */
-function extractImagesFromTokens(tokens: marked.Token[]): { textTokens: marked.Token[], images: marked.Tokens.Image[] } {
-    const textTokens: marked.Token[] = [];
-    const images: marked.Tokens.Image[] = [];
-
-    for (const token of tokens) {
-        if (token.type === 'image') {
-            images.push(token as marked.Tokens.Image);
-        } else {
-            textTokens.push(token);
-        }
-    }
-
-    return { textTokens, images };
-}
-
-function parseMarkdownToBlocks(markdown: string): Block[] {
-    const tokens = marked.lexer(markdown);
-    const blocks: Block[] = [];
-
-    for (const token of tokens) {
-        switch (token.type) {
-            case 'heading':
-                const hToken = token as marked.Tokens.Heading;
-                blocks.push({
-                    type: 'heading',
-                    content: hToken.text,
-                    level: hToken.depth,
-                    tokens: hToken.tokens
-                });
-                break;
-            case 'paragraph':
-                const pToken = token as marked.Tokens.Paragraph;
-
-                // Extract inline images from the paragraph
-                if (pToken.tokens) {
-                    const { textTokens, images } = extractImagesFromTokens(pToken.tokens);
-
-                    // If there are text tokens before the images, create a paragraph block
-                    if (textTokens.length > 0) {
-                        // Reconstruct text from remaining tokens
-                        const textContent = textTokens.map(t => {
-                            if ('text' in t) return (t as any).text;
-                            if ('raw' in t) return (t as any).raw;
-                            return '';
-                        }).join('');
-
-                        if (textContent.trim()) {
-                            blocks.push({
-                                type: 'paragraph',
-                                content: textContent,
-                                tokens: textTokens
-                            });
-                        }
-                    }
-
-                    // Create separate image blocks for each extracted image
-                    images.forEach(imgToken => {
-                        blocks.push({
-                            type: 'image',
-                            imageUrl: imgToken.href,
-                            imageAlt: imgToken.text || imgToken.title || 'Image'
-                        });
-                    });
-
-                    // If no text and no images, fall back to original paragraph
-                    if (textTokens.length === 0 && images.length === 0) {
-                        blocks.push({
-                            type: 'paragraph',
-                            content: pToken.text,
-                            tokens: pToken.tokens
-                        });
-                    }
-                } else {
-                    // No tokens available, use text directly
-                    blocks.push({
-                        type: 'paragraph',
-                        content: pToken.text,
-                        tokens: pToken.tokens
-                    });
-                }
-                break;
-            case 'code':
-                const cToken = token as marked.Tokens.Code;
-                blocks.push({
-                    type: 'code',
-                    content: cToken.text,
-                    language: cToken.lang || undefined
-                });
-                break;
-             case 'blockquote':
-                const bToken = token as marked.Tokens.Blockquote;
-                // Treat blockquote content as text for now, extracting raw text
-                // Improvement: Parse inner tokens? For now, simplistic.
-                blocks.push({
-                    type: 'quote',
-                    content: bToken.text
-                });
-                break;
-            case 'list':
-                const listToken = token as marked.Tokens.List;
-                listToken.items.forEach(item => {
-                    blocks.push({
-                        type: 'list',
-                        content: item.text,
-                        tokens: item.tokens
-                    });
-                });
-                break;
-            case 'table':
-                const tableToken = token as marked.Tokens.Table;
-                blocks.push({
-                    type: 'table',
-                    header: tableToken.header,
-                    align: tableToken.align,
-                    rows: tableToken.rows
-                });
-                break;
-            case 'hr':
-                 blocks.push({ type: 'separator' });
-                 break;
-        }
-    }
-    return blocks;
-}
-
-/**
  * --- Inline Style Parsing ---
  */
-
-function flattenTokens(tokens: marked.Token[], context: { bold: boolean, italic: boolean, code: boolean }): StyledSegment[] {
-    let segments: StyledSegment[] = [];
-
-    if (!tokens) return segments;
-
-    for (const token of tokens) {
-        switch (token.type) {
-            case 'strong':
-                segments = segments.concat(flattenTokens((token as marked.Tokens.Strong).tokens, { ...context, bold: true }));
-                break;
-            case 'em':
-                segments = segments.concat(flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true }));
-                break;
-            case 'codespan':
-                segments.push({ text: (token as marked.Tokens.Codespan).text, ...context, code: true });
-                break;
-            case 'text':
-                const tToken = token as marked.Tokens.Text;
-                if (tToken.tokens) {
-                    segments = segments.concat(flattenTokens(tToken.tokens, context));
-                } else {
-                    segments.push({ text: tToken.text, ...context });
-                }
-                break;
-            case 'link':
-                 // Treat link as text for now
-                 const lToken = token as marked.Tokens.Link;
-                 segments.push({ text: lToken.text, ...context });
-                 break;
-            default:
-                if ('text' in token) {
-                     segments.push({ text: (token as any).text, ...context });
-                }
-                break;
-        }
-    }
-    return segments;
-}
-
 
 async function applyInlineStyles(node: TextNode, tokens: marked.Token[] | undefined, baseStyleName: string) {
     if (!tokens || tokens.length === 0) {
@@ -570,10 +373,7 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
  */
 
 async function createMarkdownFrame(name: string, markdown: string, targetNode?: SceneNode) {
-    const frontMatterRegex = /^---[\s\S]*?---\n/;
-    const cleanMarkdown = markdown.replace(frontMatterRegex, '');
-
-    const blocks = parseMarkdownToBlocks(cleanMarkdown);
+    const blocks = parseMarkdownToBlocks(markdown);
 
     // Load all base fonts
     await Promise.all(Object.keys(DEFAULT_STYLES).map(k => getOrCreateTextStyle(k, DEFAULT_STYLES[k])));
@@ -728,12 +528,3 @@ figma.ui.onmessage = async (msg) => {
     }
 };
 
-// Export functions for testing
-// These exports are only used in test environments and won't affect the plugin's runtime behavior
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        extractImagesFromTokens,
-        parseMarkdownToBlocks,
-        flattenTokens
-    };
-}

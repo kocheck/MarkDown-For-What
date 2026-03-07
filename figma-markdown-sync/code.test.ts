@@ -4,28 +4,14 @@
  */
 
 import { marked } from 'marked';
+import type { Block } from './parser';
 
 // Import the functions we want to test
 const {
     extractImagesFromTokens,
     parseMarkdownToBlocks,
     flattenTokens
-} = require('./code.ts');
-
-// Define Block type for test assertions
-interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image';
-    content?: string;
-    level?: number;
-    items?: string[];
-    language?: string;
-    tokens?: marked.Token[];
-    header?: marked.Tokens.TableCell[];
-    align?: ('left' | 'center' | 'right' | null)[];
-    rows?: marked.Tokens.TableCell[][];
-    imageUrl?: string;
-    imageAlt?: string;
-}
+} = require('./parser');
 
 describe('extractImagesFromTokens', () => {
     test('should extract image tokens from mixed content', () => {
