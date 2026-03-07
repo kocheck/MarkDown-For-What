@@ -1,3 +1,10 @@
+/* ── Design tokens ────────────────────────────────────────── */
+:root {
+    --color-accent:       #52C7A0;
+    --color-accent-hover: #3FB38A;
+    --color-accent-muted: #C8E8DF;
+}
+
 /* ── Reset & base ─────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -36,7 +43,7 @@ body {
 
 .tab.active {
     color: #000;
-    border-bottom-color: #52C7A0;
+    border-bottom-color: var(--color-accent);
 }
 
 /* ── Tab panels ───────────────────────────────────────────── */
@@ -76,14 +83,13 @@ body {
     font-weight: 600;
     letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #52C7A0;
+    color: var(--color-accent);
     margin-bottom: 10px;
     display: block;
 }
 
 /* ── Drop zone ────────────────────────────────────────────── */
 .drop-zone {
-    margin: 0;
     border: 1.5px dashed rgba(82, 199, 160, 0.5);
     border-radius: 8px;
     padding: 28px 16px;
@@ -92,13 +98,12 @@ body {
     transition: border-color 0.15s, background 0.15s;
     flex-shrink: 0;
     position: relative;
-    z-index: 1;
     background: rgba(255, 255, 255, 0.05);
 }
 
 .drop-zone:hover,
 .drop-zone.drag-over {
-    border-color: #52C7A0;
+    border-color: var(--color-accent);
     background: rgba(255, 255, 255, 0.10);
 }
 
@@ -112,7 +117,7 @@ body {
 .drop-zone-icon {
     font-size: 20px;
     margin-bottom: 8px;
-    color: #52C7A0;
+    color: var(--color-accent);
 }
 
 .drop-zone-label {
@@ -126,7 +131,7 @@ body {
 .drop-zone-sub {
     font-size: 11px;
     font-style: italic;
-    color: #C8E8DF;
+    color: var(--color-accent-muted);
 }
 
 /* ── File list ────────────────────────────────────────────── */
@@ -152,7 +157,7 @@ body {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: #52C7A0;
+    background: var(--color-accent);
     flex-shrink: 0;
 }
 
@@ -188,13 +193,13 @@ button {
 }
 
 #import-btn {
-    background: #52C7A0;
+    background: var(--color-accent);
     color: #fff;
     flex-shrink: 0;
 }
 
-#import-btn:hover:not(:disabled) { background: #3FB38A; }
-#import-btn:disabled { background: #C8E8DF; cursor: default; }
+#import-btn:hover:not(:disabled) { background: var(--color-accent-hover); }
+#import-btn:disabled { background: var(--color-accent-muted); cursor: default; }
 
 .btn-secondary {
     background: none;
@@ -206,8 +211,8 @@ button {
 .btn-secondary:hover { background: #F5F5F5; }
 
 #reset-btn {
-    border-color: #52C7A0;
-    color: #52C7A0;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
 }
 
 #reset-btn:hover { background: rgba(82, 199, 160, 0.08); }
@@ -232,7 +237,7 @@ button {
     letter-spacing: 0.06em;
     color: #999;
     margin-bottom: 10px;
-    border-left: 2px solid #52C7A0;
+    border-left: 2px solid var(--color-accent);
     padding-left: 8px;
 }
 
