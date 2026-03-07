@@ -227,6 +227,24 @@ describe('renderBlocks', () => {
             const result = await renderBlocks('My Doc', [], DEFAULT_SETTINGS);
             expect(result.frame.name).toBe('My Doc');
         });
+
+        it('places a new frame to the right of existing page content', async () => {
+            // Simulate an existing frame on the page at x=0, width=800
+            (figma.currentPage as any).children = [{ x: 0, width: 800 }];
+
+            const result = await renderBlocks('Test', [], DEFAULT_SETTINGS);
+
+            // New frame should be placed at 800 + 100 gap = 900
+            expect(result.frame.x).toBe(900);
+        });
+
+        it('places a new frame at x=0 when the page is empty', async () => {
+            (figma.currentPage as any).children = [];
+
+            const result = await renderBlocks('Test', [], DEFAULT_SETTINGS);
+
+            expect(result.frame.x).toBe(0);
+        });
     });
 
     describe('image handling', () => {

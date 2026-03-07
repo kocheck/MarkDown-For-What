@@ -168,6 +168,10 @@ export async function renderBlocks(
     // Ensure all Markdown/* text styles exist
     await initializeStyles();
 
+    // Compute placement before createFrame — createFrame immediately adds the frame
+    // to figma.currentPage.children, which would inflate computeNewFrameX's result.
+    const newFrameX = (!targetNode || !targetNode.parent) ? computeNewFrameX(100) : 0;
+
     // ── Create outer frame (do NOT insert into document yet) ─────────────────
     const frame = figma.createFrame();
 
@@ -236,14 +240,18 @@ export async function renderBlocks(
         i++;
     }
 
-    // ── Atomically swap: insert new frame, remove old node ───────────────────
+    // ── Place frame ───────────────────────────────────────────────────────────
     if (targetNode && targetNode.parent) {
+        // Re-import: replace existing node at the same position in the layer stack
         const parent = targetNode.parent;
         const index = parent.children.indexOf(targetNode);
         frame.x = targetNode.x;
         frame.y = targetNode.y;
         parent.insertChild(index, frame);
         targetNode.remove();
+    } else {
+        // New import: place to the right of existing page content (computed above)
+        frame.x = newFrameX;
     }
 
     return { frame, imageFailures };
