@@ -2,9 +2,7 @@
  * Unit tests for tables.ts and related utilities.
  * Tests guard clauses in createTableFrame and pure utility functions.
  *
- * Full Figma API integration is not tested here because the mock in test-setup.ts
- * only provides stub implementations. Guard clause tests are safe because the
- * function throws before calling any Figma API.
+ * Tests guard clauses, happy path (layoutGrow, row count), and pure utility functions.
  */
 
 import { createTableFrame, resolveAlignment, applyRightBorderOnly } from './tables';
@@ -22,7 +20,7 @@ describe('createTableFrame', () => {
             (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
         });
 
-        it.skip('creates header cells with layoutGrow=1 for equal column widths', async () => {
+        it('creates header cells with layoutGrow=1 for equal column widths', async () => {
             const block: Block = {
                 type: 'table',
                 header: [
@@ -40,7 +38,7 @@ describe('createTableFrame', () => {
             });
         });
 
-        it.skip('creates the correct number of rows (1 header + N data)', async () => {
+        it('creates the correct number of rows (1 header + N data)', async () => {
             const block: Block = {
                 type: 'table',
                 header: [{ text: 'Col', tokens: [] }],
