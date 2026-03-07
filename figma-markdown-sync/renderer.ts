@@ -37,6 +37,8 @@ const BULLET = '• ';
  * the new frame to figma.currentPage.children, which would inflate the result.
  *
  * Returns 0 if the page is empty (blank canvas case).
+ * The result is always ≥ gap: rightEdge is clamped to 0 so a new frame is never
+ * placed left of the canvas origin even if all existing content has negative X.
  *
  * @internal Exported for testability.
  */
@@ -46,8 +48,10 @@ export function computeNewFrameX(gap: number): number {
     const rightEdge = children.reduce((max, node) => {
         const right = node.x + node.width;
         return right > max ? right : max;
-    }, 0);
-    return rightEdge + gap;
+    }, -Infinity);
+    // Clamp to 0: never place a new frame to the left of the canvas origin,
+    // even if all existing content is at negative X coordinates.
+    return Math.max(rightEdge, 0) + gap;
 }
 
 // ─── Private Helpers ──────────────────────────────────────────────────────────

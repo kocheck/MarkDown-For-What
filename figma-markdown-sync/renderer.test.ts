@@ -38,6 +38,12 @@ describe('computeNewFrameX', () => {
         expect(computeNewFrameX(50)).toBe(850);  // 800 + 50
         expect(computeNewFrameX(200)).toBe(1000); // 800 + 200
     });
+
+    it('clamps to 0 when all nodes have negative right edges', () => {
+        (figma.currentPage as any).children = [{ x: -500, width: 100 }]; // right = -400
+        // Clamped to 0, so result is 0 + gap = 100
+        expect(computeNewFrameX(100)).toBe(100);
+    });
 });
 
 describe('renderBlocks', () => {
