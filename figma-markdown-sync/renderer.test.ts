@@ -4,9 +4,41 @@
  * error placeholder fallback, and image failure tracking.
  */
 
-import { renderBlocks } from './renderer';
+import { renderBlocks, computeNewFrameX } from './renderer';
 import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
+
+describe('computeNewFrameX', () => {
+    beforeEach(() => {
+        // Reset page children before each test
+        (figma.currentPage as any).children = [];
+    });
+
+    it('returns 0 when the page is empty', () => {
+        expect(computeNewFrameX(100)).toBe(0);
+    });
+
+    it('returns rightEdge + gap for a single frame', () => {
+        (figma.currentPage as any).children = [{ x: 200, width: 400 }];
+        // right edge = 200 + 400 = 600; + gap 100 = 700
+        expect(computeNewFrameX(100)).toBe(700);
+    });
+
+    it('uses the maximum right edge across multiple frames', () => {
+        (figma.currentPage as any).children = [
+            { x: 0,   width: 300 }, // right = 300
+            { x: 100, width: 400 }, // right = 500 ← max
+            { x: 50,  width: 200 }, // right = 250
+        ];
+        expect(computeNewFrameX(100)).toBe(600); // 500 + 100
+    });
+
+    it('respects the gap parameter', () => {
+        (figma.currentPage as any).children = [{ x: 0, width: 800 }];
+        expect(computeNewFrameX(50)).toBe(850);  // 800 + 50
+        expect(computeNewFrameX(200)).toBe(1000); // 800 + 200
+    });
+});
 
 describe('renderBlocks', () => {
     beforeEach(() => {

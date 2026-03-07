@@ -28,6 +28,28 @@ export interface RenderResult {
 
 const BULLET = '• ';
 
+/**
+ * Returns the X coordinate at which a new frame should be placed so it does not
+ * overlap existing page content. Finds the rightmost edge of all top-level page nodes
+ * and adds a gap.
+ *
+ * IMPORTANT: Call this BEFORE figma.createFrame() — createFrame immediately appends
+ * the new frame to figma.currentPage.children, which would inflate the result.
+ *
+ * Returns 0 if the page is empty (blank canvas case).
+ *
+ * @internal Exported for testability.
+ */
+export function computeNewFrameX(gap: number): number {
+    const children = figma.currentPage.children;
+    if (children.length === 0) return 0;
+    const rightEdge = children.reduce((max, node) => {
+        const right = node.x + node.width;
+        return right > max ? right : max;
+    }, 0);
+    return rightEdge + gap;
+}
+
 // ─── Private Helpers ──────────────────────────────────────────────────────────
 
 /**
