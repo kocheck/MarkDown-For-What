@@ -19,6 +19,13 @@ import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlin
 import { createTableFrame } from './tables';
 import { hexToRgb } from './utils';
 
+/** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
+export interface RenderResult {
+    frame: FrameNode;
+    /** Number of image blocks that failed to load (placeholder shown instead). */
+    imageFailures: number;
+}
+
 // ─── Private Helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -122,25 +129,19 @@ async function createImageNode(block: Block, settings: PluginSettings): Promise<
  * @param blocks     - Ordered array of Block objects from parseMarkdownToBlocks
  * @param settings   - Plugin settings (spacing, frame dimensions, colors)
  * @param targetNode - Optional existing node to replace (for re-import)
- * @returns The fully constructed Figma frame
+ * @returns A RenderResult containing the fully constructed Figma frame and image failure count
  */
 export async function renderBlocks(
     name: string,
     blocks: Block[],
     settings: PluginSettings,
     targetNode?: SceneNode
-): Promise<FrameNode> {
+): Promise<RenderResult> {
     // Ensure all Markdown/* text styles exist
     await initializeStyles();
 
-    // ── Create outer frame ───────────────────────────────────────────────────
+    // ── Create outer frame (do NOT insert into document yet) ─────────────────
     const frame = figma.createFrame();
-    if (targetNode && targetNode.parent) {
-        frame.x = targetNode.x;
-        frame.y = targetNode.y;
-        targetNode.parent.insertChild(targetNode.parent.children.indexOf(targetNode), frame);
-        targetNode.remove();
-    }
 
     frame.name = name;
     frame.layoutMode = 'VERTICAL';
@@ -152,6 +153,8 @@ export async function renderBlocks(
     frame.paddingRight = settings.framePadding;
     frame.itemSpacing = settings.blockSpacing;
     frame.resize(settings.frameWidth, frame.height);
+
+    let imageFailures = 0;
 
     // ── Process blocks ───────────────────────────────────────────────────────
     let i = 0;
@@ -191,6 +194,10 @@ export async function renderBlocks(
             const node = await renderBlock(block, settings);
             if (node) {
                 frame.appendChild(node);
+                // createImageNode returns FrameNode on failure (placeholder), RectangleNode on success
+                if (block.type === 'image' && node.type === 'FRAME') {
+                    imageFailures++;
+                }
             }
         } catch (err) {
             console.error(`[MarkDown For What] Failed to render block type "${block.type}":`, err);
@@ -201,7 +208,17 @@ export async function renderBlocks(
         i++;
     }
 
-    return frame;
+    // ── Atomically swap: insert new frame, remove old node ───────────────────
+    if (targetNode && targetNode.parent) {
+        const parent = targetNode.parent;
+        const index = parent.children.indexOf(targetNode);
+        frame.x = targetNode.x;
+        frame.y = targetNode.y;
+        parent.insertChild(index, frame);
+        targetNode.remove();
+    }
+
+    return { frame, imageFailures };
 }
 
 // ─── Block-level render dispatch ─────────────────────────────────────────────

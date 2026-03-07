@@ -1,7 +1,7 @@
 import { parseMarkdownToBlocks } from './parser';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { loadFont } from './styles';
-import { renderBlocks } from './renderer';
+import { renderBlocks, RenderResult } from './renderer';
 
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });
@@ -48,16 +48,26 @@ figma.ui.onmessage = async (msg) => {
             const settings = await loadSettings();
 
             // Pre-load common fonts
-            await Promise.all([
-                loadFont('Inter', 'Regular'),
-                loadFont('Inter', 'Bold'),
-                loadFont('Inter', 'Italic'),
-                loadFont('Inter', 'Bold Italic'),
-                loadFont('Roboto Mono', 'Regular'),
-            ]);
+            try {
+                await Promise.all([
+                    loadFont('Inter', 'Regular'),
+                    loadFont('Inter', 'Bold'),
+                    loadFont('Inter', 'Italic'),
+                    loadFont('Inter', 'Bold Italic'),
+                    loadFont('Roboto Mono', 'Regular'),
+                ]);
+            } catch (fontErr) {
+                console.warn('[MarkDown For What] Font pre-load failed — rendering will use available fallbacks:', fontErr);
+                figma.ui.postMessage({
+                    type: 'status',
+                    message: 'Warning: some fonts unavailable. Output may use fallback fonts.',
+                    error: false
+                });
+            }
 
             let updatedCount = 0;
             let failedCount = 0;
+            let totalImageFailures = 0;
             const allFrames = figma.currentPage.findAll(n => n.name.length > 0);
 
             for (const file of files) {
@@ -66,8 +76,9 @@ figma.ui.onmessage = async (msg) => {
 
                 try {
                     const blocks = parseMarkdownToBlocks(file.content);
-                    await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
+                    const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
+                    totalImageFailures += result.imageFailures;
                 } catch (e) {
                     failedCount++;
                     console.error(`Failed to import ${file.name}`, e);
@@ -79,11 +90,17 @@ figma.ui.onmessage = async (msg) => {
                 }
             }
 
+            let statusMessage = failedCount === 0
+                ? `Processed ${updatedCount} Markdown file${updatedCount === 1 ? '' : 's'}.`
+                : `Processed ${updatedCount} file${updatedCount === 1 ? '' : 's'}, ${failedCount} failed.`;
+
+            if (totalImageFailures > 0) {
+                statusMessage += ` (${totalImageFailures} image${totalImageFailures === 1 ? '' : 's'} failed to load)`;
+            }
+
             figma.ui.postMessage({
                 type: 'status',
-                message: failedCount === 0
-                    ? `Processed ${updatedCount} Markdown file${updatedCount === 1 ? '' : 's'}.`
-                    : `Processed ${updatedCount} file${updatedCount === 1 ? '' : 's'}, ${failedCount} failed.`,
+                message: statusMessage,
                 error: failedCount > 0
             });
         }
