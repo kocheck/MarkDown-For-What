@@ -1,5 +1,21 @@
 # MarkDown For What 🎵
 
+```
+███╗   ███╗ █████╗ ██████╗ ██╗  ██╗██████╗  ██████╗ ██╗    ██╗███╗   ██╗
+████╗ ████║██╔══██╗██╔══██╗██║ ██╔╝██╔══██╗██╔═══██╗██║    ██║████╗  ██║
+██╔████╔██║███████║██████╔╝█████╔╝ ██║  ██║██║   ██║██║ █╗ ██║██╔██╗ ██║
+██║╚██╔╝██║██╔══██║██╔══██╗██╔═██╗ ██║  ██║██║   ██║██║███╗██║██║╚██╗██║
+██║ ╚═╝ ██║██║  ██║██║  ██║██║  ██╗██████╔╝╚██████╔╝╚███╔███╔╝██║ ╚████║
+╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚══╝╚══╝ ╚═╝  ╚═══╝
+
+███████╗ ██████╗ ██████╗     ██╗    ██╗██╗  ██╗ █████╗ ████████╗
+██╔════╝██╔═══██╗██╔══██╗    ██║    ██║██║  ██║██╔══██╗╚══██╔══╝
+█████╗  ██║   ██║██████╔╝    ██║ █╗ ██║███████║███████║   ██║
+██╔══╝  ██║   ██║██╔══██╗    ██║███╗██║██╔══██║██╔══██║   ██║
+██║     ╚██████╔╝██║  ██║    ╚███╔███╔╝██║  ██║██║  ██║   ██║
+╚═╝      ╚═════╝ ╚═╝  ╚═╝     ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
+```
+
 **MarkDown For What** is a Figma plugin that synchronizes Markdown content directly into Figma as structured Auto Layout frames. It automatically generates styles, handles layout, and supports batch operations, making it the perfect tool for maintaining design system documentation, changelogs, or content-heavy prototypes.
 
 ![Plugin Preview](./doc-assets/preview.png)
@@ -99,3 +115,17 @@ This will automatically rebuild the `dist/` files whenever you make changes to `
 **Troubleshooting Notes**:
 - **Fonts**: Ensure you have `Inter` and `Roboto Mono` available in Figma (Google Fonts are available by default).
 - **Security**: The plugin runs entirely locally in your Figma instance. No data is sent to external servers.
+
+## Contributing
+
+Contributions are welcome! Please feel free to open an issue or submit a pull request.
+
+## Acknowledgments
+
+- ASCII art generated with [ascii-art-generator](https://github.com/Darna-Digital/ascii-art-generator)
+- Built with the [Figma Plugin API](https://www.figma.com/plugin-docs/)
+- Markdown parsing powered by [marked](https://github.com/markedjs/marked)
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
