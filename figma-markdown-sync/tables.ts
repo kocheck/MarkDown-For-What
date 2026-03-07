@@ -18,20 +18,7 @@
 import type { Block } from './parser';
 import type { PluginSettings } from './settings';
 import { getOrCreateTextStyle, loadFont, STYLE_NAMES, DEFAULT_STYLES } from './styles';
-
-/**
- * Converts a 6-digit hex color string (e.g. '#F2F2F7') to a Figma RGB object.
- *
- * @param hex - A validated 6-digit hex string
- * @returns Figma RGB with r/g/b values in the 0–1 range
- */
-function hexToRgb(hex: string): RGB {
-    return {
-        r: parseInt(hex.slice(1, 3), 16) / 255,
-        g: parseInt(hex.slice(3, 5), 16) / 255,
-        b: parseInt(hex.slice(5, 7), 16) / 255,
-    };
-}
+import { hexToRgb } from './utils';
 
 /**
  * Builds a complete Figma table from a parsed table Block.
@@ -46,7 +33,7 @@ function hexToRgb(hex: string): RGB {
  *               └─ TextNode
  *
  * @param block    - A Block with type==='table', header, align, and rows
- * @param settings - Current plugin settings (provides tableHeaderBackground, frameWidth)
+ * @param settings - Current plugin settings (provides tableHeaderBackground)
  * @returns A fully constructed FrameNode
  * @throws If the block is missing header or rows
  */
@@ -58,7 +45,6 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
     const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
     const bodyConfig = DEFAULT_STYLES[STYLE_NAMES.BODY];
     const headerFont = await loadFont(bodyConfig.family, 'Bold');
-    const bodyFont = await loadFont(bodyConfig.family, 'Regular');
 
     const headerBg = hexToRgb(settings.tableHeaderBackground);
     const borderColor: RGB = { r: 0.8, g: 0.8, b: 0.8 };
@@ -73,6 +59,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
     tableFrame.counterAxisSizingMode = 'FIXED';
     tableFrame.layoutAlign = 'STRETCH';
     tableFrame.strokes = [{ type: 'SOLID', color: borderColor }];
+    tableFrame.strokeAlign = 'CENTER';
     tableFrame.strokeWeight = 1;
 
     // ── Header row ────────────────────────────────────────────────────────────
@@ -100,6 +87,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
 
         if (i < block.header.length - 1) {
             cellFrame.strokes = [{ type: 'SOLID', color: borderColor }];
+            cellFrame.strokeAlign = 'CENTER';
             cellFrame.strokeWeight = 1;
             cellFrame.strokeRightWeight = 1;
             cellFrame.strokeTopWeight = 0;
@@ -135,6 +123,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         rowFrame.counterAxisSizingMode = 'AUTO';
         rowFrame.layoutAlign = 'STRETCH';
         rowFrame.strokes = [{ type: 'SOLID', color: rowBorderColor }];
+        rowFrame.strokeAlign = 'CENTER';
         rowFrame.strokeWeight = 1;
         rowFrame.strokeBottomWeight = 1;
         rowFrame.strokeTopWeight = 0;
@@ -156,6 +145,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
 
             if (colIndex < row.length - 1) {
                 cellFrame.strokes = [{ type: 'SOLID', color: rowBorderColor }];
+                cellFrame.strokeAlign = 'CENTER';
                 cellFrame.strokeWeight = 1;
                 cellFrame.strokeRightWeight = 1;
                 cellFrame.strokeTopWeight = 0;
@@ -164,9 +154,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
             }
 
             const textNode = figma.createText();
-            textNode.fontName = bodyFont;
-            textNode.fontSize = bodyStyle.fontSize;
-            textNode.lineHeight = bodyStyle.lineHeight;
+            textNode.textStyleId = bodyStyle.id;
             textNode.layoutAlign = 'STRETCH';
             textNode.characters = cell.text;
 
