@@ -1,4 +1,5 @@
 import './styles.css';
+import { isValidHex, hasSupportedExtension } from '../utils';
 
 // ── DOM references ──────────────────────────────────────────────────────────
 
@@ -19,8 +20,6 @@ const settingInputIds = [
 ] as const;
 
 // ── State ───────────────────────────────────────────────────────────────────
-
-const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
 
 let currentFiles: { name: string; content: string }[] = [];
 
@@ -81,9 +80,7 @@ async function handleFiles(files: FileList) {
     showStatus('Reading files\u2026', 'success');
 
     try {
-        const validFiles = Array.from(files).filter(f =>
-            f.name.endsWith('.md') || f.name.endsWith('.markdown') || f.name.endsWith('.txt')
-        );
+        const validFiles = Array.from(files).filter(f => hasSupportedExtension(f.name));
         currentFiles = await Promise.all(validFiles.map(readFile));
 
         renderFileList(currentFiles);
@@ -148,7 +145,7 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             sendCurrentSettings();
-            if (swatch && input.value.match(HEX_COLOR_PATTERN)) {
+            if (swatch && isValidHex(input.value)) {
                 swatch.value = input.value;
             }
         });
@@ -181,7 +178,7 @@ setupSettingListeners();
 
 // ── Status helper ───────────────────────────────────────────────────────────
 
-function showStatus(message: string, type: 'success' | 'error' = 'success') {
+function showStatus(message: string, type: 'success' | 'warning' | 'error' = 'success') {
     statusMsg.textContent = message;
     statusMsg.className = `status-message ${type}`;
 }
@@ -196,7 +193,7 @@ window.onmessage = event => {
         case 'status':
             loader.classList.add('hidden');
             importBtn.disabled = currentFiles.length === 0;
-            showStatus(msg.message, msg.error ? 'error' : 'success');
+            showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             break;
         case 'settings':
             populateSettings(msg.settings);

@@ -7,13 +7,15 @@ import { errorMessage } from './utils';
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
 figma.showUI(__html__, { width: 400, height: 500 });
 
-// This plugin only supports Figma Design — not FigJam or Slides.
-if (figma.editorType !== 'figma') {
-    figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam or Slides.');
-} else {
+// Top-level return is invalid in TS modules, so use an IIFE for the guard clause.
+(() => {
+    if (figma.editorType !== 'figma') {
+        figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam or Slides.');
+        return;
+    }
 
-// Message handler — processes: get-settings, save-settings, reset-settings, import-markdown-batch
-figma.ui.onmessage = async (msg) => {
+    // Message handler — processes: get-settings, save-settings, reset-settings, import-markdown-batch
+    figma.ui.onmessage = async (msg) => {
     try {
         if (msg.type === 'get-settings') {
             const settings = await loadSettings();
@@ -69,14 +71,14 @@ figma.ui.onmessage = async (msg) => {
                 figma.ui.postMessage({
                     type: 'status',
                     message: 'Warning: some fonts unavailable. Output may use fallback fonts.',
-                    error: true
+                    warning: true
                 });
             }
 
             let updatedCount = 0;
             let failedCount = 0;
             let totalImageFailures = 0;
-            const allFrames = figma.currentPage.findAll(n => n.name.length > 0);
+            const allFrames = figma.currentPage.findAll(n => n.type === 'FRAME');
 
             for (const file of files) {
                 const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
@@ -120,6 +122,5 @@ figma.ui.onmessage = async (msg) => {
             error: true
         });
     }
-};
-
-} // end else (figma.editorType === 'figma')
+    };
+})();

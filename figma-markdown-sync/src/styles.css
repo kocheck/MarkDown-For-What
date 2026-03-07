@@ -164,6 +164,7 @@ body {
 }
 
 .status-message.success { color: #18A449; }
+.status-message.warning { color: #9B6E00; }
 .status-message.error   { color: #D32F2F; }
 
 /* ── Buttons ──────────────────────────────────────────────── */

@@ -26,6 +26,8 @@ export interface RenderResult {
     imageFailures: number;
 }
 
+const BULLET = '• ';
+
 // ─── Private Helpers ──────────────────────────────────────────────────────────
 
 /**
@@ -292,7 +294,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         default:
-            console.warn(`[MarkDown For What] Unknown block type: "${(block as any).type}" — skipping`);
+            console.warn(`[MarkDown For What] Unknown block type: "${(block as { type: string }).type}" — skipping`);
             return null;
     }
 }
@@ -311,10 +313,10 @@ async function renderListBlock(block: Block): Promise<TextNode> {
 
     if (block.tokens && block.tokens.length > 0) {
         // Prepend bullet as a synthetic text token so applyInlineStyles includes it
-        const bulletToken = { type: 'text', raw: '• ', text: '• ' } as any;
+        const bulletToken = { type: 'text', raw: BULLET, text: BULLET } as any;
         await applyInlineStyles(node, [bulletToken, ...block.tokens], STYLE_NAMES.LIST);
     } else {
-        const content = block.content ? `• ${block.content}` : '•';
+        const content = block.content ? `${BULLET}${block.content}` : BULLET.trimEnd();
         node.characters = content;
     }
     return node;

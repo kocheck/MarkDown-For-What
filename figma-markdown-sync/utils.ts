@@ -38,7 +38,28 @@ export function errorMessage(e: unknown): string {
     return e instanceof Error ? e.message : String(e);
 }
 
+/**
+ * Returns true if value is a valid 6-digit CSS hex color string (e.g. '#AABBCC').
+ * Single source of truth shared across plugin and UI bundles.
+ */
+export function isValidHex(value: unknown): boolean {
+    return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
+}
+
+/**
+ * The supported Markdown file extensions accepted by this plugin.
+ * Referenced in both the UI (file picker filter) and plugin backend (extension stripping).
+ */
+export const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'] as const;
+
+/**
+ * Returns true if the filename ends with one of the supported Markdown extensions.
+ */
+export function hasSupportedExtension(filename: string): boolean {
+    return SUPPORTED_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext));
+}
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { hexToRgb, errorMessage };
+    module.exports = { hexToRgb, errorMessage, isValidHex, SUPPORTED_EXTENSIONS, hasSupportedExtension };
 }
