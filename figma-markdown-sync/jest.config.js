@@ -6,7 +6,12 @@ module.exports = {
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   setupFilesAfterEnv: ['<rootDir>/test-setup.ts'],
   collectCoverageFrom: [
-    'code.ts',
+    'parser.ts',
+    'styles.ts',
+    'settings.ts',
+    'tables.ts',
+    'renderer.ts',
+    'utils.ts',
     '!**/*.d.ts',
     '!**/node_modules/**',
     '!**/dist/**'
