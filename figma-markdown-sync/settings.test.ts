@@ -153,9 +153,14 @@ describe('saveSettings', () => {
         expect(figma.clientStorage.setAsync).toHaveBeenCalledWith('pluginSettings', DEFAULT_SETTINGS);
     });
 
-    test('does NOT call clientStorage.setAsync with invalid settings', async () => {
+    test('throws and does NOT call clientStorage.setAsync when settings are invalid', async () => {
         const invalid = { ...DEFAULT_SETTINGS, frameWidth: 0 };
-        await saveSettings(invalid as PluginSettings);
+        await expect(saveSettings(invalid as PluginSettings)).rejects.toThrow('Invalid settings object — save aborted');
         expect(figma.clientStorage.setAsync).not.toHaveBeenCalled();
+    });
+
+    test('throws when clientStorage.setAsync rejects', async () => {
+        (figma.clientStorage.setAsync as jest.Mock).mockRejectedValue(new Error('storage full'));
+        await expect(saveSettings(DEFAULT_SETTINGS)).rejects.toThrow('storage full');
     });
 });

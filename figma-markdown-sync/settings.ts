@@ -142,14 +142,14 @@ export async function loadSettings(): Promise<PluginSettings> {
 
 /**
  * Persists the given settings to Figma's clientStorage.
- * Silently skips saving if the settings object fails validation.
  *
  * @param settings - The settings object to persist
+ * @throws {Error} If settings fail validation ('Invalid settings object — save aborted')
+ * @throws {Error} If Figma's clientStorage.setAsync rejects (storage errors are re-thrown)
  */
 export async function saveSettings(settings: PluginSettings): Promise<void> {
     if (!validateSettings(settings)) {
-        console.warn('[MarkDown For What] saveSettings called with invalid settings — skipping write');
-        return;
+        throw new Error('Invalid settings object — save aborted');
     }
     try {
         await figma.clientStorage.setAsync(STORAGE_KEY, settings);
