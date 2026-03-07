@@ -67,6 +67,13 @@ describe('loadFont', () => {
         const result = await loadFont('Nonexistent', 'Bold');
         expect(result).toEqual({ family: 'Inter', style: 'Regular' });
     });
+
+    it('throws when both primary font and Inter Regular fallback fail', async () => {
+        (figma.loadFontAsync as jest.Mock)
+            .mockRejectedValueOnce(new Error('Font not found'))
+            .mockRejectedValueOnce(new Error('Inter not found'));
+        await expect(loadFont('Nonexistent', 'Bold')).rejects.toThrow('Inter not found');
+    });
 });
 
 describe('getOrCreateTextStyle - cache behavior', () => {
@@ -166,5 +173,20 @@ describe('applyInlineStyles', () => {
     it('does nothing when tokens array is empty', async () => {
         await applyInlineStyles(node, [], STYLE_NAMES.BODY);
         expect(node.setRangeFontName).not.toHaveBeenCalled();
+    });
+
+    it('applies Bold Italic font for bold+italic combined tokens', async () => {
+        const tokens = [{
+            type: 'strong',
+            tokens: [{
+                type: 'em',
+                tokens: [{ type: 'text', text: 'bold italic' }]
+            }]
+        }] as any;
+        await applyInlineStyles(node, tokens, STYLE_NAMES.BODY);
+        expect(node.setRangeFontName).toHaveBeenCalledWith(
+            0, 11,
+            expect.objectContaining({ style: 'Bold Italic' })
+        );
     });
 });
