@@ -25,6 +25,7 @@ describe('getOrCreateTextStyle', () => {
         expect(result).toBe(existingStyle);
         // createTextStyle must NOT have been called — we never overwrite existing styles
         expect(figma.createTextStyle).not.toHaveBeenCalled();
+        expect(figma.loadFontAsync).not.toHaveBeenCalled();
         // Designer's custom values must be untouched
         expect(existingStyle.fontName).toEqual({ family: 'Custom Font', style: 'Black' });
         expect(existingStyle.fontSize).toBe(48);
@@ -42,5 +43,7 @@ describe('getOrCreateTextStyle', () => {
         expect(figma.createTextStyle).toHaveBeenCalledTimes(1);
         expect(mockStyle.name).toBe(STYLE_NAMES.BODY);
         expect(mockStyle.fontSize).toBe(DEFAULT_STYLES[STYLE_NAMES.BODY].size);
+        expect(mockStyle.fontName).toEqual({ family: DEFAULT_STYLES[STYLE_NAMES.BODY].family, style: DEFAULT_STYLES[STYLE_NAMES.BODY].style });
+        expect(mockStyle.lineHeight).toEqual({ value: DEFAULT_STYLES[STYLE_NAMES.BODY].lineHeight * 100, unit: 'PERCENT' });
     });
 });

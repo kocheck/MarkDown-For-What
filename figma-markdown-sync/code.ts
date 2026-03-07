@@ -1,6 +1,7 @@
 import { parseMarkdownToBlocks } from './parser';
 import type { Block } from './parser';
-import { STYLE_NAMES, DEFAULT_STYLES, StyleConfig, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
+import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
+import type { StyleConfig } from './styles';
 
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });

@@ -136,6 +136,7 @@ export async function initializeStyles(): Promise<void> {
  *
  * Call AFTER setting node.textStyleId. This function sets node.characters
  * and overrides font names at specific character ranges.
+ * Note: This function sets node.characters internally — do not set it beforehand.
  *
  * @param node          - The Figma TextNode to format
  * @param tokens        - Inline marked tokens describing the rich text
@@ -152,7 +153,7 @@ export async function applyInlineStyles(
     const fullText = segments.map(s => s.text).join('');
     node.characters = fullText;
 
-    const baseConfig = DEFAULT_STYLES[baseStyleName];
+    const baseConfig = DEFAULT_STYLES[baseStyleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY];
     const [regularFont, boldFont, italicFont, boldItalicFont, codeFont] = await Promise.all([
         loadFont(baseConfig.family, 'Regular'),
         loadFont(baseConfig.family, 'Bold'),
