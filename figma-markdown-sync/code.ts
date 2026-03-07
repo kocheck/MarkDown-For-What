@@ -2,6 +2,7 @@ import { parseMarkdownToBlocks } from './parser';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { loadFont } from './styles';
 import { renderBlocks, RenderResult } from './renderer';
+import { errorMessage } from './utils';
 
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
 figma.showUI(__html__, { width: 400, height: 500 });
@@ -84,7 +85,7 @@ figma.ui.onmessage = async (msg) => {
                     console.error(`Failed to import ${file.name}`, e);
                     figma.ui.postMessage({
                         type: 'status',
-                        message: `Error importing ${file.name}: ${e instanceof Error ? e.message : String(e)}`,
+                        message: `Error importing ${file.name}: ${errorMessage(e)}`,
                         error: true
                     });
                 }
@@ -108,7 +109,7 @@ figma.ui.onmessage = async (msg) => {
         console.error('[MarkDown For What] Unhandled error in message handler:', err);
         figma.ui.postMessage({
             type: 'status',
-            message: `Unexpected error: ${err instanceof Error ? err.message : String(err)}`,
+            message: `Unexpected error: ${errorMessage(err)}`,
             error: true
         });
     }

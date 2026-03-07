@@ -5,7 +5,8 @@
  * Pure functions only — no Figma API calls, no side effects.
  *
  * Public API:
- *   hexToRgb(hex) — converts hex color string to Figma RGB
+ *   hexToRgb(hex)   — converts hex color string to Figma RGB
+ *   errorMessage(e) — extracts a string message from any thrown value
  */
 
 /**
@@ -29,7 +30,15 @@ export function hexToRgb(hex: string): RGB {
     };
 }
 
+/**
+ * Extracts a human-readable error message from any thrown value.
+ * Use in catch blocks instead of the repeated `e instanceof Error ? e.message : String(e)` ternary.
+ */
+export function errorMessage(e: unknown): string {
+    return e instanceof Error ? e.message : String(e);
+}
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { hexToRgb };
+    module.exports = { hexToRgb, errorMessage };
 }

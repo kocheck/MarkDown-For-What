@@ -98,8 +98,13 @@ async function createImageNode(block: Block, settings: PluginSettings): Promise<
         placeholderFrame.layoutAlign = 'STRETCH';
 
         const errorText = figma.createText();
-        const fontName = await loadFont('Inter', 'Regular');
-        errorText.fontName = fontName;
+        let imgFontName: FontName;
+        try {
+            imgFontName = await loadFont('Inter', 'Regular');
+        } catch {
+            imgFontName = { family: 'Inter', style: 'Regular' };
+        }
+        errorText.fontName = imgFontName;
         errorText.fontSize = 14;
         errorText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
         errorText.characters = `Failed to load image\n${block.imageAlt || 'Unknown'}\nURL: ${block.imageUrl}`;
@@ -267,7 +272,6 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             codeFrame.counterAxisSizingMode = 'FIXED';
 
             const codeText = figma.createText();
-            await loadFont('Roboto Mono', 'Regular');
             const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
             codeText.textStyleId = codeStyle.id;
             codeText.characters = block.content || '';
@@ -330,7 +334,7 @@ async function applyTextStyle(node: TextNode, block: Block, styleName: string): 
     node.textStyleId = style.id;
     node.layoutAlign = 'STRETCH';
 
-    if (block.tokens && block.type !== 'list') {
+    if (block.tokens) {
         await applyInlineStyles(node, block.tokens, styleName);
     } else if (block.content) {
         node.characters = block.content;

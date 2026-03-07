@@ -12,8 +12,9 @@
  * auto-layout system, avoiding the "squished columns" problem.
  *
  * Public API:
- *   resolveAlignment(align)          — converts markdown align to Figma alignment constant
+ *   resolveAlignment(align)           — converts markdown align to Figma alignment constant
  *   applyRightBorderOnly(frame, color) — applies a right-only border via individual stroke weights
+ *   applyBottomBorderOnly(frame, color) — applies a bottom-only border via individual stroke weights
  *   createTableFrame(block, settings) — async: returns a FrameNode
  */
 
@@ -45,6 +46,20 @@ export function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
     frame.strokeTopWeight = 0;
     frame.strokeBottomWeight = 0;
     frame.strokeLeftWeight = 0;
+}
+
+/**
+ * Applies a 1px bottom-side-only border to a FrameNode using individual stroke weights.
+ * Used for data row separators in table rendering.
+ */
+export function applyBottomBorderOnly(frame: FrameNode, color: RGB): void {
+    frame.strokes = [{ type: 'SOLID', color }];
+    frame.strokeAlign = 'CENTER';
+    frame.strokeWeight = 1;
+    frame.strokeBottomWeight = 1;
+    frame.strokeTopWeight = 0;
+    frame.strokeLeftWeight = 0;
+    frame.strokeRightWeight = 0;
 }
 
 /**
@@ -139,13 +154,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         rowFrame.primaryAxisSizingMode = 'FIXED';
         rowFrame.counterAxisSizingMode = 'AUTO';
         rowFrame.layoutAlign = 'STRETCH';
-        rowFrame.strokes = [{ type: 'SOLID', color: rowBorderColor }];
-        rowFrame.strokeAlign = 'CENTER';
-        rowFrame.strokeWeight = 1;
-        rowFrame.strokeBottomWeight = 1;
-        rowFrame.strokeTopWeight = 0;
-        rowFrame.strokeLeftWeight = 0;
-        rowFrame.strokeRightWeight = 0;
+        applyBottomBorderOnly(rowFrame, rowBorderColor);
 
         for (let colIndex = 0; colIndex < row.length; colIndex++) {
             const cell = row[colIndex];
