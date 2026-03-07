@@ -2,168 +2,13 @@ import { parseMarkdownToBlocks } from './parser';
 import type { Block } from './parser';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 import type { StyleConfig } from './styles';
+import { DEFAULT_SETTINGS } from './settings';
+import { createTableFrame } from './tables';
 
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });
 
 const FRAME_WIDTH = 800; // Default width for content frames
-
-/**
- * --- Helper function to create table frames ---
- */
-
-async function createTableFrame(block: Block): Promise<FrameNode> {
-    if (!block.header || !block.rows) {
-        throw new Error('Invalid table block');
-    }
-
-    // Main table container (Vertical Auto Layout)
-    const tableFrame = figma.createFrame();
-    tableFrame.name = 'Table';
-    tableFrame.layoutMode = 'VERTICAL';
-    tableFrame.itemSpacing = 0;
-    tableFrame.primaryAxisSizingMode = 'AUTO';
-    tableFrame.counterAxisSizingMode = 'AUTO';
-    tableFrame.layoutAlign = 'STRETCH';
-    
-    // Add stroke around table
-    tableFrame.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
-    tableFrame.strokeWeight = 1;
-
-    const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
-    
-    // Load fonts once at the beginning
-    const bodyConfig = DEFAULT_STYLES[STYLE_NAMES.BODY];
-    const headerFont = await loadFont(bodyConfig.family, 'Bold');
-
-    // Create header row
-    const headerRow = figma.createFrame();
-    headerRow.name = 'Header Row';
-    headerRow.layoutMode = 'HORIZONTAL';
-    headerRow.itemSpacing = 0;
-    headerRow.primaryAxisSizingMode = 'AUTO';
-    headerRow.counterAxisSizingMode = 'AUTO';
-    headerRow.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.95, b: 0.97 } }]; // Light blue-gray background
-    headerRow.layoutAlign = 'STRETCH';
-
-    for (let i = 0; i < block.header.length; i++) {
-        const cell = block.header[i];
-        const cellFrame = figma.createFrame();
-        cellFrame.name = `Header Cell ${i}`;
-        cellFrame.layoutMode = 'HORIZONTAL';
-        cellFrame.paddingTop = 12;
-        cellFrame.paddingBottom = 12;
-        cellFrame.paddingLeft = 16;
-        cellFrame.paddingRight = 16;
-        cellFrame.primaryAxisSizingMode = 'FIXED'; // Fill container instead of hug contents
-        cellFrame.counterAxisSizingMode = 'AUTO';
-        cellFrame.layoutGrow = 1; // Equal column widths
-        
-        // Add right border (except last cell)
-        if (i < block.header.length - 1) {
-            cellFrame.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.8, b: 0.8 } }];
-            cellFrame.strokeWeight = 1;
-            cellFrame.strokeRightWeight = 1;
-            cellFrame.strokeTopWeight = 0;
-            cellFrame.strokeBottomWeight = 0;
-            cellFrame.strokeLeftWeight = 0;
-        }
-
-        const textNode = figma.createText();
-        textNode.characters = cell.text;
-        
-        // Apply header font (bold) and base text style properties
-        textNode.fontName = headerFont;
-        textNode.fontSize = bodyStyle.fontSize;
-        textNode.lineHeight = bodyStyle.lineHeight;
-        
-        // Apply alignment
-        const alignment = block.align && block.align[i];
-        if (alignment === 'center') {
-            textNode.textAlignHorizontal = 'CENTER';
-            cellFrame.primaryAxisAlignItems = 'CENTER';
-        } else if (alignment === 'right') {
-            textNode.textAlignHorizontal = 'RIGHT';
-            cellFrame.primaryAxisAlignItems = 'MAX';
-        } else {
-            textNode.textAlignHorizontal = 'LEFT';
-            cellFrame.primaryAxisAlignItems = 'MIN';
-        }
-
-        cellFrame.appendChild(textNode);
-        headerRow.appendChild(cellFrame);
-    }
-
-    tableFrame.appendChild(headerRow);
-
-    // Create data rows
-    for (let rowIndex = 0; rowIndex < block.rows.length; rowIndex++) {
-        const row = block.rows[rowIndex];
-        const rowFrame = figma.createFrame();
-        rowFrame.name = `Row ${rowIndex + 1}`;
-        rowFrame.layoutMode = 'HORIZONTAL';
-        rowFrame.itemSpacing = 0;
-        rowFrame.primaryAxisSizingMode = 'AUTO';
-        rowFrame.counterAxisSizingMode = 'AUTO';
-        rowFrame.layoutAlign = 'STRETCH';
-        
-        // Add bottom border
-        rowFrame.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-        rowFrame.strokeWeight = 1;
-        rowFrame.strokeBottomWeight = 1;
-        rowFrame.strokeTopWeight = 0;
-        rowFrame.strokeLeftWeight = 0;
-        rowFrame.strokeRightWeight = 0;
-
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
-            const cell = row[colIndex];
-            const cellFrame = figma.createFrame();
-            cellFrame.name = `Cell ${rowIndex + 1},${colIndex + 1}`;
-            cellFrame.layoutMode = 'HORIZONTAL';
-            cellFrame.paddingTop = 10;
-            cellFrame.paddingBottom = 10;
-            cellFrame.paddingLeft = 16;
-            cellFrame.paddingRight = 16;
-            cellFrame.primaryAxisSizingMode = 'FIXED'; // Fill container instead of hug contents
-            cellFrame.counterAxisSizingMode = 'AUTO';
-            cellFrame.layoutGrow = 1; // Equal column widths
-            
-            // Add right border (except last cell)
-            if (colIndex < row.length - 1) {
-                cellFrame.strokes = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-                cellFrame.strokeWeight = 1;
-                cellFrame.strokeRightWeight = 1;
-                cellFrame.strokeTopWeight = 0;
-                cellFrame.strokeBottomWeight = 0;
-                cellFrame.strokeLeftWeight = 0;
-            }
-
-            const textNode = figma.createText();
-            textNode.textStyleId = bodyStyle.id;
-            textNode.characters = cell.text;
-            
-            // Apply alignment
-            const alignment = block.align && block.align[colIndex];
-            if (alignment === 'center') {
-                textNode.textAlignHorizontal = 'CENTER';
-                cellFrame.primaryAxisAlignItems = 'CENTER';
-            } else if (alignment === 'right') {
-                textNode.textAlignHorizontal = 'RIGHT';
-                cellFrame.primaryAxisAlignItems = 'MAX';
-            } else {
-                textNode.textAlignHorizontal = 'LEFT';
-                cellFrame.primaryAxisAlignItems = 'MIN';
-            }
-
-            cellFrame.appendChild(textNode);
-            rowFrame.appendChild(cellFrame);
-        }
-
-        tableFrame.appendChild(rowFrame);
-    }
-
-    return tableFrame;
-}
 
 /**
  * --- Helper function to create image nodes ---
@@ -332,7 +177,7 @@ async function createMarkdownFrame(name: string, markdown: string, targetNode?: 
                 node = line;
                 break;
             case 'table':
-                node = await createTableFrame(block);
+                node = await createTableFrame(block, DEFAULT_SETTINGS);
                 break;
             case 'image':
                 node = await createImageNode(block);
