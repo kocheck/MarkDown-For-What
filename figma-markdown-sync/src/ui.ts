@@ -22,6 +22,8 @@ type SettingKey = typeof settingInputIds[number];
 
 // ── State ───────────────────────────────────────────────────────────────────
 
+const HEX_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/;
+
 let currentFiles: { name: string; content: string }[] = [];
 
 // ── Tab switching ───────────────────────────────────────────────────────────
@@ -147,7 +149,7 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             sendCurrentSettings();
-            if (swatch && input.value.match(/^#[0-9A-Fa-f]{6}$/)) {
+            if (swatch && input.value.match(HEX_COLOR_PATTERN)) {
                 swatch.value = input.value;
             }
         });

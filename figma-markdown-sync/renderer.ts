@@ -134,15 +134,12 @@ export async function renderBlocks(
     await initializeStyles();
 
     // ── Create outer frame ───────────────────────────────────────────────────
-    let frame: FrameNode;
+    const frame = figma.createFrame();
     if (targetNode && targetNode.parent) {
-        frame = figma.createFrame();
         frame.x = targetNode.x;
         frame.y = targetNode.y;
         targetNode.parent.insertChild(targetNode.parent.children.indexOf(targetNode), frame);
         targetNode.remove();
-    } else {
-        frame = figma.createFrame();
     }
 
     frame.name = name;
@@ -249,7 +246,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             codeFrame.counterAxisSizingMode = 'FIXED';
 
             const codeText = figma.createText();
-            await figma.loadFontAsync({ family: 'Roboto Mono', style: 'Regular' });
+            await loadFont('Roboto Mono', 'Regular');
             const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
             codeText.textStyleId = codeStyle.id;
             codeText.characters = block.content || '';
@@ -261,7 +258,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
         case 'separator': {
             const line = figma.createRectangle();
-            line.resize(settings.frameWidth - settings.framePadding * 2, 1);
+            line.resize(line.width, 1);
             line.fills = [{ type: 'SOLID', color: hexToRgb(settings.separatorColor) }];
             line.layoutAlign = 'STRETCH';
             return line;
@@ -328,7 +325,6 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errFrame.counterAxisSizingMode = 'FIXED';
 
     const errText = figma.createText();
-    await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
     errText.fontName = { family: 'Inter', style: 'Regular' };
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];

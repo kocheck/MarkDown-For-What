@@ -20,6 +20,22 @@ import type { PluginSettings } from './settings';
 import { getOrCreateTextStyle, loadFont, STYLE_NAMES, DEFAULT_STYLES } from './styles';
 import { hexToRgb } from './utils';
 
+function resolveAlignment(align: 'left' | 'center' | 'right' | null | undefined): 'LEFT' | 'CENTER' | 'RIGHT' {
+    if (align === 'center') return 'CENTER';
+    if (align === 'right') return 'RIGHT';
+    return 'LEFT';
+}
+
+function applyRightBorderOnly(frame: FrameNode, color: RGB): void {
+    frame.strokes = [{ type: 'SOLID', color }];
+    frame.strokeAlign = 'CENTER';
+    frame.strokeWeight = 1;
+    frame.strokeRightWeight = 1;
+    frame.strokeTopWeight = 0;
+    frame.strokeBottomWeight = 0;
+    frame.strokeLeftWeight = 0;
+}
+
 /**
  * Builds a complete Figma table from a parsed table Block.
  *
@@ -86,13 +102,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         cellFrame.layoutGrow = 1; // Equal column widths via fill
 
         if (i < block.header.length - 1) {
-            cellFrame.strokes = [{ type: 'SOLID', color: borderColor }];
-            cellFrame.strokeAlign = 'CENTER';
-            cellFrame.strokeWeight = 1;
-            cellFrame.strokeRightWeight = 1;
-            cellFrame.strokeTopWeight = 0;
-            cellFrame.strokeBottomWeight = 0;
-            cellFrame.strokeLeftWeight = 0;
+            applyRightBorderOnly(cellFrame, borderColor);
         }
 
         const textNode = figma.createText();
@@ -101,10 +111,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         textNode.layoutAlign = 'STRETCH';
         textNode.characters = cell.text;
 
-        const alignment = block.align?.[i];
-        textNode.textAlignHorizontal =
-            alignment === 'center' ? 'CENTER' :
-            alignment === 'right' ? 'RIGHT' : 'LEFT';
+        textNode.textAlignHorizontal = resolveAlignment(block.align?.[i]);
 
         cellFrame.appendChild(textNode);
         headerRow.appendChild(cellFrame);
@@ -143,13 +150,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
             cellFrame.layoutGrow = 1; // Equal column widths via fill
 
             if (colIndex < row.length - 1) {
-                cellFrame.strokes = [{ type: 'SOLID', color: rowBorderColor }];
-                cellFrame.strokeAlign = 'CENTER';
-                cellFrame.strokeWeight = 1;
-                cellFrame.strokeRightWeight = 1;
-                cellFrame.strokeTopWeight = 0;
-                cellFrame.strokeBottomWeight = 0;
-                cellFrame.strokeLeftWeight = 0;
+                applyRightBorderOnly(cellFrame, rowBorderColor);
             }
 
             const textNode = figma.createText();
@@ -157,10 +158,7 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
             textNode.layoutAlign = 'STRETCH';
             textNode.characters = cell.text;
 
-            const alignment = block.align?.[colIndex];
-            textNode.textAlignHorizontal =
-                alignment === 'center' ? 'CENTER' :
-                alignment === 'right' ? 'RIGHT' : 'LEFT';
+            textNode.textAlignHorizontal = resolveAlignment(block.align?.[colIndex]);
 
             cellFrame.appendChild(textNode);
             rowFrame.appendChild(cellFrame);

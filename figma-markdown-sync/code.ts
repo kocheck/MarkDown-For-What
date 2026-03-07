@@ -36,18 +36,20 @@ figma.ui.onmessage = async (msg) => {
         const settings = await loadSettings();
 
         // Pre-load common fonts
-        await loadFont('Inter', 'Regular');
-        await loadFont('Inter', 'Bold');
-        await loadFont('Inter', 'Italic');
-        await loadFont('Inter', 'Bold Italic');
-        await loadFont('Roboto Mono', 'Regular');
+        await Promise.all([
+            loadFont('Inter', 'Regular'),
+            loadFont('Inter', 'Bold'),
+            loadFont('Inter', 'Italic'),
+            loadFont('Inter', 'Bold Italic'),
+            loadFont('Roboto Mono', 'Regular'),
+        ]);
 
         let updatedCount = 0;
-        const allTextNodes = figma.currentPage.findAll(n => n.name.length > 0);
+        const allFrames = figma.currentPage.findAll(n => n.type === 'FRAME' && n.name.length > 0);
 
         for (const file of files) {
             const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
-            const target = allTextNodes.find(n => n.name === file.name || n.name === nameNoExt);
+            const target = allFrames.find(n => n.name === file.name || n.name === nameNoExt);
 
             try {
                 const blocks = parseMarkdownToBlocks(file.content);

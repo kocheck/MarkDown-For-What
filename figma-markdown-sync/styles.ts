@@ -90,6 +90,8 @@ export async function loadFont(family: string, style: string): Promise<FontName>
 
 // ─── Style Management ──────────────────────────────────────────────────────────
 
+const styleCache = new Map<string, TextStyle>();
+
 /**
  * Returns an existing Figma text style by name, or creates a new one with the
  * given config if it doesn't exist yet.
@@ -102,9 +104,13 @@ export async function loadFont(family: string, style: string): Promise<FontName>
  * @returns The existing or newly created TextStyle
  */
 export async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<TextStyle> {
+    const cached = styleCache.get(name);
+    if (cached) return cached;
+
     const existing = figma.getLocalTextStyles().find(s => s.name === name);
 
     if (existing) {
+        styleCache.set(name, existing);
         return existing; // Do not modify — preserves designer customizations
     }
 
@@ -114,6 +120,7 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig): P
     newStyle.fontName = { family: config.family, style: config.style };
     newStyle.fontSize = config.size;
     newStyle.lineHeight = { value: config.lineHeight * 100, unit: 'PERCENT' };
+    styleCache.set(name, newStyle);
     return newStyle;
 }
 
