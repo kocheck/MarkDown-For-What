@@ -15,6 +15,7 @@
  */
 
 import { marked } from 'marked';
+import { errorMessage } from './utils';
 
 // ─── Interfaces ────────────────────────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
     try {
         tokens = marked.lexer(cleanMarkdown);
     } catch (err) {
-        throw new Error(`Failed to parse Markdown content — ${err instanceof Error ? err.message : String(err)}`);
+        throw new Error(`Failed to parse Markdown content — ${errorMessage(err)}`);
     }
     const blocks: Block[] = [];
 

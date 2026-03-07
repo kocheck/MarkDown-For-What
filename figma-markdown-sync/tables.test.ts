@@ -99,17 +99,21 @@ describe('resolveAlignment', () => {
     });
 });
 
+function makeMockStrokeFrame() {
+    return {
+        strokes: [] as any[],
+        strokeAlign: '' as string,
+        strokeWeight: 0,
+        strokeRightWeight: 0,
+        strokeTopWeight: 0,
+        strokeBottomWeight: 0,
+        strokeLeftWeight: 0,
+    };
+}
+
 describe('applyRightBorderOnly', () => {
     it('sets all 6 stroke properties correctly', () => {
-        const frame = {
-            strokes: [],
-            strokeAlign: '',
-            strokeWeight: 0,
-            strokeRightWeight: 0,
-            strokeTopWeight: 0,
-            strokeBottomWeight: 0,
-            strokeLeftWeight: 0,
-        } as any;
+        const frame = makeMockStrokeFrame() as any;
         const color: RGB = { r: 0.8, g: 0.8, b: 0.8 };
         applyRightBorderOnly(frame, color);
         expect(frame.strokes).toEqual([{ type: 'SOLID', color }]);
@@ -124,15 +128,7 @@ describe('applyRightBorderOnly', () => {
 
 describe('applyBottomBorderOnly', () => {
     it('sets all 6 stroke properties correctly', () => {
-        const frame = {
-            strokes: [],
-            strokeAlign: '',
-            strokeWeight: 0,
-            strokeRightWeight: 0,
-            strokeTopWeight: 0,
-            strokeBottomWeight: 0,
-            strokeLeftWeight: 0,
-        } as any;
+        const frame = makeMockStrokeFrame() as any;
         const color: RGB = { r: 0.9, g: 0.9, b: 0.9 };
         applyBottomBorderOnly(frame, color);
         expect(frame.strokes).toEqual([{ type: 'SOLID', color }]);

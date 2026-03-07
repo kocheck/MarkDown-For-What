@@ -64,9 +64,8 @@ figma.ui.onmessage = async (msg) => {
                 loadFont('Inter', 'Bold Italic'),
                 loadFont('Roboto Mono', 'Regular'),
             ]);
-            const fontFailures = fontResults.filter(r => r.status === 'rejected');
-            if (fontFailures.length > 0) {
-                console.warn('[MarkDown For What] Font pre-load partial failure — rendering will use available fallbacks:', fontFailures);
+            if (fontResults.some(r => r.status === 'rejected')) {
+                console.warn('[MarkDown For What] Font pre-load partial failure — rendering will use available fallbacks:', fontResults);
                 figma.ui.postMessage({
                     type: 'status',
                     message: 'Warning: some fonts unavailable. Output may use fallback fonts.',
