@@ -36,7 +36,7 @@ body {
 
 .tab.active {
     color: #000;
-    border-bottom-color: #000;
+    border-bottom-color: #52C7A0;
 }
 
 /* ── Tab panels ───────────────────────────────────────────── */
@@ -83,21 +83,23 @@ body {
 
 /* ── Drop zone ────────────────────────────────────────────── */
 .drop-zone {
-    margin: 16px;
-    border: 2px dashed #CCCCCC;
+    margin: 0;
+    border: 1.5px dashed rgba(82, 199, 160, 0.5);
     border-radius: 8px;
-    padding: 24px 16px;
+    padding: 28px 16px;
     text-align: center;
     cursor: pointer;
     transition: border-color 0.15s, background 0.15s;
     flex-shrink: 0;
     position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.05);
 }
 
 .drop-zone:hover,
 .drop-zone.drag-over {
-    border-color: #0D99FF;
-    background: #F0F8FF;
+    border-color: #52C7A0;
+    background: rgba(255, 255, 255, 0.10);
 }
 
 .drop-zone input[type="file"] {
@@ -108,21 +110,23 @@ body {
 }
 
 .drop-zone-icon {
-    font-size: 24px;
+    font-size: 20px;
     margin-bottom: 8px;
-    color: #888;
+    color: #52C7A0;
 }
 
 .drop-zone-label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #333;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    color: #FFFFFF;
     margin-bottom: 4px;
 }
 
 .drop-zone-sub {
     font-size: 11px;
-    color: #888;
+    font-style: italic;
+    color: #C8E8DF;
 }
 
 /* ── File list ────────────────────────────────────────────── */
@@ -144,7 +148,11 @@ body {
 }
 
 .file-list li::before {
-    content: "📄";
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #52C7A0;
     flex-shrink: 0;
 }
 
@@ -180,13 +188,13 @@ button {
 }
 
 #import-btn {
-    background: #000;
+    background: #52C7A0;
     color: #fff;
     flex-shrink: 0;
 }
 
-#import-btn:hover:not(:disabled) { background: #222; }
-#import-btn:disabled { background: #CCC; cursor: default; }
+#import-btn:hover:not(:disabled) { background: #3FB38A; }
+#import-btn:disabled { background: #C8E8DF; cursor: default; }
 
 .btn-secondary {
     background: none;
