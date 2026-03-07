@@ -6,32 +6,86 @@
     <title>MarkDown For What</title>
 </head>
 <body>
-    <h2>MarkDown For What</h2>
-    <script>console.log('Inline script check: UI HTML loaded');</script>
 
-    <div id="drop-zone" class="drop-zone">
-        <p><strong>Drag & Drop Markdown Files</strong></p>
-        <p style="font-size: 11px; color: #999;">or Click to Browse</p>
-        <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple>
+    <!-- Tab bar -->
+    <nav class="tab-bar">
+        <button class="tab active" data-tab="import">Import</button>
+        <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- Import tab -->
+    <div id="tab-import" class="tab-panel active">
+
+        <div id="drop-zone" class="drop-zone">
+            <div class="drop-zone-icon">↑</div>
+            <p class="drop-zone-label">Drop Markdown files here</p>
+            <p class="drop-zone-sub">or click to browse</p>
+            <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple>
+        </div>
+
+        <ul id="file-list" class="file-list"></ul>
+
+        <div class="bottom-bar">
+            <p id="status-message" class="status-message"></p>
+            <button id="import-btn" disabled>Import</button>
+        </div>
+
     </div>
 
-    <div class="help-text">
-        <p><strong>Batch Import:</strong> Files must match text layer names exactly (e.g., "About.md" updates layer "About").</p>
+    <!-- Settings tab -->
+    <div id="tab-settings" class="tab-panel hidden">
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Spacing</h3>
+            <label class="settings-row">
+                <span class="settings-label">Block spacing</span>
+                <div class="settings-input-wrap"><input type="number" id="blockSpacing" min="0" max="200"><span class="settings-unit">px</span></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">List spacing</span>
+                <div class="settings-input-wrap"><input type="number" id="listSpacing" min="0" max="100"><span class="settings-unit">px</span></div>
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Frame</h3>
+            <label class="settings-row">
+                <span class="settings-label">Padding</span>
+                <div class="settings-input-wrap"><input type="number" id="framePadding" min="0" max="200"><span class="settings-unit">px</span></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Width</span>
+                <div class="settings-input-wrap"><input type="number" id="frameWidth" min="200" max="4000"><span class="settings-unit">px</span></div>
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Colors</h3>
+            <label class="settings-row">
+                <span class="settings-label">Code background</span>
+                <div class="settings-input-wrap"><input type="text" id="codeBackground" maxlength="7" placeholder="#F2F2F2"><input type="color" class="color-swatch" id="codeBackground-swatch"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Table header</span>
+                <div class="settings-input-wrap"><input type="text" id="tableHeaderBackground" maxlength="7" placeholder="#F2F2F7"><input type="color" class="color-swatch" id="tableHeaderBackground-swatch"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Separator</span>
+                <div class="settings-input-wrap"><input type="text" id="separatorColor" maxlength="7" placeholder="#CCCCCC"><input type="color" class="color-swatch" id="separatorColor-swatch"></div>
+            </label>
+        </div>
+
+        <div class="settings-footer">
+            <button id="reset-btn" class="btn-secondary">Reset to defaults</button>
+        </div>
+
     </div>
 
-    <div id="preview-area" class="preview-area">
-        <strong>Preview:</strong>
-        <pre id="file-content" style="white-space: pre-wrap; font-family: monospace;"></pre>
-    </div>
-
-    <button id="import-btn" disabled>Import to Selected Layers</button>
-    <div id="status-message" class="status-message"></div>
-
-    <!-- Loader -->
-    <div id="loader" class="loader-overlay">
+    <!-- Loading overlay -->
+    <div id="loader" class="loader-overlay hidden">
         <div class="loader-content">
             <div class="spinner"></div>
-            <p>Importing...<br>Please do not close this window.</p>
+            <p>Importing…<br>Please do not close this window.</p>
         </div>
     </div>
 

@@ -1,5 +1,5 @@
 import { parseMarkdownToBlocks } from './parser';
-import { loadSettings } from './settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { loadFont } from './styles';
 import { renderBlocks } from './renderer';
 
@@ -8,6 +8,23 @@ figma.showUI(__html__, { width: 400, height: 500 });
 
 // Handle Messages
 figma.ui.onmessage = async (msg) => {
+    if (msg.type === 'get-settings') {
+        const settings = await loadSettings();
+        figma.ui.postMessage({ type: 'settings', settings });
+        return;
+    }
+
+    if (msg.type === 'save-settings') {
+        await saveSettings(msg.settings);
+        return;
+    }
+
+    if (msg.type === 'reset-settings') {
+        await saveSettings(DEFAULT_SETTINGS);
+        figma.ui.postMessage({ type: 'settings', settings: DEFAULT_SETTINGS });
+        return;
+    }
+
     if (msg.type === 'import-markdown-batch') {
         const files = msg.files;
 
