@@ -19,6 +19,9 @@
  */
 export function hexToRgb(hex: string): RGB {
     const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
+    if (!/^[0-9A-Fa-f]{6}$/.test(normalized)) {
+        throw new Error(`Invalid hex color: ${hex}`);
+    }
     return {
         r: parseInt(normalized.slice(0, 2), 16) / 255,
         g: parseInt(normalized.slice(2, 4), 16) / 255,
