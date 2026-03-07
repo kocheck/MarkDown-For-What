@@ -320,6 +320,31 @@ describe('Regression Tests', () => {
         expect(hasText).toBe(true);
     });
 
+    test('strips YAML front matter before parsing', () => {
+        const markdown = '---\ntitle: My Doc\nauthor: Me\n---\n# Actual Content';
+        const blocks = parseMarkdownToBlocks(markdown);
+        const yamlBlock = blocks.find((b: Block) => b.content?.includes('title:'));
+        expect(yamlBlock).toBeUndefined();
+        expect(blocks[0].type).toBe('heading');
+        expect(blocks[0].content).toBe('Actual Content');
+    });
+
+    test('ordered list items are parsed as list blocks', () => {
+        const markdown = '1. First\n2. Second\n3. Third';
+        const blocks = parseMarkdownToBlocks(markdown);
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(listBlocks).toHaveLength(3);
+        expect(listBlocks[0].content).toBe('First');
+        expect(listBlocks[1].content).toBe('Second');
+    });
+
+    test('blockquote block includes the quoted content', () => {
+        const markdown = '> This is a quote';
+        const blocks = parseMarkdownToBlocks(markdown);
+        expect(blocks[0].type).toBe('quote');
+        expect(blocks[0].content).toContain('This is a quote');
+    });
+
     test('should handle empty paragraphs gracefully', () => {
         const markdown = '\n\n\n';
         const blocks = parseMarkdownToBlocks(markdown);

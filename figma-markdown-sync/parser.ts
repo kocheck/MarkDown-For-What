@@ -157,7 +157,12 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
     const frontMatterRegex = /^---[\s\S]*?---\n/;
     const cleanMarkdown = markdown.replace(frontMatterRegex, '');
 
-    const tokens = marked.lexer(cleanMarkdown);
+    let tokens: marked.TokensList;
+    try {
+        tokens = marked.lexer(cleanMarkdown);
+    } catch (err) {
+        throw new Error(`Failed to parse Markdown content — ${err instanceof Error ? err.message : String(err)}`);
+    }
     const blocks: Block[] = [];
 
     for (const token of tokens) {
