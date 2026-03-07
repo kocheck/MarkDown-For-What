@@ -1,11 +1,14 @@
 # Dependencies
 node_modules/
+figma-markdown-sync/node_modules/
 
 # Build output
 dist/
+figma-markdown-sync/dist/
 
 # Test coverage
 coverage/
+figma-markdown-sync/coverage/
 
 # IDE files
 .vscode/
@@ -13,14 +16,23 @@ coverage/
 *.swp
 *.swo
 *~
+figma-markdown-sync/.vscode/
+figma-markdown-sync/.idea/
+figma-markdown-sync/*.swp
+figma-markdown-sync/*.swo
+figma-markdown-sync/*~
 
 # OS files
 .DS_Store
 Thumbs.db
+figma-markdown-sync/.DS_Store
+figma-markdown-sync/Thumbs.db
 
 # Logs
 *.log
 npm-debug.log*
+figma-markdown-sync/*.log
+figma-markdown-sync/npm-debug.log*
 
 # Environment
 .env
