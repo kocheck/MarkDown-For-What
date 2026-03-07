@@ -280,7 +280,10 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 }
 
 /**
- * Renders a single list block as a text node with a bullet prefix.
+ * Renders a single list block as a TextNode.
+ * When inline tokens are present, prepends a bullet token ('• ') before passing to
+ * applyInlineStyles so the bullet is part of the formatted character range.
+ * Falls back to prepending '• ' to block.content when no tokens are present.
  */
 async function renderListBlock(block: Block): Promise<TextNode> {
     const node = figma.createText();
@@ -289,7 +292,9 @@ async function renderListBlock(block: Block): Promise<TextNode> {
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens && block.tokens.length > 0) {
-        await applyInlineStyles(node, block.tokens, STYLE_NAMES.LIST);
+        // Prepend bullet as a synthetic text token so applyInlineStyles includes it
+        const bulletToken = { type: 'text', raw: '• ', text: '• ' } as any;
+        await applyInlineStyles(node, [bulletToken, ...block.tokens], STYLE_NAMES.LIST);
     } else {
         const content = block.content ? `• ${block.content}` : '•';
         node.characters = content;
@@ -332,7 +337,12 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errFrame.counterAxisSizingMode = 'FIXED';
 
     const errText = figma.createText();
-    const fontName = await loadFont('Inter', 'Regular');
+    let fontName: FontName;
+    try {
+        fontName = await loadFont('Inter', 'Regular');
+    } catch {
+        fontName = { family: 'Inter', style: 'Regular' };
+    }
     errText.fontName = fontName;
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
