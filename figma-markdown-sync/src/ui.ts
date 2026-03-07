@@ -98,16 +98,16 @@ async function handleFiles(files: FileList) {
     } catch (err) {
         showStatus('Error reading files', 'error');
     }
+    fileInput.value = '';
 }
 
 function renderFileList(files: { name: string; content: string }[]) {
-    const listEl = document.getElementById('file-list') as HTMLUListElement;
-    listEl.textContent = ''; // Clear without innerHTML
+    fileList.textContent = ''; // Clear without innerHTML
 
     for (const file of files) {
         const li = document.createElement('li');
         li.textContent = file.name;
-        listEl.appendChild(li);
+        fileList.appendChild(li);
     }
 }
 
@@ -126,6 +126,7 @@ importBtn.addEventListener('click', () => {
 // ── Settings ────────────────────────────────────────────────────────────────
 
 function populateSettings(settings: Record<string, unknown>) {
+    if (!settings || typeof settings !== 'object') return;
     for (const id of settingInputIds) {
         const input = document.getElementById(id) as HTMLInputElement | null;
         if (!input || !(id in settings)) continue;
@@ -190,11 +191,10 @@ window.onmessage = event => {
     const msg = event.data?.pluginMessage;
     if (!msg) return;
 
-    loader.classList.add('hidden');
-    importBtn.disabled = currentFiles.length === 0;
-
     switch (msg.type) {
         case 'status':
+            loader.classList.add('hidden');
+            importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : 'success');
             break;
         case 'settings':
