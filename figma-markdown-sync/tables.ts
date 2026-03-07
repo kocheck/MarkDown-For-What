@@ -96,9 +96,8 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         }
 
         const textNode = figma.createText();
-        textNode.fontName = headerFont;
-        textNode.fontSize = bodyStyle.fontSize;
-        textNode.lineHeight = bodyStyle.lineHeight;
+        textNode.textStyleId = bodyStyle.id;  // link to Markdown/Body style
+        textNode.fontName = headerFont;       // override to bold after linking
         textNode.layoutAlign = 'STRETCH';
         textNode.characters = cell.text;
 
