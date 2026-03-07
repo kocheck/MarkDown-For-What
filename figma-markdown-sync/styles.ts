@@ -1,0 +1,199 @@
+/**
+ * styles.ts
+ *
+ * Manages Figma text styles and inline rich-text rendering.
+ *
+ * Responsibilities:
+ *   - Defining default typography config for each Markdown element type
+ *   - Creating local Figma text styles on first import
+ *   - Applying inline bold/italic/code formatting to TextNode character ranges
+ *
+ * IMPORTANT: Existing text styles (e.g. Markdown/H1) are NEVER overwritten.
+ * Designers can customize styles in Figma and those changes survive re-imports.
+ *
+ * Public API:
+ *   STYLE_NAMES                              — canonical style name constants
+ *   DEFAULT_STYLES                           — default font config per style
+ *   loadFont(family, style)                  — async: loads font with fallback
+ *   getOrCreateTextStyle(name, config)       — async: gets or creates a text style
+ *   initializeStyles()                       — async: ensures all styles exist
+ *   applyInlineStyles(node, tokens, base)    — async: applies mixed formatting
+ */
+
+import { marked } from 'marked';
+import { flattenTokens } from './parser';
+
+// ─── Style Name Constants ──────────────────────────────────────────────────────
+
+/**
+ * Canonical Figma text style names used by this plugin.
+ * These appear in the "Local Styles" panel under the "Markdown/" group.
+ */
+export const STYLE_NAMES = {
+    H1:    'Markdown/H1',
+    H2:    'Markdown/H2',
+    H3:    'Markdown/H3',
+    BODY:  'Markdown/Body',
+    CODE:  'Markdown/Code',
+    LIST:  'Markdown/List',
+    QUOTE: 'Markdown/Quote',
+} as const;
+
+// ─── Style Configuration ───────────────────────────────────────────────────────
+
+/** Configuration needed to create a Figma text style for the first time. */
+export interface StyleConfig {
+    family: string;
+    style: string;
+    size: number;
+    /** Line height multiplier, e.g. 1.5 = 150% */
+    lineHeight: number;
+}
+
+/**
+ * Default typography values for each Markdown style.
+ * Applied ONLY when creating a style that does not yet exist in the document.
+ * If a style already exists, these values are ignored.
+ */
+export const DEFAULT_STYLES: Record<string, StyleConfig> = {
+    [STYLE_NAMES.H1]:    { family: 'Inter', style: 'Bold',    size: 32, lineHeight: 1.2 },
+    [STYLE_NAMES.H2]:    { family: 'Inter', style: 'Bold',    size: 24, lineHeight: 1.3 },
+    [STYLE_NAMES.H3]:    { family: 'Inter', style: 'Bold',    size: 20, lineHeight: 1.4 },
+    [STYLE_NAMES.BODY]:  { family: 'Inter', style: 'Regular', size: 16, lineHeight: 1.5 },
+    [STYLE_NAMES.CODE]:  { family: 'Roboto Mono', style: 'Regular', size: 14, lineHeight: 1.4 },
+    [STYLE_NAMES.LIST]:  { family: 'Inter', style: 'Regular', size: 16, lineHeight: 1.5 },
+    [STYLE_NAMES.QUOTE]: { family: 'Inter', style: 'Italic',  size: 16, lineHeight: 1.5 },
+};
+
+// ─── Font Loading ──────────────────────────────────────────────────────────────
+
+/**
+ * Loads a font by family and style, falling back to Inter Regular if not found.
+ * Figma requires fonts to be loaded before they can be set on text nodes.
+ *
+ * @param family - Font family name (e.g. 'Inter', 'Roboto Mono')
+ * @param style  - Font style (e.g. 'Regular', 'Bold', 'Italic')
+ * @returns The loaded FontName — may differ from input if fallback was used
+ */
+export async function loadFont(family: string, style: string): Promise<FontName> {
+    const font: FontName = { family, style };
+    try {
+        await figma.loadFontAsync(font);
+        return font;
+    } catch {
+        console.warn(`Font not found: ${family} ${style}, falling back to Inter Regular`);
+        const fallback: FontName = { family: 'Inter', style: 'Regular' };
+        await figma.loadFontAsync(fallback);
+        return fallback;
+    }
+}
+
+// ─── Style Management ──────────────────────────────────────────────────────────
+
+/**
+ * Returns an existing Figma text style by name, or creates a new one with the
+ * given config if it doesn't exist yet.
+ *
+ * IMPORTANT: If the style already exists, its properties are NOT modified.
+ * This preserves any customizations the designer has made in Figma.
+ *
+ * @param name   - The style name to look up (e.g. 'Markdown/H1')
+ * @param config - Font config used ONLY when creating a new style
+ * @returns The existing or newly created TextStyle
+ */
+export async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<TextStyle> {
+    const existing = figma.getLocalTextStyles().find(s => s.name === name);
+
+    if (existing) {
+        return existing; // Do not modify — preserves designer customizations
+    }
+
+    await loadFont(config.family, config.style);
+    const newStyle = figma.createTextStyle();
+    newStyle.name = name;
+    newStyle.fontName = { family: config.family, style: config.style };
+    newStyle.fontSize = config.size;
+    newStyle.lineHeight = { value: config.lineHeight * 100, unit: 'PERCENT' };
+    return newStyle;
+}
+
+/**
+ * Ensures all Markdown/* text styles exist in the document.
+ * Creates any that are missing using DEFAULT_STYLES values.
+ * Call once at the start of an import before rendering any blocks.
+ */
+export async function initializeStyles(): Promise<void> {
+    await Promise.all(
+        Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name]))
+    );
+}
+
+// ─── Inline Style Rendering ───────────────────────────────────────────────────
+
+/**
+ * Applies inline bold/italic/code formatting to a TextNode by setting font
+ * overrides on individual character ranges.
+ *
+ * Call AFTER setting node.textStyleId. This function sets node.characters
+ * and overrides font names at specific character ranges.
+ *
+ * @param node          - The Figma TextNode to format
+ * @param tokens        - Inline marked tokens describing the rich text
+ * @param baseStyleName - Which STYLE_NAMES key applies (affects bold inheritance for headings)
+ */
+export async function applyInlineStyles(
+    node: TextNode,
+    tokens: marked.Token[] | undefined,
+    baseStyleName: string
+): Promise<void> {
+    if (!tokens || tokens.length === 0) return;
+
+    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+    const fullText = segments.map(s => s.text).join('');
+    node.characters = fullText;
+
+    const baseConfig = DEFAULT_STYLES[baseStyleName];
+    const [regularFont, boldFont, italicFont, boldItalicFont, codeFont] = await Promise.all([
+        loadFont(baseConfig.family, 'Regular'),
+        loadFont(baseConfig.family, 'Bold'),
+        loadFont(baseConfig.family, 'Italic'),
+        loadFont(baseConfig.family, 'Bold Italic'),
+        loadFont('Roboto Mono', 'Regular'),
+    ]);
+
+    const isBaseBold = baseConfig.style.includes('Bold');
+    let currentIndex = 0;
+
+    for (const segment of segments) {
+        const start = currentIndex;
+        const end = currentIndex + segment.text.length;
+
+        if (end > start) {
+            let font: FontName;
+            if (segment.code) {
+                font = codeFont;
+            } else {
+                const effectiveBold = segment.bold || isBaseBold;
+                const effectiveItalic = segment.italic;
+                if (effectiveBold && effectiveItalic) font = boldItalicFont;
+                else if (effectiveBold) font = boldFont;
+                else if (effectiveItalic) font = italicFont;
+                else font = regularFont;
+            }
+            node.setRangeFontName(start, end, font);
+        }
+        currentIndex = end;
+    }
+}
+
+// CommonJS export shim — allows Jest (require()) and webpack (import) to both work
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        STYLE_NAMES,
+        DEFAULT_STYLES,
+        loadFont,
+        getOrCreateTextStyle,
+        initializeStyles,
+        applyInlineStyles,
+    };
+}

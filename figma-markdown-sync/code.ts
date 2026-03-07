@@ -1,139 +1,11 @@
-import { type marked } from 'marked';
-import { parseMarkdownToBlocks, flattenTokens } from './parser';
-import type { Block, StyledSegment } from './parser';
+import { parseMarkdownToBlocks } from './parser';
+import type { Block } from './parser';
+import { STYLE_NAMES, DEFAULT_STYLES, StyleConfig, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 
 // Display UI
 figma.showUI(__html__, { width: 400, height: 500 });
 
-/**
- * --- Constants & Configuration ---
- */
-
-const STYLE_NAMES = {
-    H1: 'Markdown/H1',
-    H2: 'Markdown/H2',
-    H3: 'Markdown/H3',
-    BODY: 'Markdown/Body',
-    CODE: 'Markdown/Code',
-    LIST: 'Markdown/List',
-    QUOTE: 'Markdown/Quote',
-};
-
 const FRAME_WIDTH = 800; // Default width for content frames
-
-interface StyleConfig {
-    family: string;
-    style: string;
-    size: number;
-    lineHeight: number; // as percentage (e.g., 1.5 = 150%)
-}
-
-const DEFAULT_STYLES: Record<string, StyleConfig> = {
-    [STYLE_NAMES.H1]: { family: 'Inter', style: 'Bold', size: 32, lineHeight: 1.2 },
-    [STYLE_NAMES.H2]: { family: 'Inter', style: 'Bold', size: 24, lineHeight: 1.3 },
-    [STYLE_NAMES.H3]: { family: 'Inter', style: 'Bold', size: 20, lineHeight: 1.4 },
-    [STYLE_NAMES.BODY]: { family: 'Inter', style: 'Regular', size: 16, lineHeight: 1.5 },
-    [STYLE_NAMES.CODE]: { family: 'Roboto Mono', style: 'Regular', size: 14, lineHeight: 1.4 },
-    [STYLE_NAMES.LIST]: { family: 'Inter', style: 'Regular', size: 16, lineHeight: 1.5 },
-    [STYLE_NAMES.QUOTE]: { family: 'Inter', style: 'Italic', size: 16, lineHeight: 1.5 },
-};
-
-/**
- * --- Helper Functions ---
- */
-
-async function loadFont(family: string, style: string): Promise<FontName> {
-    const font: FontName = { family, style };
-    try {
-        await figma.loadFontAsync(font);
-        return font;
-    } catch (e) {
-        console.warn(`Font not found: ${family} ${style}, falling back to Inter Regular`);
-        const fallback: FontName = { family: 'Inter', style: 'Regular' };
-        await figma.loadFontAsync(fallback);
-        return fallback;
-    }
-}
-
-async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<TextStyle> {
-    const styles = figma.getLocalTextStyles();
-    let style = styles.find(s => s.name === name);
-
-    if (!style) {
-        style = figma.createTextStyle();
-        style.name = name;
-    }
-
-    await loadFont(config.family, config.style);
-
-    style.fontName = { family: config.family, style: config.style };
-    style.fontSize = config.size;
-    style.lineHeight = { value: config.lineHeight * 100, unit: 'PERCENT' };
-
-    return style;
-}
-
-/**
- * --- Inline Style Parsing ---
- */
-
-async function applyInlineStyles(node: TextNode, tokens: marked.Token[] | undefined, baseStyleName: string) {
-    if (!tokens || tokens.length === 0) {
-        // Fallback if no tokens (unexpected for simple text, but possible)
-        return;
-    }
-
-    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
-    const fullText = segments.map(s => s.text).join('');
-
-    // Set Characters first
-    node.characters = fullText;
-
-    // Load Fonts required for styles
-    const baseConfig = DEFAULT_STYLES[baseStyleName];
-    // derive variants
-    const regularFont = await loadFont(baseConfig.family, 'Regular');
-    const boldFont = await loadFont(baseConfig.family, 'Bold');
-    const italicFont = await loadFont(baseConfig.family, 'Italic');
-    const boldItalicFont = await loadFont(baseConfig.family, 'Bold Italic');
-    const codeFont = await loadFont('Roboto Mono', 'Regular');
-
-    let currentIndex = 0;
-    for (const segment of segments) {
-        const start = currentIndex;
-        const end = currentIndex + segment.text.length;
-
-        if (end > start) {
-            let font = regularFont; // Default to Regular variant of the base family
-
-            // Note: If base style (like H1) is already Bold, we should respect that?
-            // Current strict logic: H1 is Bold by default.
-            // If H1 text has **bold**, it remains Bold.
-            // If H1 text has *italic*, it becomes Bold Italic?
-
-            const isBaseBold = baseConfig.style.includes('Bold');
-
-            if (segment.code) {
-                font = codeFont;
-            } else {
-                const effectiveBold = segment.bold || isBaseBold;
-                const effectiveItalic = segment.italic;
-
-                if (effectiveBold && effectiveItalic) font = boldItalicFont;
-                else if (effectiveBold) font = boldFont;
-                else if (effectiveItalic) font = italicFont;
-                else font = regularFont;
-            }
-
-            node.setRangeFontName(start, end, font);
-
-            // If code span, maybe add color? (Not fully supported in setRangeTextStyleId mixed with fonts easily without resetting)
-            // For now, font change is good.
-        }
-        currentIndex = end;
-    }
-}
-
 
 /**
  * --- Helper function to create table frames ---
@@ -375,8 +247,8 @@ async function createImageNode(block: Block): Promise<RectangleNode | FrameNode>
 async function createMarkdownFrame(name: string, markdown: string, targetNode?: SceneNode) {
     const blocks = parseMarkdownToBlocks(markdown);
 
-    // Load all base fonts
-    await Promise.all(Object.keys(DEFAULT_STYLES).map(k => getOrCreateTextStyle(k, DEFAULT_STYLES[k])));
+    // Ensure all Markdown/* text styles exist (creates missing ones, never overwrites existing)
+    await initializeStyles();
 
     let frame: FrameNode;
     if (targetNode && targetNode.parent) {
@@ -402,7 +274,7 @@ async function createMarkdownFrame(name: string, markdown: string, targetNode?: 
 
     for (const block of blocks) {
         let node: SceneNode | null = null;
-        let styleName = STYLE_NAMES.BODY;
+        let styleName: string = STYLE_NAMES.BODY;
 
         switch (block.type) {
             case 'heading':
