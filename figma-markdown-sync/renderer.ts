@@ -238,6 +238,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         case 'code': {
             const codeFrame = figma.createFrame();
             codeFrame.layoutMode = 'VERTICAL';
+            codeFrame.primaryAxisSizingMode = 'AUTO';
             codeFrame.fills = [{ type: 'SOLID', color: hexToRgb(settings.codeBackground) }];
             codeFrame.paddingTop = 16;
             codeFrame.paddingBottom = 16;
@@ -252,6 +253,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
             codeText.textStyleId = codeStyle.id;
             codeText.characters = block.content || '';
+            codeText.layoutAlign = 'STRETCH';
 
             codeFrame.appendChild(codeText);
             return codeFrame;
@@ -296,7 +298,7 @@ async function renderListBlock(block: Block): Promise<TextNode> {
  * Sets layoutAlign to STRETCH so the node fills the parent frame width.
  */
 async function applyTextStyle(node: TextNode, block: Block, styleName: string): Promise<void> {
-    const style = await getOrCreateTextStyle(styleName, DEFAULT_STYLES[styleName]);
+    const style = await getOrCreateTextStyle(styleName, DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY]);
     node.textStyleId = style.id;
     node.layoutAlign = 'STRETCH';
 
