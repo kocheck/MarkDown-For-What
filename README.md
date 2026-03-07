@@ -16,7 +16,11 @@
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝     ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝
 ```
 
-**MarkDown For What** is a Figma plugin that synchronizes Markdown content directly into Figma as structured Auto Layout frames. It automatically generates styles, handles layout, and supports batch operations, making it the perfect tool for maintaining design system documentation, changelogs, or content-heavy prototypes.
+**MarkDown For What** turns your Markdown files into structured design frames — automatically. Drop in a file (or a dozen), and it builds headings, body text, code blocks, tables, and images as properly styled, Auto Layout-ready frames. Update the source later? Drop it again — it finds the frame and replaces it in place.
+
+No copy-paste. No style hunting. No duplicates.
+
+Currently available as a **Figma plugin**. Sketch support coming.
 
 ![Plugin Preview](./doc-assets/preview.png)
 
