@@ -17,6 +17,6 @@
       "./node_modules/@figma"
     ]
   },
-  "include": ["src/**/*.ts", "code.ts"],
+  "include": ["src/**/*.ts", "code.ts", "*.ts", "../shared/**/*.ts"],
   "exclude": ["node_modules", "dist"]
 }

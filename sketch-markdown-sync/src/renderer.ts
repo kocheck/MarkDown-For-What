@@ -315,11 +315,11 @@ export function renderBlocks(
         artboard.frame.x = targetArtboard.frame.x;
         artboard.frame.y = targetArtboard.frame.y;
 
-        // Insert at same position in layer order
+        // Insert at same position in layer order, then remove old artboard
         const layerIndex = page.layers.indexOf(targetArtboard);
-        targetArtboard.remove();
-        if (layerIndex >= 0 && layerIndex < page.layers.length) {
+        if (layerIndex >= 0) {
             page.layers.splice(layerIndex, 0, artboard);
+            targetArtboard.remove();
         }
     }
 

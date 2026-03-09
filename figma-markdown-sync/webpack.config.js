@@ -19,6 +19,7 @@ module.exports = (env, argv) => ({
         test: /\.(tsx?|jsx?)$/,
         use: 'ts-loader',
         exclude: /node_modules\/(?!marked)/,
+        include: [path.resolve(__dirname, '.'), path.resolve(__dirname, '../shared')],
       },
       {
         test: /\.css$/,

@@ -62,7 +62,7 @@ export function onImportMarkdown(): void {
      * Calls window.pluginMessage(json) in the webview context.
      */
     function sendToUI(msg: Record<string, unknown>): void {
-        const json = JSON.stringify(msg).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        const json = JSON.stringify(msg).replace(/'/g, "\\'");
         webContents.executeJavaScript(`window.pluginMessage('${json}')`);
     }
 

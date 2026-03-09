@@ -1,0 +1,15 @@
+{
+    "name": "mdfw-shared",
+    "private": true,
+    "scripts": {
+        "test": "jest"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "jest": "^29.7.0",
+        "@types/marked": "^4.3.2",
+        "marked": "^4.3.0",
+        "ts-jest": "^29.4.6",
+        "typescript": "^5.8.3"
+    }
+}

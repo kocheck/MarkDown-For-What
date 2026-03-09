@@ -1,24 +1,23 @@
 /**
- * Unit tests for Markdown parsing logic
- * Tests the core functionality we fixed: image extraction, block parsing, and inline styles
+ * Unit tests for shared Markdown parsing logic.
+ * These tests are platform-agnostic and run from the shared/ directory.
  */
 
 import { marked } from 'marked';
 import type { Block } from './parser';
-
-// Import the functions we want to test
-const {
-    extractImagesFromTokens,
-    parseMarkdownToBlocks,
-    flattenTokens
-} = require('./parser');
+import { extractImagesFromTokens, parseMarkdownToBlocks, flattenTokens } from './parser';
 
 describe('extractImagesFromTokens', () => {
     test('should extract image tokens from mixed content', () => {
         const tokens: marked.Token[] = [
             { type: 'text', raw: 'Some text', text: 'Some text' } as marked.Tokens.Text,
-            { type: 'image', raw: '![alt](url)', href: 'https://example.com/image.png', text: 'alt' } as marked.Tokens.Image,
-            { type: 'text', raw: 'More text', text: 'More text' } as marked.Tokens.Text
+            {
+                type: 'image',
+                raw: '![alt](url)',
+                href: 'https://example.com/image.png',
+                text: 'alt',
+            } as marked.Tokens.Image,
+            { type: 'text', raw: 'More text', text: 'More text' } as marked.Tokens.Text,
         ];
 
         const result = extractImagesFromTokens(tokens);
@@ -31,8 +30,18 @@ describe('extractImagesFromTokens', () => {
 
     test('should handle tokens with only images', () => {
         const tokens: marked.Token[] = [
-            { type: 'image', raw: '![alt1](url1)', href: 'https://example.com/1.png', text: 'alt1' } as marked.Tokens.Image,
-            { type: 'image', raw: '![alt2](url2)', href: 'https://example.com/2.png', text: 'alt2' } as marked.Tokens.Image
+            {
+                type: 'image',
+                raw: '![alt1](url1)',
+                href: 'https://example.com/1.png',
+                text: 'alt1',
+            } as marked.Tokens.Image,
+            {
+                type: 'image',
+                raw: '![alt2](url2)',
+                href: 'https://example.com/2.png',
+                text: 'alt2',
+            } as marked.Tokens.Image,
         ];
 
         const result = extractImagesFromTokens(tokens);
@@ -44,7 +53,12 @@ describe('extractImagesFromTokens', () => {
     test('should handle tokens with no images', () => {
         const tokens: marked.Token[] = [
             { type: 'text', raw: 'Only text', text: 'Only text' } as marked.Tokens.Text,
-            { type: 'strong', raw: '**bold**', text: 'bold', tokens: [] } as marked.Tokens.Strong
+            {
+                type: 'strong',
+                raw: '**bold**',
+                text: 'bold',
+                tokens: [],
+            } as marked.Tokens.Strong,
         ];
 
         const result = extractImagesFromTokens(tokens);
@@ -75,7 +89,8 @@ describe('parseMarkdownToBlocks', () => {
     });
 
     test('should extract standalone images into separate blocks', () => {
-        const markdown = 'Some text\n\n![Image Alt](https://example.com/image.png)\n\nMore text';
+        const markdown =
+            'Some text\n\n![Image Alt](https://example.com/image.png)\n\nMore text';
         const blocks = parseMarkdownToBlocks(markdown);
 
         const imageBlocks = blocks.filter((b: Block) => b.type === 'image');
@@ -89,14 +104,13 @@ describe('parseMarkdownToBlocks', () => {
         const blocks = parseMarkdownToBlocks(markdown);
 
         const imageBlocks = blocks.filter((b: Block) => b.type === 'image');
-
-        // Should have both paragraph with text and separate image block
         expect(imageBlocks.length).toBeGreaterThan(0);
         expect(imageBlocks[0].imageUrl).toBe('https://example.com/img.png');
     });
 
     test('should handle multiple inline images', () => {
-        const markdown = '![Image 1](https://example.com/1.png) and ![Image 2](https://example.com/2.png)';
+        const markdown =
+            '![Image 1](https://example.com/1.png) and ![Image 2](https://example.com/2.png)';
         const blocks = parseMarkdownToBlocks(markdown);
 
         const imageBlocks = blocks.filter((b: Block) => b.type === 'image');
@@ -125,7 +139,8 @@ describe('parseMarkdownToBlocks', () => {
     });
 
     test('should parse tables', () => {
-        const markdown = '| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |';
+        const markdown =
+            '| Header 1 | Header 2 |\n|----------|----------|\n| Cell 1   | Cell 2   |';
         const blocks = parseMarkdownToBlocks(markdown);
 
         expect(blocks).toHaveLength(1);
@@ -185,8 +200,8 @@ describe('flattenTokens', () => {
                 type: 'strong',
                 raw: '**bold**',
                 text: 'bold',
-                tokens: [{ type: 'text', raw: 'bold', text: 'bold' } as marked.Tokens.Text]
-            } as marked.Tokens.Strong
+                tokens: [{ type: 'text', raw: 'bold', text: 'bold' } as marked.Tokens.Text],
+            } as marked.Tokens.Strong,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
@@ -202,8 +217,10 @@ describe('flattenTokens', () => {
                 type: 'em',
                 raw: '*italic*',
                 text: 'italic',
-                tokens: [{ type: 'text', raw: 'italic', text: 'italic' } as marked.Tokens.Text]
-            } as marked.Tokens.Em
+                tokens: [
+                    { type: 'text', raw: 'italic', text: 'italic' } as marked.Tokens.Text,
+                ],
+            } as marked.Tokens.Em,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
@@ -218,8 +235,8 @@ describe('flattenTokens', () => {
             {
                 type: 'codespan',
                 raw: '`code`',
-                text: 'code'
-            } as marked.Tokens.Codespan
+                text: 'code',
+            } as marked.Tokens.Codespan,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
@@ -236,15 +253,25 @@ describe('flattenTokens', () => {
                 raw: '**bold with *italic***',
                 text: 'bold with italic',
                 tokens: [
-                    { type: 'text', raw: 'bold with ', text: 'bold with ' } as marked.Tokens.Text,
+                    {
+                        type: 'text',
+                        raw: 'bold with ',
+                        text: 'bold with ',
+                    } as marked.Tokens.Text,
                     {
                         type: 'em',
                         raw: '*italic*',
                         text: 'italic',
-                        tokens: [{ type: 'text', raw: 'italic', text: 'italic' } as marked.Tokens.Text]
-                    } as marked.Tokens.Em
-                ]
-            } as marked.Tokens.Strong
+                        tokens: [
+                            {
+                                type: 'text',
+                                raw: 'italic',
+                                text: 'italic',
+                            } as marked.Tokens.Text,
+                        ],
+                    } as marked.Tokens.Em,
+                ],
+            } as marked.Tokens.Strong,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
@@ -261,7 +288,7 @@ describe('flattenTokens', () => {
 
     test('should handle plain text', () => {
         const tokens: marked.Token[] = [
-            { type: 'text', raw: 'plain text', text: 'plain text' } as marked.Tokens.Text
+            { type: 'text', raw: 'plain text', text: 'plain text' } as marked.Tokens.Text,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
@@ -275,7 +302,6 @@ describe('flattenTokens', () => {
 
     test('should handle empty tokens array', () => {
         const segments = flattenTokens([], { bold: false, italic: false, code: false });
-
         expect(segments).toHaveLength(0);
     });
 
@@ -285,27 +311,52 @@ describe('flattenTokens', () => {
             { type: 'unknown-type', raw: 'raw', text: 'fallback text' } as any,
         ];
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
-        // 'space' has no 'text' property, so produces no segment
-        // 'unknown-type' has 'text', so produces one segment
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('fallback text');
     });
 
-    test('should treat links as text', () => {
+    test('should recurse into link tokens to preserve formatting', () => {
         const tokens: marked.Token[] = [
             {
                 type: 'link',
                 raw: '[link](url)',
                 text: 'link',
                 href: 'url',
-                tokens: [{ type: 'text', raw: 'link', text: 'link' } as marked.Tokens.Text]
-            } as marked.Tokens.Link
+                tokens: [{ type: 'text', raw: 'link', text: 'link' } as marked.Tokens.Text],
+            } as marked.Tokens.Link,
         ];
 
         const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('link');
+    });
+
+    test('should preserve bold formatting inside links', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'link',
+                raw: '[**bold link**](url)',
+                text: 'bold link',
+                href: 'url',
+                tokens: [
+                    {
+                        type: 'strong',
+                        raw: '**bold link**',
+                        text: 'bold link',
+                        tokens: [
+                            { type: 'text', raw: 'bold link', text: 'bold link' } as marked.Tokens.Text,
+                        ],
+                    } as marked.Tokens.Strong,
+                ],
+            } as marked.Tokens.Link,
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('bold link');
+        expect(segments[0].bold).toBe(true);
     });
 });
 
@@ -324,12 +375,12 @@ describe('Regression Tests', () => {
         const markdown = 'Text before image ![img](url) text after image';
         const blocks = parseMarkdownToBlocks(markdown);
 
-        // Should have extracted the image into a separate block
         const hasImage = blocks.some((b: Block) => b.type === 'image');
         expect(hasImage).toBe(true);
 
-        // Should also have text content (might be split)
-        const hasText = blocks.some((b: Block) => b.type === 'paragraph' && b.content && b.content.trim().length > 0);
+        const hasText = blocks.some(
+            (b: Block) => b.type === 'paragraph' && b.content && b.content.trim().length > 0,
+        );
         expect(hasText).toBe(true);
     });
 
@@ -371,7 +422,6 @@ describe('Regression Tests', () => {
         const markdown = '\n\n\n';
         const blocks = parseMarkdownToBlocks(markdown);
 
-        // Should not create empty paragraph blocks
         const nonEmptyBlocks = blocks.filter((b: Block) => {
             if (b.type === 'paragraph') {
                 return b.content && b.content.trim().length > 0;

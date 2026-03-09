@@ -1,17 +1,16 @@
 /**
  * utils.ts
  *
- * Shared utility functions used across multiple modules.
- * Pure functions only — no Sketch API calls, no side effects.
+ * Sketch-specific utilities plus re-exports of shared utilities.
  *
  * Public API:
- *   hexToSketchColor(hex)        — converts hex to Sketch-compatible hex string with alpha
- *   errorMessage(e)              — extracts a string message from any thrown value
- *   isValidHex(value)            — validates a 6-digit hex color string
- *   hasSupportedExtension(name)  — checks if filename is a supported Markdown file
- *   SUPPORTED_EXTENSIONS         — list of supported file extensions
- *   TEXT_COLOR / ERROR_TEXT_COLOR / ERROR_BORDER_COLOR / etc. — shared color constants
+ *   hexToSketchColor(hex)     — converts hex to Sketch-compatible hex+alpha string (local)
+ *   Color constants           — shared color values in Sketch hex+alpha format (local)
+ *   errorMessage, isValidHex, SUPPORTED_EXTENSIONS, hasSupportedExtension — re-exported from shared
  */
+
+export { errorMessage, SUPPORTED_EXTENSIONS, hasSupportedExtension } from '../../shared/utils';
+export { isValidHex } from '../../shared/settings';
 
 // ─── Color Constants ────────────────────────────────────────────────────────────
 
@@ -44,30 +43,4 @@ export function hexToSketchColor(hex: string): string {
         throw new Error(`Invalid hex color: ${hex}`);
     }
     return normalized.toLowerCase() + 'ff';
-}
-
-/**
- * Extracts a human-readable error message from any thrown value.
- */
-export function errorMessage(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}
-
-/**
- * Returns true if value is a valid 6-digit CSS hex color string (e.g. '#AABBCC').
- */
-export function isValidHex(value: unknown): boolean {
-    return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
-}
-
-/**
- * The supported Markdown file extensions accepted by this plugin.
- */
-export const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'] as const;
-
-/**
- * Returns true if the filename ends with one of the supported Markdown extensions.
- */
-export function hasSupportedExtension(filename: string): boolean {
-    return SUPPORTED_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext));
 }

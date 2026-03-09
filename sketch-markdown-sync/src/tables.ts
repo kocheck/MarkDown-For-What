@@ -124,7 +124,8 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
 
     const totalHeight = headerHeight +
         rowHeights.reduce((sum, h) => sum + h, 0) +
-        BORDER_WIDTH;
+        BORDER_WIDTH +
+        (block.rows.length > 0 ? (block.rows.length - 1) * BORDER_WIDTH : 0);
 
     // Create table group
     const tableGroup = new sketch.Group({
@@ -200,7 +201,7 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
         const row = block.rows[rowIndex];
         const rowHeight = rowHeights[rowIndex];
 
-        for (let colIndex = 0; colIndex < row.length; colIndex++) {
+        for (let colIndex = 0; colIndex < Math.min(row.length, numCols); colIndex++) {
             const cell = row[colIndex];
             const cellX = colIndex * colWidth + DATA_PADDING_H;
             const textWidth = colWidth - 2 * DATA_PADDING_H;

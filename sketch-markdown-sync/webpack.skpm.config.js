@@ -2,12 +2,18 @@
  * Custom webpack config for skpm builds.
  * skpm automatically sets entry/output; this config is merged on top.
  */
+const path = require('path');
+
 module.exports = function (config) {
   config.module.rules.push(
     {
       test: /\.tsx?$/,
       use: 'ts-loader',
       exclude: /node_modules\/(?!marked)/,
+      include: [
+        path.resolve(__dirname, 'src'),
+        path.resolve(__dirname, '../shared'),
+      ],
     },
     {
       test: /\.css$/,
