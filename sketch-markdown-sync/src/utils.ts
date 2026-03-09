@@ -5,50 +5,45 @@
  * Pure functions only — no Sketch API calls, no side effects.
  *
  * Public API:
- *   hexToRgb(hex)                — converts hex color string to {r,g,b} (0-1 range)
- *   hexToSketchColor(hex)        — converts hex to Sketch-compatible hex string
+ *   hexToSketchColor(hex)        — converts hex to Sketch-compatible hex string with alpha
  *   errorMessage(e)              — extracts a string message from any thrown value
  *   isValidHex(value)            — validates a 6-digit hex color string
  *   hasSupportedExtension(name)  — checks if filename is a supported Markdown file
  *   SUPPORTED_EXTENSIONS         — list of supported file extensions
+ *   TEXT_COLOR / ERROR_TEXT_COLOR / ERROR_BORDER_COLOR / etc. — shared color constants
  */
 
-/**
- * RGB type compatible with Sketch's color model (0-1 range).
- */
-export interface RGB {
-    r: number;
-    g: number;
-    b: number;
-}
+// ─── Color Constants ────────────────────────────────────────────────────────────
+
+/** Standard black text color (Sketch hex+alpha format). */
+export const TEXT_COLOR = '#000000ff';
+/** Error text color (dark red). */
+export const ERROR_TEXT_COLOR = '#993333ff';
+/** Error border color (medium red). */
+export const ERROR_BORDER_COLOR = '#cc3333ff';
+/** Error background color (light red tint). */
+export const ERROR_BG_COLOR = '#ffe6e6ff';
+/** Image placeholder background color (light gray). */
+export const PLACEHOLDER_BG_COLOR = '#f2f2f2ff';
+/** White with full alpha. */
+export const WHITE_COLOR = '#ffffffff';
+/** Table outer border / header column separator color. */
+export const TABLE_BORDER_COLOR = '#ccccccff';
+/** Table data row border color (lighter). */
+export const TABLE_ROW_BORDER_COLOR = '#e6e6e6ff';
+
+// ─── Color Conversion ────────────────────────────────────────────────────────────
 
 /**
- * Converts a 6-digit hex color string to an RGB object with values in 0–1 range.
- *
- * @example hexToRgb('#FF0000') // → { r: 1, g: 0, b: 0 }
- */
-export function hexToRgb(hex: string): RGB {
-    const normalized = hex.startsWith('#') ? hex.slice(1) : hex;
-    if (!/^[0-9A-Fa-f]{6}$/.test(normalized)) {
-        throw new Error(`Invalid hex color: ${hex}`);
-    }
-    return {
-        r: parseInt(normalized.slice(0, 2), 16) / 255,
-        g: parseInt(normalized.slice(2, 4), 16) / 255,
-        b: parseInt(normalized.slice(4, 6), 16) / 255,
-    };
-}
-
-/**
- * Ensures a hex color string has the '#' prefix and is properly formatted.
- * Sketch APIs accept hex strings directly in many contexts.
+ * Ensures a hex color string has the '#' prefix and appends 'ff' alpha.
+ * Sketch APIs accept hex strings in '#rrggbbaa' format.
  */
 export function hexToSketchColor(hex: string): string {
     const normalized = hex.startsWith('#') ? hex : `#${hex}`;
     if (!/^#[0-9A-Fa-f]{6}$/.test(normalized)) {
         throw new Error(`Invalid hex color: ${hex}`);
     }
-    return normalized.toLowerCase() + 'ff'; // Append alpha (fully opaque)
+    return normalized.toLowerCase() + 'ff';
 }
 
 /**

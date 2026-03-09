@@ -22,6 +22,9 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { renderBlocks, RenderResult } from './renderer';
 import { errorMessage } from './utils';
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sketch = require('sketch');
+
 const WEBVIEW_IDENTIFIER = 'markdown-for-what.webview';
 
 /**
@@ -29,7 +32,6 @@ const WEBVIEW_IDENTIFIER = 'markdown-for-what.webview';
  * Called when the user selects Plugins → MarkDown For What → Import Markdown.
  */
 export function onImportMarkdown(): void {
-    const sketch = require('sketch');
     const document = sketch.getSelectedDocument();
 
     if (!document) {
@@ -90,8 +92,6 @@ function handleMessage(
     page: any,
     sendToUI: (msg: Record<string, unknown>) => void
 ): void {
-    const sketch = require('sketch');
-
     try {
         if (msg.type === 'get-settings') {
             const settings = loadSettings();

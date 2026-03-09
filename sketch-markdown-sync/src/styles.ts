@@ -25,6 +25,10 @@
 
 import type { marked } from 'marked';
 import { flattenTokens } from './parser';
+import { TEXT_COLOR } from './utils';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sketch = require('sketch');
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
 
@@ -70,24 +74,6 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
 // ─── Font Helpers ────────────────────────────────────────────────────────────
 
 /**
- * Resolves a font family name and style to the system font name.
- * Sketch uses NSFont naming: "Inter-Bold", "Inter-Regular", etc.
- * Falls back to system font if the requested font is unavailable.
- */
-export function resolveFontName(family: string, style: string): string {
-    // Sketch/macOS font naming convention: "Family-Style"
-    const candidates = [
-        `${family}-${style}`,
-        `${family} ${style}`,
-        family,
-    ];
-
-    // Return the first candidate — Sketch will handle fallback internally
-    // For system font availability, the NSFont lookup happens at render time
-    return candidates[0];
-}
-
-/**
  * Returns the postscript font name for use in Sketch's text styling.
  * Maps our friendly style names to PostScript-style names.
  */
@@ -121,8 +107,6 @@ export function getOrCreateSharedStyle(document: any, name: string, config: Styl
     const cached = styleCache.get(name);
     if (cached) return cached;
 
-    const sketch = require('sketch');
-
     // Search existing shared text styles
     const existing = document.sharedTextStyles.find((s: any) => s.name === name);
     if (existing) {
@@ -137,7 +121,7 @@ export function getOrCreateSharedStyle(document: any, name: string, config: Styl
     const newStyle = sketch.SharedStyle.fromStyle({
         name: name,
         style: {
-            textColor: '#000000ff',
+            textColor: TEXT_COLOR,
             fontSize: config.size,
             fontFamily: config.family,
             fontWeight: config.style.includes('Bold') ? 9 : 5, // Sketch: 5=Regular, 9=Bold
@@ -183,8 +167,6 @@ export function applyInlineStyles(
     baseStyleName: string
 ): void {
     if (!tokens || tokens.length === 0) return;
-
-    const sketch = require('sketch');
     const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
     const fullText = segments.map(s => s.text).join('');
 

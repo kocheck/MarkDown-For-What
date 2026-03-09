@@ -57,6 +57,8 @@ const STORAGE_KEY = 'markdownForWhat.pluginSettings';
 
 // ─── Validation Helpers ────────────────────────────────────────────────────────
 
+import { isValidHex } from './utils';
+
 /** Returns true if value is a finite, non-negative number (zero or greater). */
 function isNonNegativeNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value >= 0;
@@ -65,11 +67,6 @@ function isNonNegativeNumber(value: unknown): boolean {
 /** Returns true if value is a finite, positive number (greater than zero). */
 function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
-}
-
-/** Returns true if value is a valid 6-digit CSS hex color string. */
-function isValidHex(value: unknown): boolean {
-    return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────

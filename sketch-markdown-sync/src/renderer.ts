@@ -27,11 +27,20 @@ import {
     getOrCreateSharedStyle,
     initializeStyles,
     applyInlineStyles,
-    estimateTextHeight,
-    getFontPostScriptName,
 } from './styles';
 import { createTableGroup } from './tables';
-import { hexToRgb } from './utils';
+import {
+    hexToSketchColor,
+    TEXT_COLOR,
+    ERROR_TEXT_COLOR,
+    ERROR_BORDER_COLOR,
+    ERROR_BG_COLOR,
+    PLACEHOLDER_BG_COLOR,
+    WHITE_COLOR,
+} from './utils';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sketch = require('sketch');
 
 /** Result returned by renderBlocks with the rendered artboard and non-fatal warning counts. */
 export interface RenderResult {
@@ -44,7 +53,6 @@ export interface RenderResult {
 interface LayoutContext {
     currentY: number;
     contentWidth: number;
-    framePadding: number;
 }
 
 const BULLET = '\u2022 ';
@@ -53,7 +61,7 @@ const BULLET = '\u2022 ';
  * Returns the X coordinate at which a new artboard should be placed so it does
  * not overlap existing page content.
  */
-export function computeNewArtboardX(page: any, gap: number): number {
+function computeNewArtboardX(page: any, gap: number): number {
     const layers = page.layers;
     if (!layers || layers.length === 0) return 0;
 
@@ -77,7 +85,6 @@ function createImageLayer(block: Block, settings: PluginSettings, ctx: LayoutCon
         throw new Error('Invalid image block');
     }
 
-    const sketch = require('sketch');
 
     try {
         // Attempt to fetch the image using NSImage (macOS native)
@@ -116,15 +123,14 @@ function createImageLayer(block: Block, settings: PluginSettings, ctx: LayoutCon
             frame: new sketch.Rectangle(0, 0, ctx.contentWidth, placeholderHeight),
         });
 
-        // Background
         new sketch.ShapePath({
             name: 'Placeholder Background',
             shapeType: sketch.ShapePath.ShapeType.Rectangle,
             frame: new sketch.Rectangle(0, 0, ctx.contentWidth, placeholderHeight),
             style: {
-                fills: [{ color: '#f2f2f2ff', fillType: sketch.Style.FillType.Color }],
+                fills: [{ color: PLACEHOLDER_BG_COLOR, fillType: sketch.Style.FillType.Color }],
                 borders: [{
-                    color: '#cc3333ff',
+                    color: ERROR_BORDER_COLOR,
                     fillType: sketch.Style.FillType.Color,
                     thickness: 2,
                     position: sketch.Style.BorderPosition.Inside,
@@ -133,14 +139,13 @@ function createImageLayer(block: Block, settings: PluginSettings, ctx: LayoutCon
             parent: placeholderGroup,
         });
 
-        // Error text
         new sketch.Text({
             text: `Failed to load image\n${block.imageAlt || 'Unknown'}\nURL: ${block.imageUrl}`,
             frame: new sketch.Rectangle(40, 40, ctx.contentWidth - 80, placeholderHeight - 80),
             style: {
                 fontSize: 14,
                 fontFamily: 'Inter',
-                textColor: '#993333ff',
+                textColor: ERROR_TEXT_COLOR,
                 alignment: sketch.Text.Alignment.center,
                 lineHeight: 20,
             },
@@ -155,7 +160,6 @@ function createImageLayer(block: Block, settings: PluginSettings, ctx: LayoutCon
  * Creates a visible error placeholder for a block that failed to render.
  */
 function createErrorPlaceholder(block: Block, width: number): { layer: any; height: number } {
-    const sketch = require('sketch');
     const height = 40;
 
     const group = new sketch.Group({
@@ -163,15 +167,14 @@ function createErrorPlaceholder(block: Block, width: number): { layer: any; heig
         frame: new sketch.Rectangle(0, 0, width, height),
     });
 
-    // Red-tinted background
     new sketch.ShapePath({
         name: 'Error Background',
         shapeType: sketch.ShapePath.ShapeType.Rectangle,
         frame: new sketch.Rectangle(0, 0, width, height),
         style: {
-            fills: [{ color: '#ffe6e6ff', fillType: sketch.Style.FillType.Color }],
+            fills: [{ color: ERROR_BG_COLOR, fillType: sketch.Style.FillType.Color }],
             borders: [{
-                color: '#cc3333ff',
+                color: ERROR_BORDER_COLOR,
                 fillType: sketch.Style.FillType.Color,
                 thickness: 1,
                 position: sketch.Style.BorderPosition.Inside,
@@ -180,14 +183,13 @@ function createErrorPlaceholder(block: Block, width: number): { layer: any; heig
         parent: group,
     });
 
-    // Error message
     new sketch.Text({
         text: `Failed to render block: ${block.type}`,
         frame: new sketch.Rectangle(12, 8, width - 24, height - 16),
         style: {
             fontSize: 12,
             fontFamily: 'Inter',
-            textColor: '#993333ff',
+            textColor: ERROR_TEXT_COLOR,
         },
         parent: group,
     });
@@ -220,7 +222,6 @@ export function renderBlocks(
     page: any,
     targetArtboard?: any
 ): RenderResult {
-    const sketch = require('sketch');
 
     // Ensure all Markdown/* shared text styles exist
     initializeStyles(document);
@@ -229,7 +230,6 @@ export function renderBlocks(
     const ctx: LayoutContext = {
         currentY: settings.framePadding,
         contentWidth,
-        framePadding: settings.framePadding,
     };
 
     // Compute placement before creating artboard
@@ -245,7 +245,7 @@ export function renderBlocks(
     // Set white background
     artboard.background = {
         enabled: true,
-        color: '#ffffffff',
+        color: WHITE_COLOR,
     };
 
     let imageFailures = 0;
@@ -257,8 +257,6 @@ export function renderBlocks(
 
         // Group consecutive list blocks with tighter spacing
         if (block.type === 'list') {
-            const listGroupStartY = ctx.currentY;
-
             while (i < blocks.length && blocks[i].type === 'list') {
                 const listBlock = blocks[i];
                 try {
@@ -346,7 +344,6 @@ function renderBlock(
     document: any,
     ctx: LayoutContext
 ): BlockResult | null {
-    const sketch = require('sketch');
 
     switch (block.type) {
         case 'heading': {
@@ -400,17 +397,15 @@ function renderTextBlock(
     document: any,
     ctx: LayoutContext
 ): BlockResult {
-    const sketch = require('sketch');
     const config = DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY];
     const sharedStyle = getOrCreateSharedStyle(document, styleName, config);
     const lineHeightPx = Math.round(config.size * config.lineHeight);
 
     const content = block.content || '';
-    const textHeight = estimateTextHeight(content, ctx.contentWidth, config.size, config.lineHeight);
 
     const textLayer = new sketch.Text({
         text: content,
-        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, textHeight),
+        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, lineHeightPx),
         fixedWidth: true,
         style: {
             fontSize: config.size,
@@ -418,7 +413,7 @@ function renderTextBlock(
             fontWeight: config.style.includes('Bold') ? 9 : 5,
             fontStyle: config.style.includes('Italic') ? 'italic' : undefined,
             lineHeight: lineHeightPx,
-            textColor: '#000000ff',
+            textColor: TEXT_COLOR,
         },
     });
 
@@ -448,32 +443,22 @@ function renderListBlock(
     document: any,
     ctx: LayoutContext
 ): BlockResult {
-    const sketch = require('sketch');
     const config = DEFAULT_STYLES[STYLE_NAMES.LIST];
     const sharedStyle = getOrCreateSharedStyle(document, STYLE_NAMES.LIST, config);
     const lineHeightPx = Math.round(config.size * config.lineHeight);
 
-    // Build content with bullet
-    let content: string;
-    if (block.tokens && block.tokens.length > 0) {
-        // Will apply inline styles after creating the text layer
-        content = block.content ? `${BULLET}${block.content}` : BULLET.trimEnd();
-    } else {
-        content = block.content ? `${BULLET}${block.content}` : BULLET.trimEnd();
-    }
-
-    const textHeight = estimateTextHeight(content, ctx.contentWidth, config.size, config.lineHeight);
+    const content = block.content ? `${BULLET}${block.content}` : BULLET.trimEnd();
 
     const textLayer = new sketch.Text({
         text: content,
-        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, textHeight),
+        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, lineHeightPx),
         fixedWidth: true,
         style: {
             fontSize: config.size,
             fontFamily: config.family,
             fontWeight: 5,
             lineHeight: lineHeightPx,
-            textColor: '#000000ff',
+            textColor: TEXT_COLOR,
         },
     });
 
@@ -502,7 +487,6 @@ function renderCodeBlock(
     document: any,
     ctx: LayoutContext
 ): BlockResult {
-    const sketch = require('sketch');
     const config = DEFAULT_STYLES[STYLE_NAMES.CODE];
     const sharedStyle = getOrCreateSharedStyle(document, STYLE_NAMES.CODE, config);
     const lineHeightPx = Math.round(config.size * config.lineHeight);
@@ -510,27 +494,25 @@ function renderCodeBlock(
     const codePadding = 16;
     const codeContentWidth = ctx.contentWidth - 2 * codePadding;
     const content = block.content || '';
-    const textHeight = estimateTextHeight(content, codeContentWidth, config.size, config.lineHeight);
-    const totalHeight = textHeight + 2 * codePadding;
+    // Use a reasonable initial height; adjustToFit() below will correct it
+    const initialHeight = lineHeightPx + 2 * codePadding;
 
     const codeGroup = new sketch.Group({
         name: 'Code Block',
-        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, totalHeight),
+        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, initialHeight),
     });
 
-    // Background rectangle with rounded corners
     const bg = new sketch.ShapePath({
         name: 'Code Background',
         shapeType: sketch.ShapePath.ShapeType.Rectangle,
-        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, totalHeight),
+        frame: new sketch.Rectangle(0, 0, ctx.contentWidth, initialHeight),
         style: {
-            fills: [{ color: settings.codeBackground + 'ff', fillType: sketch.Style.FillType.Color }],
+            fills: [{ color: hexToSketchColor(settings.codeBackground), fillType: sketch.Style.FillType.Color }],
             borders: [],
         },
         parent: codeGroup,
     });
 
-    // Set corner radius on the underlying shape
     try {
         const points = bg.points;
         if (points) {
@@ -542,16 +524,15 @@ function renderCodeBlock(
         // Corner radius manipulation may not be available in all Sketch versions
     }
 
-    // Code text
     const textLayer = new sketch.Text({
         text: content,
-        frame: new sketch.Rectangle(codePadding, codePadding, codeContentWidth, textHeight),
+        frame: new sketch.Rectangle(codePadding, codePadding, codeContentWidth, lineHeightPx),
         fixedWidth: true,
         style: {
             fontSize: config.size,
             fontFamily: config.family,
             lineHeight: lineHeightPx,
-            textColor: '#000000ff',
+            textColor: TEXT_COLOR,
         },
         parent: codeGroup,
     });
@@ -572,16 +553,12 @@ function renderCodeBlock(
  * Renders a horizontal separator line.
  */
 function renderSeparator(settings: PluginSettings, ctx: LayoutContext): BlockResult {
-    const sketch = require('sketch');
-    const rgb = hexToRgb(settings.separatorColor);
-    const hexWithAlpha = settings.separatorColor.toLowerCase() + 'ff';
-
     const line = new sketch.ShapePath({
         name: 'Separator',
         shapeType: sketch.ShapePath.ShapeType.Rectangle,
         frame: new sketch.Rectangle(0, 0, ctx.contentWidth, 1),
         style: {
-            fills: [{ color: hexWithAlpha, fillType: sketch.Style.FillType.Color }],
+            fills: [{ color: hexToSketchColor(settings.separatorColor), fillType: sketch.Style.FillType.Color }],
             borders: [],
         },
     });

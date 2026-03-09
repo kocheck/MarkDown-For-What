@@ -19,6 +19,10 @@
 import type { Block } from './parser';
 import type { PluginSettings } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateSharedStyle, estimateTextHeight } from './styles';
+import { hexToSketchColor, TEXT_COLOR, TABLE_BORDER_COLOR, TABLE_ROW_BORDER_COLOR } from './utils';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const sketch = require('sketch');
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -28,13 +32,15 @@ const DATA_PADDING_V = 10;
 const DATA_PADDING_H = 16;
 const BORDER_WIDTH = 1;
 
+const FONT_WEIGHT_REGULAR = 5;
+const FONT_WEIGHT_BOLD = 9;
+
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 /**
  * Converts a nullable Markdown table alignment value to a Sketch Text alignment constant.
  */
 export function resolveAlignment(align: 'left' | 'center' | 'right' | null | undefined): number {
-    const sketch = require('sketch');
     if (align === 'center') return sketch.Text.Alignment.center;
     if (align === 'right') return sketch.Text.Alignment.right;
     return sketch.Text.Alignment.left;
@@ -47,8 +53,7 @@ function createBorderLine(
     x: number, y: number, width: number, height: number,
     color: string, parent: any
 ): any {
-    const sketch = require('sketch');
-    const line = new sketch.ShapePath({
+    return new sketch.ShapePath({
         name: 'Border',
         frame: new sketch.Rectangle(x, y, Math.max(width, 1), Math.max(height, 1)),
         style: {
@@ -57,7 +62,25 @@ function createBorderLine(
         },
         parent: parent,
     });
-    return line;
+}
+
+/**
+ * Estimates the max row height across all cells in a row.
+ */
+function estimateRowHeight(
+    cells: any[],
+    colWidth: number,
+    config: { size: number; lineHeight: number },
+    paddingH: number,
+    paddingV: number,
+): number {
+    const textWidth = colWidth - 2 * paddingH;
+    let maxHeight = 0;
+    for (const cell of cells) {
+        const h = estimateTextHeight(cell.text, textWidth, config.size, config.lineHeight);
+        if (h > maxHeight) maxHeight = h;
+    }
+    return maxHeight + 2 * paddingV;
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -83,23 +106,26 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
         throw new Error('Invalid table block: missing header or rows');
     }
 
-    const sketch = require('sketch');
     const numCols = block.header.length;
     const contentWidth = settings.frameWidth - 2 * settings.framePadding;
     const colWidth = Math.floor(contentWidth / numCols);
     const tableWidth = colWidth * numCols;
 
     const bodyConfig = DEFAULT_STYLES[STYLE_NAMES.BODY];
+    const lineHeightPx = Math.round(bodyConfig.size * bodyConfig.lineHeight);
+
+    // Look up shared style once, not per-cell
+    const bodySharedStyle = getOrCreateSharedStyle(document, STYLE_NAMES.BODY, bodyConfig);
 
     // Calculate row heights based on content
-    const headerHeight = estimateHeaderRowHeight(block.header, colWidth, bodyConfig);
+    const headerHeight = estimateRowHeight(block.header, colWidth, bodyConfig, HEADER_PADDING_H, HEADER_PADDING_V);
     const rowHeights = block.rows.map(row =>
-        estimateDataRowHeight(row, colWidth, bodyConfig)
+        estimateRowHeight(row, colWidth, bodyConfig, DATA_PADDING_H, DATA_PADDING_V)
     );
 
     const totalHeight = headerHeight +
         rowHeights.reduce((sum, h) => sum + h, 0) +
-        BORDER_WIDTH; // outer border
+        BORDER_WIDTH;
 
     // Create table group
     const tableGroup = new sketch.Group({
@@ -115,7 +141,7 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
         style: {
             fills: [],
             borders: [{
-                color: '#ccccccff',
+                color: TABLE_BORDER_COLOR,
                 fillType: sketch.Style.FillType.Color,
                 thickness: 1,
                 position: sketch.Style.BorderPosition.Inside,
@@ -130,7 +156,7 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
         shapeType: sketch.ShapePath.ShapeType.Rectangle,
         frame: new sketch.Rectangle(0, 0, tableWidth, headerHeight),
         style: {
-            fills: [{ color: settings.tableHeaderBackground + 'ff', fillType: sketch.Style.FillType.Color }],
+            fills: [{ color: hexToSketchColor(settings.tableHeaderBackground), fillType: sketch.Style.FillType.Color }],
             borders: [],
         },
         parent: tableGroup,
@@ -148,31 +174,26 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
             style: {
                 fontSize: bodyConfig.size,
                 fontFamily: bodyConfig.family,
-                fontWeight: 9, // Bold
-                lineHeight: Math.round(bodyConfig.size * bodyConfig.lineHeight),
-                textColor: '#000000ff',
+                fontWeight: FONT_WEIGHT_BOLD,
+                lineHeight: lineHeightPx,
+                textColor: TEXT_COLOR,
                 alignment: resolveAlignment(block.align?.[i]),
             },
             parent: tableGroup,
         });
 
-        // Apply shared style if available
-        const sharedStyle = getOrCreateSharedStyle(document, STYLE_NAMES.BODY, bodyConfig);
-        if (sharedStyle) {
-            textLayer.sharedStyleId = sharedStyle.id;
-            // Override to bold for header
-            textLayer.style.fontWeight = 9;
+        if (bodySharedStyle) {
+            textLayer.sharedStyleId = bodySharedStyle.id;
+            textLayer.style.fontWeight = FONT_WEIGHT_BOLD;
         }
 
-        // Column separator (except last column)
         if (i < numCols - 1) {
-            const borderX = (i + 1) * colWidth;
-            createBorderLine(borderX, 0, BORDER_WIDTH, headerHeight, '#ccccccff', tableGroup);
+            createBorderLine((i + 1) * colWidth, 0, BORDER_WIDTH, headerHeight, TABLE_BORDER_COLOR, tableGroup);
         }
     }
 
     // Header bottom border
-    createBorderLine(0, headerHeight, tableWidth, BORDER_WIDTH, '#ccccccff', tableGroup);
+    createBorderLine(0, headerHeight, tableWidth, BORDER_WIDTH, TABLE_BORDER_COLOR, tableGroup);
 
     // Data rows
     let currentY = headerHeight;
@@ -191,62 +212,28 @@ export function createTableGroup(block: Block, settings: PluginSettings, documen
                 style: {
                     fontSize: bodyConfig.size,
                     fontFamily: bodyConfig.family,
-                    fontWeight: 5, // Regular
-                    lineHeight: Math.round(bodyConfig.size * bodyConfig.lineHeight),
-                    textColor: '#000000ff',
+                    fontWeight: FONT_WEIGHT_REGULAR,
+                    lineHeight: lineHeightPx,
+                    textColor: TEXT_COLOR,
                     alignment: resolveAlignment(block.align?.[colIndex]),
                 },
                 parent: tableGroup,
             });
 
-            const sharedStyle = getOrCreateSharedStyle(document, STYLE_NAMES.BODY, bodyConfig);
-            if (sharedStyle) {
-                textLayer.sharedStyleId = sharedStyle.id;
+            if (bodySharedStyle) {
+                textLayer.sharedStyleId = bodySharedStyle.id;
             }
 
-            // Column separator (except last column)
             if (colIndex < row.length - 1) {
-                const borderX = (colIndex + 1) * colWidth;
-                createBorderLine(borderX, currentY, BORDER_WIDTH, rowHeight, '#e6e6e6ff', tableGroup);
+                createBorderLine((colIndex + 1) * colWidth, currentY, BORDER_WIDTH, rowHeight, TABLE_ROW_BORDER_COLOR, tableGroup);
             }
         }
 
-        // Row bottom border
         currentY += rowHeight;
         if (rowIndex < block.rows.length - 1) {
-            createBorderLine(0, currentY, tableWidth, BORDER_WIDTH, '#e6e6e6ff', tableGroup);
+            createBorderLine(0, currentY, tableWidth, BORDER_WIDTH, TABLE_ROW_BORDER_COLOR, tableGroup);
         }
     }
 
     return tableGroup;
-}
-
-// ─── Height estimation helpers ───────────────────────────────────────────────
-
-function estimateHeaderRowHeight(
-    header: any[],
-    colWidth: number,
-    config: { size: number; lineHeight: number }
-): number {
-    const textWidth = colWidth - 2 * HEADER_PADDING_H;
-    let maxHeight = 0;
-    for (const cell of header) {
-        const h = estimateTextHeight(cell.text, textWidth, config.size, config.lineHeight);
-        if (h > maxHeight) maxHeight = h;
-    }
-    return maxHeight + 2 * HEADER_PADDING_V;
-}
-
-function estimateDataRowHeight(
-    row: any[],
-    colWidth: number,
-    config: { size: number; lineHeight: number }
-): number {
-    const textWidth = colWidth - 2 * DATA_PADDING_H;
-    let maxHeight = 0;
-    for (const cell of row) {
-        const h = estimateTextHeight(cell.text, textWidth, config.size, config.lineHeight);
-        if (h > maxHeight) maxHeight = h;
-    }
-    return maxHeight + 2 * DATA_PADDING_V;
 }
