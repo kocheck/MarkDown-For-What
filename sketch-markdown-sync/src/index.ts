@@ -20,7 +20,7 @@ import BrowserWindow from 'sketch-module-web-view';
 import { parseMarkdownToBlocks } from './parser';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { renderBlocks, RenderResult } from './renderer';
-import { errorMessage } from './utils';
+import { errorMessage, stripExtension } from './utils';
 
 const sketch = require('sketch');
 
@@ -143,7 +143,7 @@ function handleMessage(
             );
 
             for (const file of files) {
-                const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
+                const nameNoExt = stripExtension(file.name);
 
                 // Find existing artboard for re-import
                 const target = allArtboards.find(

@@ -8,6 +8,8 @@ import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
 import { createMockDocument } from './test-setup';
 
+const CONTENT_WIDTH = DEFAULT_SETTINGS.frameWidth - 2 * DEFAULT_SETTINGS.framePadding;
+
 // Helper to create table cell objects compatible with marked.Tokens.TableCell
 function cell(text: string, align: 'left' | 'center' | 'right' = 'left'): any {
     return { text, tokens: [], header: false, align };
@@ -29,7 +31,7 @@ describe('createTableGroup', () => {
             type: 'table',
             rows: [],
         };
-        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument)).toThrow(
+        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH)).toThrow(
             'Invalid table block',
         );
     });
@@ -39,7 +41,7 @@ describe('createTableGroup', () => {
             type: 'table',
             header: [headerCell('Col 1')],
         };
-        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument)).toThrow(
+        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH)).toThrow(
             'Invalid table block',
         );
     });
@@ -52,7 +54,7 @@ describe('createTableGroup', () => {
             rows: [[cell('foo'), cell('bar')]],
         };
 
-        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument)).not.toThrow();
+        expect(() => createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH)).not.toThrow();
     });
 
     it('returns a Group with name and frame', () => {
@@ -63,7 +65,7 @@ describe('createTableGroup', () => {
             rows: [[cell('B')]],
         };
 
-        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument);
+        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH);
         expect(result).toHaveProperty('name', 'Table');
         expect(result).toHaveProperty('frame');
     });
@@ -76,7 +78,7 @@ describe('createTableGroup', () => {
             rows: [[cell('1'), cell('2', 'center'), cell('3', 'right')]],
         };
 
-        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument);
+        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH);
         expect(result).toBeDefined();
         expect(result.name).toBe('Table');
     });
@@ -89,7 +91,7 @@ describe('createTableGroup', () => {
             rows: [[cell('Row 1')], [cell('Row 2')], [cell('Row 3')]],
         };
 
-        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument);
+        const result = createTableGroup(block, DEFAULT_SETTINGS, mockDocument, CONTENT_WIDTH);
         expect(result).toBeDefined();
     });
 });

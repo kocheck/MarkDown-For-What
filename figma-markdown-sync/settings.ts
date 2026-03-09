@@ -17,7 +17,8 @@ export {
     mergeWithDefaults,
 } from '../shared/settings';
 
-import { PluginSettings, DEFAULT_SETTINGS, validateSettings, mergeWithDefaults } from '../shared/settings';
+import type { PluginSettings } from '../shared/settings';
+import { DEFAULT_SETTINGS, validateSettings, mergeWithDefaults } from '../shared/settings';
 
 const STORAGE_KEY = 'pluginSettings';
 

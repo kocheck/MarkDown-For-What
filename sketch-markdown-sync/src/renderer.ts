@@ -79,11 +79,10 @@ function computeNewArtboardX(page: any, gap: number): number {
  * Creates a Sketch image layer from a parsed image block.
  * If the image URL cannot be fetched, returns a placeholder group instead.
  */
-function createImageLayer(block: Block, _settings: PluginSettings, ctx: LayoutContext): { layer: any; height: number; isPlaceholder: boolean } {
+function createImageLayer(block: Block, ctx: LayoutContext): { layer: any; height: number; isPlaceholder: boolean } {
     if (!block.imageUrl) {
         throw new Error('Invalid image block');
     }
-
 
     try {
         // Attempt to fetch the image using NSImage (macOS native)
@@ -259,7 +258,7 @@ export function renderBlocks(
             while (i < blocks.length && blocks[i].type === 'list') {
                 const listBlock = blocks[i];
                 try {
-                    const result = renderListBlock(listBlock, settings, document, ctx);
+                    const result = renderListBlock(listBlock, document, ctx);
                     result.layer.frame.x = settings.framePadding;
                     result.layer.frame.y = ctx.currentY;
                     result.layer.parent = artboard;
@@ -350,15 +349,15 @@ function renderBlock(
             if (block.level === 1) styleName = STYLE_NAMES.H1;
             else if (block.level === 2) styleName = STYLE_NAMES.H2;
             else styleName = STYLE_NAMES.H3;
-            return renderTextBlock(block, styleName, settings, document, ctx);
+            return renderTextBlock(block, styleName, document, ctx);
         }
 
         case 'paragraph': {
-            return renderTextBlock(block, STYLE_NAMES.BODY, settings, document, ctx);
+            return renderTextBlock(block, STYLE_NAMES.BODY, document, ctx);
         }
 
         case 'quote': {
-            return renderTextBlock(block, STYLE_NAMES.QUOTE, settings, document, ctx);
+            return renderTextBlock(block, STYLE_NAMES.QUOTE, document, ctx);
         }
 
         case 'code': {
@@ -370,13 +369,13 @@ function renderBlock(
         }
 
         case 'table': {
-            const tableGroup = createTableGroup(block, settings, document);
+            const tableGroup = createTableGroup(block, settings, document, ctx.contentWidth);
             const height = tableGroup.frame.height;
             return { layer: tableGroup, height };
         }
 
         case 'image': {
-            const result = createImageLayer(block, settings, ctx);
+            const result = createImageLayer(block, ctx);
             return { layer: result.layer, height: result.height, isPlaceholder: result.isPlaceholder };
         }
 
@@ -392,7 +391,6 @@ function renderBlock(
 function renderTextBlock(
     block: Block,
     styleName: string,
-    _settings: PluginSettings,
     document: any,
     ctx: LayoutContext
 ): BlockResult {
@@ -438,7 +436,6 @@ function renderTextBlock(
  */
 function renderListBlock(
     block: Block,
-    _settings: PluginSettings,
     document: any,
     ctx: LayoutContext
 ): BlockResult {

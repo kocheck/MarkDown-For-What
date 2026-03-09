@@ -27,5 +27,19 @@ export const SUPPORTED_EXTENSIONS = ['.md', '.markdown', '.txt'] as const;
  * Returns true if the filename ends with one of the supported Markdown extensions.
  */
 export function hasSupportedExtension(filename: string): boolean {
-    return SUPPORTED_EXTENSIONS.some(ext => filename.toLowerCase().endsWith(ext));
+    const lower = filename.toLowerCase();
+    return SUPPORTED_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+/**
+ * Strips the supported Markdown extension from a filename, if present.
+ */
+export function stripExtension(filename: string): string {
+    const lower = filename.toLowerCase();
+    for (const ext of SUPPORTED_EXTENSIONS) {
+        if (lower.endsWith(ext)) {
+            return filename.slice(0, -ext.length);
+        }
+    }
+    return filename;
 }

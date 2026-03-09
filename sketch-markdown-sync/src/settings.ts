@@ -17,7 +17,7 @@ export {
     mergeWithDefaults,
 } from '../../shared/settings';
 
-import { PluginSettings, DEFAULT_SETTINGS, validateSettings, mergeWithDefaults } from '../../shared/settings';
+import { PluginSettings, DEFAULT_SETTINGS, mergeWithDefaults, validateSettings } from '../../shared/settings';
 
 const STORAGE_KEY = 'markdownForWhat.pluginSettings';
 

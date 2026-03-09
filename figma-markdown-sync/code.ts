@@ -2,7 +2,7 @@ import { parseMarkdownToBlocks } from './parser';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { loadFont } from './styles';
 import { renderBlocks, RenderResult } from './renderer';
-import { errorMessage } from './utils';
+import { errorMessage, stripExtension } from './utils';
 
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
 figma.showUI(__html__, { width: 400, height: 500 });
@@ -81,7 +81,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
             const allFrames = figma.currentPage.findAll(n => n.type === 'FRAME');
 
             for (const file of files) {
-                const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
+                const nameNoExt = stripExtension(file.name);
                 const target = allFrames.find(n => n.name === file.name || n.name === nameNoExt);
 
                 try {

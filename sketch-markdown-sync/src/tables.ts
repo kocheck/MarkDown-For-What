@@ -100,13 +100,12 @@ function estimateRowHeight(
  * @param document - The Sketch Document
  * @returns A positioned Group containing all table elements
  */
-export function createTableGroup(block: Block, settings: PluginSettings, document: any): any {
+export function createTableGroup(block: Block, settings: PluginSettings, document: any, contentWidth: number): any {
     if (!block.header || !block.rows) {
         throw new Error('Invalid table block: missing header or rows');
     }
 
     const numCols = block.header.length;
-    const contentWidth = settings.frameWidth - 2 * settings.framePadding;
     const colWidth = Math.floor(contentWidth / numCols);
     const tableWidth = colWidth * numCols;
 

@@ -9,7 +9,7 @@
  *   errorMessage, isValidHex, SUPPORTED_EXTENSIONS, hasSupportedExtension — re-exported from shared
  */
 
-export { errorMessage, SUPPORTED_EXTENSIONS, hasSupportedExtension } from '../../shared/utils';
+export { errorMessage, SUPPORTED_EXTENSIONS, hasSupportedExtension, stripExtension } from '../../shared/utils';
 export { isValidHex } from '../../shared/settings';
 
 // ─── Color Constants ────────────────────────────────────────────────────────────
