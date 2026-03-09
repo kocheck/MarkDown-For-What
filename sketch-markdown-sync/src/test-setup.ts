@@ -34,7 +34,6 @@ function createTextMock(opts: any) {
             attributedStringValue: () => null,
             setAttributedStringValue_: jest.fn(),
         },
-        adjustToFit: jest.fn(),
     };
     // Bind adjustToFit so `this` refers to the text object
     text.adjustToFit = jest.fn(function () {
@@ -161,10 +160,29 @@ jest.mock(
     length: len,
 }));
 
+// ─── Shared test helpers ─────────────────────────────────────────────────────
+
+/** Creates a mock Sketch Document with empty sharedTextStyles. */
+export function createMockDocument() {
+    return {
+        sharedTextStyles: [] as any[],
+    };
+}
+
 // ─── Reset helpers ────────────────────────────────────────────────────────────
 
 beforeEach(() => {
     jest.clearAllMocks();
     // Clear settings store
     Object.keys(mockSettingsStore).forEach((k) => delete mockSettingsStore[k]);
+});
+
+afterAll(() => {
+    // Clean up global namespace pollution from macOS API mocks
+    delete (global as any).NSURL;
+    delete (global as any).NSImage;
+    delete (global as any).NSMutableAttributedString;
+    delete (global as any).NSFont;
+    delete (global as any).NSFontManager;
+    delete (global as any).NSMakeRange;
 });

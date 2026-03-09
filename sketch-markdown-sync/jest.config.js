@@ -6,15 +6,10 @@ module.exports = {
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
     setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
     collectCoverageFrom: [
-        'src/parser.ts',
-        'src/utils.ts',
-        'src/settings.ts',
-        'src/renderer.ts',
-        'src/styles.ts',
-        'src/tables.ts',
-        '!**/*.d.ts',
-        '!**/node_modules/**',
-        '!**/dist/**',
+        'src/**/*.ts',
+        '!src/**/*.test.ts',
+        '!src/test-setup.ts',
+        '!src/**/*.d.ts',
     ],
     transform: {
         '^.+\\.ts$': [

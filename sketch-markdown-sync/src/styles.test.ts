@@ -10,12 +10,7 @@ import {
     initializeStyles,
     estimateTextHeight,
 } from './styles';
-
-function createMockDocument() {
-    return {
-        sharedTextStyles: [] as any[],
-    };
-}
+import { createMockDocument } from './test-setup';
 
 describe('STYLE_NAMES', () => {
     test('contains all expected style names', () => {
@@ -48,6 +43,8 @@ describe('DEFAULT_STYLES', () => {
 describe('getOrCreateSharedStyle', () => {
     test('creates a new style when none exists', () => {
         const doc = createMockDocument();
+        // Clear cache via initializeStyles before testing
+        initializeStyles(doc);
         const style = getOrCreateSharedStyle(doc, STYLE_NAMES.H1, DEFAULT_STYLES[STYLE_NAMES.H1]);
         expect(style).toBeDefined();
         expect(style.name).toContain('Markdown/H1');
@@ -55,6 +52,7 @@ describe('getOrCreateSharedStyle', () => {
 
     test('returns existing style on second call (cached)', () => {
         const doc = createMockDocument();
+        initializeStyles(doc);
         const style1 = getOrCreateSharedStyle(
             doc,
             STYLE_NAMES.BODY,
@@ -76,6 +74,8 @@ describe('getOrCreateSharedStyle', () => {
         };
         const doc = createMockDocument();
         doc.sharedTextStyles.push(existingStyle);
+        // Clear cache so the lookup finds the doc's existing style
+        initializeStyles(doc);
 
         const result = getOrCreateSharedStyle(
             doc,

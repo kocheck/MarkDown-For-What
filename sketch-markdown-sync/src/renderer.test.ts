@@ -6,17 +6,12 @@
 import { renderBlocks } from './renderer';
 import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
+import { createMockDocument } from './test-setup';
 
-// Mock document and page objects that mimic Sketch's API
+// Mock page object that mimics Sketch's API
 function createMockPage() {
     return {
         layers: [] as any[],
-    };
-}
-
-function createMockDocument() {
-    return {
-        sharedTextStyles: [] as any[],
     };
 }
 

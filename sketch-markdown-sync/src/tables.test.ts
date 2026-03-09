@@ -6,12 +6,7 @@
 import { createTableGroup } from './tables';
 import { DEFAULT_SETTINGS } from './settings';
 import type { Block } from './parser';
-
-function createMockDocument() {
-    return {
-        sharedTextStyles: [] as any[],
-    };
-}
+import { createMockDocument } from './test-setup';
 
 // Helper to create table cell objects compatible with marked.Tokens.TableCell
 function cell(text: string, align: 'left' | 'center' | 'right' = 'left'): any {
