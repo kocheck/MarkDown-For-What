@@ -1,0 +1,25 @@
+{
+  "compatibleVersion": 3,
+  "bundleVersion": 1,
+  "icon": "icon.png",
+  "commands": [
+    {
+      "name": "Import Markdown",
+      "identifier": "import-markdown",
+      "script": "./index.ts",
+      "handler": "onImportMarkdown"
+    }
+  ],
+  "menu": {
+    "title": "MarkDown For What",
+    "items": [
+      "import-markdown"
+    ]
+  },
+  "identifier": "com.markdown-for-what.sketch",
+  "name": "MarkDown For What",
+  "disableCocoaScriptPreprocessor": true,
+  "description": "Import Markdown files as styled Sketch artboards with headings, lists, code blocks, tables, images, and more.",
+  "version": "1.0.0",
+  "author": "MarkDown For What Contributors"
+}

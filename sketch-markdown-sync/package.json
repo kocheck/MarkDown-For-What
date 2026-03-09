@@ -1,0 +1,29 @@
+{
+  "name": "sketch-markdown-for-what",
+  "version": "1.0.0",
+  "description": "Sketch plugin to import Markdown files as styled artboards",
+  "license": "ISC",
+  "skpm": {
+    "name": "MarkDown For What",
+    "manifest": "src/manifest.json",
+    "main": "sketch-markdown-sync.sketchplugin"
+  },
+  "scripts": {
+    "build": "skpm-build",
+    "watch": "skpm-build --watch",
+    "postinstall": "npm run build"
+  },
+  "dependencies": {
+    "marked": "^4.3.0",
+    "sketch-module-web-view": "^3.4.1"
+  },
+  "devDependencies": {
+    "@skpm/builder": "^0.9.5",
+    "@skpm/extract-loader": "^2.0.2",
+    "css-loader": "^6.8.1",
+    "html-loader": "^4.2.0",
+    "style-loader": "^3.3.3",
+    "typescript": "^5.1.6",
+    "ts-loader": "^9.4.4"
+  }
+}
