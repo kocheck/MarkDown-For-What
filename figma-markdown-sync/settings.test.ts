@@ -77,7 +77,7 @@ describe('validateSettings', () => {
     });
 
     test('returns false when a required key is missing', () => {
-        const { blockSpacing, ...partial } = DEFAULT_SETTINGS;
+        const { blockSpacing: _blockSpacing, ...partial } = DEFAULT_SETTINGS;
         expect(validateSettings(partial as any)).toBe(false);
     });
 });

@@ -115,7 +115,6 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
  */
 export function loadSettings(): PluginSettings {
     try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Settings = require('sketch/settings');
         const raw = Settings.settingForKey(STORAGE_KEY);
         return mergeWithDefaults(raw);
@@ -135,7 +134,6 @@ export function saveSettings(settings: PluginSettings): void {
         throw new Error('Invalid settings object — save aborted');
     }
     try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const Settings = require('sketch/settings');
         Settings.setSettingForKey(STORAGE_KEY, settings);
     } catch (err) {

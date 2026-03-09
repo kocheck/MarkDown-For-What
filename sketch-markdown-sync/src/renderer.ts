@@ -39,7 +39,6 @@ import {
     WHITE_COLOR,
 } from './utils';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const sketch = require('sketch');
 
 /** Result returned by renderBlocks with the rendered artboard and non-fatal warning counts. */
@@ -80,7 +79,7 @@ function computeNewArtboardX(page: any, gap: number): number {
  * Creates a Sketch image layer from a parsed image block.
  * If the image URL cannot be fetched, returns a placeholder group instead.
  */
-function createImageLayer(block: Block, settings: PluginSettings, ctx: LayoutContext): { layer: any; height: number; isPlaceholder: boolean } {
+function createImageLayer(block: Block, _settings: PluginSettings, ctx: LayoutContext): { layer: any; height: number; isPlaceholder: boolean } {
     if (!block.imageUrl) {
         throw new Error('Invalid image block');
     }
@@ -393,7 +392,7 @@ function renderBlock(
 function renderTextBlock(
     block: Block,
     styleName: string,
-    settings: PluginSettings,
+    _settings: PluginSettings,
     document: any,
     ctx: LayoutContext
 ): BlockResult {
@@ -439,7 +438,7 @@ function renderTextBlock(
  */
 function renderListBlock(
     block: Block,
-    settings: PluginSettings,
+    _settings: PluginSettings,
     document: any,
     ctx: LayoutContext
 ): BlockResult {

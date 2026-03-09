@@ -27,7 +27,7 @@ import type { marked } from 'marked';
 import { flattenTokens } from './parser';
 import { TEXT_COLOR } from './utils';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
+
 const sketch = require('sketch');
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
@@ -71,22 +71,6 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
     [STYLE_NAMES.QUOTE]: { family: 'Inter', style: 'Italic',  size: 16, lineHeight: 1.5 },
 };
 
-// ─── Font Helpers ────────────────────────────────────────────────────────────
-
-/**
- * Returns the postscript font name for use in Sketch's text styling.
- * Maps our friendly style names to PostScript-style names.
- */
-export function getFontPostScriptName(family: string, style: string): string {
-    const styleMap: Record<string, string> = {
-        'Regular': 'Regular',
-        'Bold': 'Bold',
-        'Italic': 'Italic',
-        'Bold Italic': 'BoldItalic',
-    };
-    return `${family}-${styleMap[style] || style}`;
-}
-
 // ─── Style Management ──────────────────────────────────────────────────────────
 
 // Module-level cache — cleared at the start of each import
@@ -115,7 +99,6 @@ export function getOrCreateSharedStyle(document: any, name: string, config: Styl
     }
 
     // Create a new shared text style
-    const fontName = getFontPostScriptName(config.family, config.style);
     const lineHeightPx = Math.round(config.size * config.lineHeight);
 
     const newStyle = sketch.SharedStyle.fromStyle({

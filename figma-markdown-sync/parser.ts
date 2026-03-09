@@ -117,7 +117,7 @@ export function flattenTokens(
             case 'codespan':
                 segments.push({ text: (token as marked.Tokens.Codespan).text, ...context, code: true });
                 break;
-            case 'text':
+            case 'text': {
                 const tToken = token as marked.Tokens.Text;
                 if (tToken.tokens) {
                     segments = segments.concat(flattenTokens(tToken.tokens, context));
@@ -125,11 +125,13 @@ export function flattenTokens(
                     segments.push({ text: tToken.text, ...context });
                 }
                 break;
-            case 'link':
+            }
+            case 'link': {
                 // Links render as plain text — URL is not shown in the Figma output
                 const lToken = token as marked.Tokens.Link;
                 segments.push({ text: lToken.text, ...context });
                 break;
+            }
             default:
                 if ('text' in token) {
                     segments.push({ text: (token as any).text, ...context });

@@ -8,12 +8,20 @@
     "watch": "webpack --mode=development --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write 'src/**/*.ts' '*.ts'"
   },
   "dependencies": {
     "marked": "^4.3.0"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.2.0",
     "@figma/plugin-typings": "^1.121.0",
     "@types/jest": "^30.0.0",
     "@types/marked": "^4.3.0",

@@ -22,7 +22,6 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
 import { renderBlocks, RenderResult } from './renderer';
 import { errorMessage } from './utils';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const sketch = require('sketch');
 
 const WEBVIEW_IDENTIFIER = 'markdown-for-what.webview';

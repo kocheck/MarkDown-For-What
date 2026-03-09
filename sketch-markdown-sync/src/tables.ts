@@ -21,7 +21,6 @@ import type { PluginSettings } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateSharedStyle, estimateTextHeight } from './styles';
 import { hexToSketchColor, TEXT_COLOR, TABLE_BORDER_COLOR, TABLE_ROW_BORDER_COLOR } from './utils';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const sketch = require('sketch');
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
