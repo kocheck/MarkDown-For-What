@@ -318,5 +318,25 @@ describe('renderBlocks', () => {
             // One call per list item
             expect(countAsyncStyleCalls()).toBe(2);
         });
+
+        it('calls setTextStyleIdAsync on paragraph blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'paragraph', content: 'Hello world', tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(countAsyncStyleCalls()).toBe(1);
+        });
+
+        it('calls setTextStyleIdAsync on code blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'code', content: 'const x = 1;' },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(countAsyncStyleCalls()).toBe(1);
+        });
     });
 });
