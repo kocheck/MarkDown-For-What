@@ -6,6 +6,7 @@
 
 import { renderBlocks, computeNewFrameX } from './renderer';
 import { DEFAULT_SETTINGS } from './settings';
+import { countAsyncStyleCalls } from './test-setup';
 import type { Block } from './parser';
 
 describe('computeNewFrameX', () => {
@@ -296,20 +297,14 @@ describe('renderBlocks', () => {
     });
 
     describe('async API usage', () => {
-        it('calls setTextStyleIdAsync on text nodes (not sync textStyleId setter)', async () => {
+        it('calls setTextStyleIdAsync on heading blocks', async () => {
             const blocks: Block[] = [
-                { type: 'paragraph', content: 'Hello', tokens: [] },
+                { type: 'heading', content: 'Title', level: 1, tokens: [] },
             ];
 
             await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
 
-            // At least one text node must have had setTextStyleIdAsync called on it
-            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
-            const asyncCallCount = allTextNodes.reduce(
-                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
-                0
-            );
-            expect(asyncCallCount).toBeGreaterThan(0);
+            expect(countAsyncStyleCalls()).toBe(1);
         });
 
         it('calls setTextStyleIdAsync for list blocks', async () => {
@@ -320,13 +315,8 @@ describe('renderBlocks', () => {
 
             await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
 
-            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
-            const asyncCallCount = allTextNodes.reduce(
-                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
-                0
-            );
             // One call per list item
-            expect(asyncCallCount).toBe(2);
+            expect(countAsyncStyleCalls()).toBe(2);
         });
     });
 });

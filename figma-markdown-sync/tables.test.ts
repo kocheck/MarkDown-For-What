@@ -7,6 +7,7 @@
 
 import { createTableFrame, resolveAlignment, applyRightBorderOnly, applyBottomBorderOnly } from './tables';
 import { DEFAULT_SETTINGS } from './settings';
+import { countAsyncStyleCalls } from './test-setup';
 import type { Block } from './parser';
 import { hexToRgb, errorMessage } from './utils';
 
@@ -16,7 +17,7 @@ describe('createTableFrame', () => {
             jest.clearAllMocks();
             (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
             const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
-            (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+            (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
             (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
         });
 
@@ -96,12 +97,7 @@ describe('createTableFrame', () => {
             await createTableFrame(block, DEFAULT_SETTINGS);
 
             // 2 header cells + 2 data cells = 4 text nodes, each must use setTextStyleIdAsync
-            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
-            const asyncCallCount = allTextNodes.reduce(
-                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
-                0
-            );
-            expect(asyncCallCount).toBe(4);
+            expect(countAsyncStyleCalls()).toBe(4);
         });
     });
 });

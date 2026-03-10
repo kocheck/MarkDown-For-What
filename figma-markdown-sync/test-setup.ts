@@ -131,4 +131,13 @@ function makeMockRectangle(): any {
 
 (global as any).__html__ = '';
 
+/** Returns the total number of setTextStyleIdAsync calls across all mock text nodes created so far. */
+export function countAsyncStyleCalls(): number {
+    const allTextNodes = (figma.createText as jest.Mock).mock.results.map((r: any) => r.value);
+    return allTextNodes.reduce(
+        (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
+        0
+    );
+}
+
 export {};
