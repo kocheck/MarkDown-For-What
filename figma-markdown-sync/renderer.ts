@@ -210,7 +210,7 @@ export async function renderBlocks(
                     const listNode = await renderListBlock(listBlock);
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
-                    console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`);
+                    console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`, err);
                     const errFrame = await createErrorPlaceholder(listBlock);
                     listGroupFrame.appendChild(errFrame);
                 }
@@ -232,7 +232,7 @@ export async function renderBlocks(
                 }
             }
         } catch (err) {
-            console.error(`[MarkDown For What] Failed to render block type "${block.type}": ${errorMessage(err)}`);
+            console.error(`[MarkDown For What] Failed to render block type "${block.type}": ${errorMessage(err)}`, err);
             const errFrame = await createErrorPlaceholder(block);
             frame.appendChild(errFrame);
         }
