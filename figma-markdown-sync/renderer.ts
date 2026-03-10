@@ -166,7 +166,11 @@ export async function renderBlocks(
     targetNode?: SceneNode
 ): Promise<RenderResult> {
     // Ensure all Markdown/* text styles exist
-    await initializeStyles();
+    try {
+        await initializeStyles();
+    } catch (err) {
+        throw new Error(`Style initialization failed — ${errorMessage(err)}`);
+    }
 
     // Compute placement before createFrame — createFrame immediately adds the frame
     // to figma.currentPage.children, which would inflate computeNewFrameX's result.
