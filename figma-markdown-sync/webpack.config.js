@@ -30,6 +30,8 @@ module.exports = (env, argv) => ({
 
   resolve: {
     extensions: ['.tsx', '.ts', '.jsx', '.js'],
+    // Resolve shared/ imports (e.g. 'marked') from this plugin's node_modules
+    modules: [path.resolve(__dirname, 'node_modules'), 'node_modules'],
   },
 
   output: {

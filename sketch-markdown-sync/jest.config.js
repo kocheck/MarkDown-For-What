@@ -4,6 +4,7 @@ module.exports = {
     roots: ['<rootDir>/src', '<rootDir>/../shared'],
     testMatch: ['**/?(*.)+(spec|test).ts'],
     moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
+    modulePaths: ['<rootDir>/node_modules'],
     setupFilesAfterEnv: ['<rootDir>/src/test-setup.ts'],
     collectCoverageFrom: [
         'src/**/*.ts',

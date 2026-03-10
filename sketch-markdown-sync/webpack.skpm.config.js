@@ -27,4 +27,6 @@ module.exports = function (config) {
 
   config.resolve = config.resolve || {};
   config.resolve.extensions = ['.tsx', '.ts', '.jsx', '.js'];
+  // Resolve shared/ imports (e.g. 'marked') from this plugin's node_modules
+  config.resolve.modules = [path.resolve(__dirname, 'node_modules'), 'node_modules'];
 };
