@@ -22,6 +22,7 @@
 
 import type { marked } from 'marked';
 import { flattenTokens } from './parser';
+import { errorMessage } from './utils';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
 
@@ -145,10 +146,29 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
  */
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
-    const allStyles = await figma.getLocalTextStylesAsync();
-    await Promise.all(
-        Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name], allStyles))
+
+    let allStyles: TextStyle[];
+    try {
+        allStyles = await figma.getLocalTextStylesAsync();
+    } catch (err) {
+        throw new Error(`[MarkDown For What] Failed to retrieve local text styles: ${errorMessage(err)}`);
+    }
+
+    const styleNames = Object.keys(DEFAULT_STYLES);
+    const results = await Promise.allSettled(
+        styleNames.map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name], allStyles))
     );
+
+    const failures = results
+        .map((result, i) => ({ result, name: styleNames[i] }))
+        .filter(({ result }) => result.status === 'rejected');
+
+    if (failures.length > 0) {
+        const summary = failures
+            .map(({ name, result }) => `${name}: ${errorMessage((result as PromiseRejectedResult).reason)}`)
+            .join('; ');
+        throw new Error(`[MarkDown For What] Failed to initialize ${failures.length} text style(s) — ${summary}`);
+    }
 }
 
 // ─── Inline Style Rendering ───────────────────────────────────────────────────

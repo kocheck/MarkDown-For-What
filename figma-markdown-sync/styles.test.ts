@@ -139,6 +139,19 @@ describe('initializeStyles', () => {
         expect(figma.getLocalTextStylesAsync).toHaveBeenCalledTimes(1);
         expect(Object.keys(DEFAULT_STYLES).length).toBeGreaterThan(1); // confirm there are multiple styles
     });
+
+    it('throws with a summary when one or more styles fail to create', async () => {
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        // Reject every font load — both primary and Inter Regular fallback — so every
+        // style fails. Promise.allSettled collects all rejections and initializeStyles
+        // should throw with the "Failed to initialize N text style(s)" summary.
+        (figma.loadFontAsync as jest.Mock).mockRejectedValue(new Error('Font unavailable'));
+        (figma.createTextStyle as jest.Mock).mockReturnValue({
+            id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {},
+        });
+
+        await expect(initializeStyles()).rejects.toThrow('Failed to initialize');
+    });
 });
 
 describe('applyInlineStyles', () => {
