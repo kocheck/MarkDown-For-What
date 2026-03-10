@@ -211,8 +211,12 @@ export async function renderBlocks(
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
                     console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`, err);
-                    const errFrame = await createErrorPlaceholder(listBlock);
-                    listGroupFrame.appendChild(errFrame);
+                    try {
+                        const errFrame = await createErrorPlaceholder(listBlock, errorMessage(err));
+                        listGroupFrame.appendChild(errFrame);
+                    } catch (placeholderErr) {
+                        console.error(`[MarkDown For What] Could not create error placeholder for list block`, placeholderErr);
+                    }
                 }
                 i++;
             }
@@ -233,8 +237,12 @@ export async function renderBlocks(
             }
         } catch (err) {
             console.error(`[MarkDown For What] Failed to render block type "${block.type}": ${errorMessage(err)}`, err);
-            const errFrame = await createErrorPlaceholder(block);
-            frame.appendChild(errFrame);
+            try {
+                const errFrame = await createErrorPlaceholder(block, errorMessage(err));
+                frame.appendChild(errFrame);
+            } catch (placeholderErr) {
+                console.error(`[MarkDown For What] Could not create error placeholder for "${block.type}" block`, placeholderErr);
+            }
         }
 
         i++;
@@ -378,7 +386,7 @@ async function applyTextStyle(node: TextNode, block: Block, styleName: string): 
 /**
  * Creates a visible error placeholder frame for a block that failed to render.
  */
-async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
+async function createErrorPlaceholder(block: Block, reason?: string): Promise<FrameNode> {
     const errFrame = figma.createFrame();
     errFrame.name = `Error: ${block.type}`;
     errFrame.layoutMode = 'VERTICAL';
@@ -397,7 +405,9 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errText.fontName = await loadFont('Inter', 'Regular');
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
-    errText.characters = `Failed to render block: ${block.type}`;
+    errText.characters = reason
+        ? `Failed to render block: ${block.type} — ${reason}`
+        : `Failed to render block: ${block.type}`;
     errText.layoutAlign = 'STRETCH';
 
     errFrame.appendChild(errText);
