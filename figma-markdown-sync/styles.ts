@@ -119,6 +119,9 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
     const cached = styleCache.get(name);
     if (cached) return cached;
 
+    if (!existingStyles) {
+        console.warn(`[MarkDown For What] getOrCreateTextStyle("${name}") cache miss without pre-fetched styles — expected initializeStyles() to have run first`);
+    }
     const allStyles = existingStyles ?? await figma.getLocalTextStylesAsync();
     const existing = allStyles.find(s => s.name === name);
 
