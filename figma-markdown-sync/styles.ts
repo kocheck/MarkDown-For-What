@@ -22,6 +22,7 @@
 
 import type { marked } from 'marked';
 import { flattenTokens } from './parser';
+import { errorMessage } from './utils';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
 
@@ -109,13 +110,20 @@ const styleCache = new Map<string, TextStyle>();
  *
  * @param name   - The style name to look up (e.g. 'Markdown/H1')
  * @param config - Font config used ONLY when creating a new style
+ * @param existingStyles - Optional pre-fetched style list. When provided, skips the
+ *                         `getLocalTextStylesAsync` IPC call. Pass from `initializeStyles`
+ *                         to avoid N redundant calls during batch initialization.
  * @returns The existing or newly created TextStyle
  */
-export async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<TextStyle> {
+export async function getOrCreateTextStyle(name: string, config: StyleConfig, existingStyles?: TextStyle[]): Promise<TextStyle> {
     const cached = styleCache.get(name);
     if (cached) return cached;
 
-    const existing = figma.getLocalTextStyles().find(s => s.name === name);
+    if (!existingStyles) {
+        console.warn(`[MarkDown For What] getOrCreateTextStyle("${name}") cache miss without pre-fetched styles — expected initializeStyles() to have run first`);
+    }
+    const allStyles = existingStyles ?? await figma.getLocalTextStylesAsync();
+    const existing = allStyles.find(s => s.name === name);
 
     if (existing) {
         styleCache.set(name, existing);
@@ -141,9 +149,29 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig): P
  */
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
-    await Promise.all(
-        Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name]))
+
+    let allStyles: TextStyle[];
+    try {
+        allStyles = await figma.getLocalTextStylesAsync();
+    } catch (err) {
+        throw new Error(`[MarkDown For What] Failed to retrieve local text styles: ${errorMessage(err)}`);
+    }
+
+    const styleNames = Object.keys(DEFAULT_STYLES);
+    const results = await Promise.allSettled(
+        styleNames.map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name], allStyles))
     );
+
+    const failures = results
+        .map((result, i) => ({ result, name: styleNames[i] }))
+        .filter(({ result }) => result.status === 'rejected');
+
+    if (failures.length > 0) {
+        const summary = failures
+            .map(({ name, result }) => `${name}: ${errorMessage((result as PromiseRejectedResult).reason)}`)
+            .join('; ');
+        throw new Error(`[MarkDown For What] Failed to initialize ${failures.length} text style(s) — ${summary}`);
+    }
 }
 
 // ─── Inline Style Rendering ───────────────────────────────────────────────────

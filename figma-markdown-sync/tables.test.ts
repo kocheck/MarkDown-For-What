@@ -7,6 +7,7 @@
 
 import { createTableFrame, resolveAlignment, applyRightBorderOnly, applyBottomBorderOnly } from './tables';
 import { DEFAULT_SETTINGS } from './settings';
+import { countAsyncStyleCalls } from './test-setup';
 import type { Block } from './parser';
 import { hexToRgb, errorMessage } from './utils';
 
@@ -16,7 +17,7 @@ describe('createTableFrame', () => {
             jest.clearAllMocks();
             (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
             const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
-            (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+            (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
             (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
         });
 
@@ -73,6 +74,30 @@ describe('createTableFrame', () => {
             await expect(createTableFrame(block, DEFAULT_SETTINGS)).rejects.toThrow(
                 'Invalid table block: missing header or rows'
             );
+        });
+    });
+
+    describe('async API usage', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+            (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+            const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+            (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+            (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        });
+
+        it('calls setTextStyleIdAsync on every table cell text node', async () => {
+            const block: Block = {
+                type: 'table',
+                header: [{ text: 'A', tokens: [] }, { text: 'B', tokens: [] }],
+                align: [null, null],
+                rows: [[{ text: '1', tokens: [] }, { text: '2', tokens: [] }]],
+            };
+
+            await createTableFrame(block, DEFAULT_SETTINGS);
+
+            // 2 header cells + 2 data cells = 4 text nodes, each must use setTextStyleIdAsync
+            expect(countAsyncStyleCalls()).toBe(4);
         });
     });
 });

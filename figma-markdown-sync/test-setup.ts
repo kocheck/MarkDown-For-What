@@ -67,6 +67,7 @@ function makeMockText(): any {
         setRangeFontName: jest.fn(),
         insertCharacters: jest.fn(),
         remove: jest.fn(),
+        setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -115,7 +116,7 @@ function makeMockRectangle(): any {
         fontSize: 16,
         lineHeight: { value: 150, unit: 'PERCENT' },
     })),
-    getLocalTextStyles: jest.fn(() => []),
+    getLocalTextStylesAsync: jest.fn().mockResolvedValue([]),
     createImageAsync: jest.fn().mockResolvedValue({
         hash: 'mock-hash',
         getSizeAsync: jest.fn().mockResolvedValue({ width: 800, height: 600 }),
@@ -128,5 +129,14 @@ function makeMockRectangle(): any {
 };
 
 (global as any).__html__ = '';
+
+/** Returns the total number of setTextStyleIdAsync calls across all mock text nodes created so far. */
+export function countAsyncStyleCalls(): number {
+    const allTextNodes = (figma.createText as jest.Mock).mock.results.map((r: any) => r.value);
+    return allTextNodes.reduce(
+        (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
+        0
+    );
+}
 
 export {};

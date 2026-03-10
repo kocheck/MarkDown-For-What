@@ -42,9 +42,17 @@ figma.showUI(__html__, { width: 400, height: 500 });
         }
 
         if (msg.type === 'reset-settings') {
-            await saveSettings(DEFAULT_SETTINGS);
-            figma.ui.postMessage({ type: 'settings', settings: DEFAULT_SETTINGS });
-            figma.ui.postMessage({ type: 'status', message: 'Settings reset to defaults.', error: false });
+            try {
+                await saveSettings(DEFAULT_SETTINGS);
+                figma.ui.postMessage({ type: 'settings', settings: DEFAULT_SETTINGS });
+                figma.ui.postMessage({ type: 'status', message: 'Settings reset to defaults.', error: false });
+            } catch (err) {
+                figma.ui.postMessage({
+                    type: 'status',
+                    message: `Failed to reset settings: ${errorMessage(err)}`,
+                    error: true,
+                });
+            }
             return;
         }
 

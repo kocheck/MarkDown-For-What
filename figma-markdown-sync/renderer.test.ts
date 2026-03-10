@@ -6,6 +6,7 @@
 
 import { renderBlocks, computeNewFrameX } from './renderer';
 import { DEFAULT_SETTINGS } from './settings';
+import { countAsyncStyleCalls } from './test-setup';
 import type { Block } from './parser';
 
 describe('computeNewFrameX', () => {
@@ -292,6 +293,50 @@ describe('renderBlocks', () => {
 
             expect(targetNode.remove).not.toHaveBeenCalled();
             expect(result.frame).toBeDefined();
+        });
+    });
+
+    describe('async API usage', () => {
+        it('calls setTextStyleIdAsync on heading blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'heading', content: 'Title', level: 1, tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(countAsyncStyleCalls()).toBe(1);
+        });
+
+        it('calls setTextStyleIdAsync for list blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Item 1', tokens: [] },
+                { type: 'list', content: 'Item 2', tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // One call per list item
+            expect(countAsyncStyleCalls()).toBe(2);
+        });
+
+        it('calls setTextStyleIdAsync on paragraph blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'paragraph', content: 'Hello world', tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(countAsyncStyleCalls()).toBe(1);
+        });
+
+        it('calls setTextStyleIdAsync on code blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'code', content: 'const x = 1;' },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(countAsyncStyleCalls()).toBe(1);
         });
     });
 });

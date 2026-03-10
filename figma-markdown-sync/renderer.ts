@@ -17,7 +17,7 @@ import type { Block } from './parser';
 import type { PluginSettings } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 import { createTableFrame } from './tables';
-import { hexToRgb } from './utils';
+import { hexToRgb, errorMessage } from './utils';
 
 /** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
 export interface RenderResult {
@@ -166,7 +166,11 @@ export async function renderBlocks(
     targetNode?: SceneNode
 ): Promise<RenderResult> {
     // Ensure all Markdown/* text styles exist
-    await initializeStyles();
+    try {
+        await initializeStyles();
+    } catch (err) {
+        throw new Error(`Style initialization failed — ${errorMessage(err)}`);
+    }
 
     // Compute placement before createFrame — createFrame immediately adds the frame
     // to figma.currentPage.children, which would inflate computeNewFrameX's result.
@@ -210,9 +214,13 @@ export async function renderBlocks(
                     const listNode = await renderListBlock(listBlock);
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
-                    console.error(`[MarkDown For What] Failed to render list block:`, err);
-                    const errFrame = await createErrorPlaceholder(listBlock);
-                    listGroupFrame.appendChild(errFrame);
+                    console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`, err);
+                    try {
+                        const errFrame = await createErrorPlaceholder(listBlock, errorMessage(err));
+                        listGroupFrame.appendChild(errFrame);
+                    } catch (placeholderErr) {
+                        console.error(`[MarkDown For What] Could not create error placeholder for list block`, placeholderErr);
+                    }
                 }
                 i++;
             }
@@ -232,9 +240,13 @@ export async function renderBlocks(
                 }
             }
         } catch (err) {
-            console.error(`[MarkDown For What] Failed to render block type "${block.type}":`, err);
-            const errFrame = await createErrorPlaceholder(block);
-            frame.appendChild(errFrame);
+            console.error(`[MarkDown For What] Failed to render block type "${block.type}": ${errorMessage(err)}`, err);
+            try {
+                const errFrame = await createErrorPlaceholder(block, errorMessage(err));
+                frame.appendChild(errFrame);
+            } catch (placeholderErr) {
+                console.error(`[MarkDown For What] Could not create error placeholder for "${block.type}" block`, placeholderErr);
+            }
         }
 
         i++;
@@ -303,7 +315,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
             const codeText = figma.createText();
             const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
-            codeText.textStyleId = codeStyle.id;
+            await codeText.setTextStyleIdAsync(codeStyle.id);
             codeText.characters = block.content || '';
             codeText.layoutAlign = 'STRETCH';
 
@@ -342,7 +354,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 async function renderListBlock(block: Block): Promise<TextNode> {
     const node = figma.createText();
     const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
-    node.textStyleId = style.id;
+    await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens && block.tokens.length > 0) {
@@ -362,7 +374,7 @@ async function renderListBlock(block: Block): Promise<TextNode> {
  */
 async function applyTextStyle(node: TextNode, block: Block, styleName: string): Promise<void> {
     const style = await getOrCreateTextStyle(styleName, DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY]);
-    node.textStyleId = style.id;
+    await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens) {
@@ -378,7 +390,7 @@ async function applyTextStyle(node: TextNode, block: Block, styleName: string): 
 /**
  * Creates a visible error placeholder frame for a block that failed to render.
  */
-async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
+async function createErrorPlaceholder(block: Block, reason?: string): Promise<FrameNode> {
     const errFrame = figma.createFrame();
     errFrame.name = `Error: ${block.type}`;
     errFrame.layoutMode = 'VERTICAL';
@@ -397,7 +409,9 @@ async function createErrorPlaceholder(block: Block): Promise<FrameNode> {
     errText.fontName = await loadFont('Inter', 'Regular');
     errText.fontSize = 12;
     errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
-    errText.characters = `Failed to render block: ${block.type}`;
+    errText.characters = reason
+        ? `Failed to render block: ${block.type} — ${reason}`
+        : `Failed to render block: ${block.type}`;
     errText.layoutAlign = 'STRETCH';
 
     errFrame.appendChild(errText);

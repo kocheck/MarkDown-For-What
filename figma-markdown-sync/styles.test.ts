@@ -18,7 +18,7 @@ describe('getOrCreateTextStyle', () => {
             fontSize: 48,
         };
 
-        (figma.getLocalTextStyles as jest.Mock).mockReturnValue([existingStyle]);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([existingStyle]);
 
         const result = await getOrCreateTextStyle(STYLE_NAMES.H1, DEFAULT_STYLES[STYLE_NAMES.H1]);
 
@@ -32,7 +32,7 @@ describe('getOrCreateTextStyle', () => {
     });
 
     test('creates a new style when none exists', async () => {
-        (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
 
         const mockStyle: any = { name: '', fontName: {}, fontSize: 0, lineHeight: {} };
         (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
@@ -84,16 +84,27 @@ describe('getOrCreateTextStyle - cache behavior', () => {
     it('returns cached style without calling getLocalTextStyles again', async () => {
         // Use initializeStyles to populate cache first
         const mockStyle: any = { id: 'cached-id', name: STYLE_NAMES.BODY, fontName: {}, fontSize: 0, lineHeight: {} };
-        (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
         (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
         (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
 
         const config = DEFAULT_STYLES[STYLE_NAMES.BODY];
         await getOrCreateTextStyle(STYLE_NAMES.BODY, config);
         jest.clearAllMocks();
-        // Second call — should use cache, not call getLocalTextStyles
+        // Second call — should use cache, not call getLocalTextStylesAsync
         await getOrCreateTextStyle(STYLE_NAMES.BODY, config);
-        expect(figma.getLocalTextStyles).not.toHaveBeenCalled();
+        expect(figma.getLocalTextStylesAsync).not.toHaveBeenCalled();
+    });
+
+    it('does not call getLocalTextStylesAsync when existingStyles is provided', async () => {
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+
+        // Pass existingStyles directly — no IPC call should happen
+        await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY], []);
+
+        expect(figma.getLocalTextStylesAsync).not.toHaveBeenCalled();
     });
 });
 
@@ -104,7 +115,7 @@ describe('initializeStyles', () => {
 
     it('clears the style cache before creating styles', async () => {
         const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
-        (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
         (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
         (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
 
@@ -114,6 +125,32 @@ describe('initializeStyles', () => {
         await initializeStyles();
         // Should have created styles twice (once per initializeStyles call)
         expect(figma.createTextStyle).toHaveBeenCalled();
+    });
+
+    it('calls getLocalTextStylesAsync exactly once regardless of style count', async () => {
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+
+        await initializeStyles();
+
+        // Must be exactly 1 call — not one per style (which would be N calls for N styles)
+        expect(figma.getLocalTextStylesAsync).toHaveBeenCalledTimes(1);
+        expect(Object.keys(DEFAULT_STYLES).length).toBeGreaterThan(1); // confirm there are multiple styles
+    });
+
+    it('throws with a summary when one or more styles fail to create', async () => {
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        // Reject every font load — both primary and Inter Regular fallback — so every
+        // style fails. Promise.allSettled collects all rejections and initializeStyles
+        // should throw with the "Failed to initialize N text style(s)" summary.
+        (figma.loadFontAsync as jest.Mock).mockRejectedValue(new Error('Font unavailable'));
+        (figma.createTextStyle as jest.Mock).mockReturnValue({
+            id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {},
+        });
+
+        await expect(initializeStyles()).rejects.toThrow('Failed to initialize');
     });
 });
 
@@ -129,7 +166,7 @@ describe('applyInlineStyles', () => {
         };
         (figma.createText as jest.Mock).mockReturnValue(node);
         (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
-        (figma.getLocalTextStyles as jest.Mock).mockReturnValue([]);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
         const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
         (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
     });

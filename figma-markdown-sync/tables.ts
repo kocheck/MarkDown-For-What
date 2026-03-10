@@ -21,7 +21,7 @@
 import type { Block } from './parser';
 import type { PluginSettings } from './settings';
 import { getOrCreateTextStyle, loadFont, STYLE_NAMES, DEFAULT_STYLES } from './styles';
-import { hexToRgb } from './utils';
+import { hexToRgb, errorMessage } from './utils';
 
 /**
  * Converts a nullable Markdown table alignment value to a Figma text alignment constant.
@@ -134,7 +134,11 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
         }
 
         const textNode = figma.createText();
-        textNode.textStyleId = bodyStyle.id;  // link to Markdown/Body style
+        try {
+            await textNode.setTextStyleIdAsync(bodyStyle.id);
+        } catch (err) {
+            throw new Error(`Failed to apply text style to header cell ${i + 1}: ${errorMessage(err)}`);
+        }
         textNode.fontName = headerFont;       // override to bold after linking
         textNode.layoutAlign = 'STRETCH';
         textNode.characters = cell.text;
@@ -176,7 +180,11 @@ export async function createTableFrame(block: Block, settings: PluginSettings): 
             }
 
             const textNode = figma.createText();
-            textNode.textStyleId = bodyStyle.id;
+            try {
+                await textNode.setTextStyleIdAsync(bodyStyle.id);
+            } catch (err) {
+                throw new Error(`Failed to apply text style to row ${rowIndex + 1}, cell ${colIndex + 1}: ${errorMessage(err)}`);
+            }
             textNode.layoutAlign = 'STRETCH';
             textNode.characters = cell.text;
 
