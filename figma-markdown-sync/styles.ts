@@ -109,6 +109,9 @@ const styleCache = new Map<string, TextStyle>();
  *
  * @param name   - The style name to look up (e.g. 'Markdown/H1')
  * @param config - Font config used ONLY when creating a new style
+ * @param existingStyles - Optional pre-fetched style list. When provided, skips the
+ *                         `getLocalTextStylesAsync` IPC call. Pass from `initializeStyles`
+ *                         to avoid N redundant calls during batch initialization.
  * @returns The existing or newly created TextStyle
  */
 export async function getOrCreateTextStyle(name: string, config: StyleConfig, existingStyles?: TextStyle[]): Promise<TextStyle> {

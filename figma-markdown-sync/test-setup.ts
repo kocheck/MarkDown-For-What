@@ -116,7 +116,6 @@ function makeMockRectangle(): any {
         fontSize: 16,
         lineHeight: { value: 150, unit: 'PERCENT' },
     })),
-    getLocalTextStyles: jest.fn(() => []),
     getLocalTextStylesAsync: jest.fn().mockResolvedValue([]),
     createImageAsync: jest.fn().mockResolvedValue({
         hash: 'mock-hash',
