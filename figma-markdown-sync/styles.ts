@@ -111,11 +111,12 @@ const styleCache = new Map<string, TextStyle>();
  * @param config - Font config used ONLY when creating a new style
  * @returns The existing or newly created TextStyle
  */
-export async function getOrCreateTextStyle(name: string, config: StyleConfig): Promise<TextStyle> {
+export async function getOrCreateTextStyle(name: string, config: StyleConfig, existingStyles?: TextStyle[]): Promise<TextStyle> {
     const cached = styleCache.get(name);
     if (cached) return cached;
 
-    const existing = figma.getLocalTextStyles().find(s => s.name === name);
+    const allStyles = existingStyles ?? await figma.getLocalTextStylesAsync();
+    const existing = allStyles.find(s => s.name === name);
 
     if (existing) {
         styleCache.set(name, existing);
@@ -141,8 +142,9 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig): P
  */
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
+    const allStyles = await figma.getLocalTextStylesAsync();
     await Promise.all(
-        Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name]))
+        Object.keys(DEFAULT_STYLES).map(name => getOrCreateTextStyle(name, DEFAULT_STYLES[name], allStyles))
     );
 }
 

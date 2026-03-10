@@ -17,7 +17,7 @@ import type { Block } from './parser';
 import type { PluginSettings } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 import { createTableFrame } from './tables';
-import { hexToRgb } from './utils';
+import { hexToRgb, errorMessage } from './utils';
 
 /** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
 export interface RenderResult {
@@ -210,7 +210,7 @@ export async function renderBlocks(
                     const listNode = await renderListBlock(listBlock);
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
-                    console.error(`[MarkDown For What] Failed to render list block:`, err);
+                    console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`);
                     const errFrame = await createErrorPlaceholder(listBlock);
                     listGroupFrame.appendChild(errFrame);
                 }
@@ -232,7 +232,7 @@ export async function renderBlocks(
                 }
             }
         } catch (err) {
-            console.error(`[MarkDown For What] Failed to render block type "${block.type}":`, err);
+            console.error(`[MarkDown For What] Failed to render block type "${block.type}": ${errorMessage(err)}`);
             const errFrame = await createErrorPlaceholder(block);
             frame.appendChild(errFrame);
         }
@@ -303,7 +303,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
             const codeText = figma.createText();
             const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
-            codeText.textStyleId = codeStyle.id;
+            await codeText.setTextStyleIdAsync(codeStyle.id);
             codeText.characters = block.content || '';
             codeText.layoutAlign = 'STRETCH';
 
@@ -342,7 +342,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 async function renderListBlock(block: Block): Promise<TextNode> {
     const node = figma.createText();
     const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
-    node.textStyleId = style.id;
+    await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens && block.tokens.length > 0) {
@@ -362,7 +362,7 @@ async function renderListBlock(block: Block): Promise<TextNode> {
  */
 async function applyTextStyle(node: TextNode, block: Block, styleName: string): Promise<void> {
     const style = await getOrCreateTextStyle(styleName, DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY]);
-    node.textStyleId = style.id;
+    await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens) {

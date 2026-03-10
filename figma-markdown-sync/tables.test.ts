@@ -75,6 +75,35 @@ describe('createTableFrame', () => {
             );
         });
     });
+
+    describe('async API usage', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+            (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+            const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+            (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+            (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        });
+
+        it('calls setTextStyleIdAsync on every table cell text node', async () => {
+            const block: Block = {
+                type: 'table',
+                header: [{ text: 'A', tokens: [] }, { text: 'B', tokens: [] }],
+                align: [null, null],
+                rows: [[{ text: '1', tokens: [] }, { text: '2', tokens: [] }]],
+            };
+
+            await createTableFrame(block, DEFAULT_SETTINGS);
+
+            // 2 header cells + 2 data cells = 4 text nodes, each must use setTextStyleIdAsync
+            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
+            const asyncCallCount = allTextNodes.reduce(
+                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
+                0
+            );
+            expect(asyncCallCount).toBe(4);
+        });
+    });
 });
 
 describe('resolveAlignment', () => {

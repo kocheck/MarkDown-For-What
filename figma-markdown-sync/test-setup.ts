@@ -67,6 +67,7 @@ function makeMockText(): any {
         setRangeFontName: jest.fn(),
         insertCharacters: jest.fn(),
         remove: jest.fn(),
+        setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -116,6 +117,7 @@ function makeMockRectangle(): any {
         lineHeight: { value: 150, unit: 'PERCENT' },
     })),
     getLocalTextStyles: jest.fn(() => []),
+    getLocalTextStylesAsync: jest.fn().mockResolvedValue([]),
     createImageAsync: jest.fn().mockResolvedValue({
         hash: 'mock-hash',
         getSizeAsync: jest.fn().mockResolvedValue({ width: 800, height: 600 }),

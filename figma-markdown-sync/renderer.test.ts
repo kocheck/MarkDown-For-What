@@ -294,4 +294,39 @@ describe('renderBlocks', () => {
             expect(result.frame).toBeDefined();
         });
     });
+
+    describe('async API usage', () => {
+        it('calls setTextStyleIdAsync on text nodes (not sync textStyleId setter)', async () => {
+            const blocks: Block[] = [
+                { type: 'paragraph', content: 'Hello', tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // At least one text node must have had setTextStyleIdAsync called on it
+            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
+            const asyncCallCount = allTextNodes.reduce(
+                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
+                0
+            );
+            expect(asyncCallCount).toBeGreaterThan(0);
+        });
+
+        it('calls setTextStyleIdAsync for list blocks', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Item 1', tokens: [] },
+                { type: 'list', content: 'Item 2', tokens: [] },
+            ];
+
+            await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            const allTextNodes = (figma.createText as jest.Mock).mock.results.map(r => r.value);
+            const asyncCallCount = allTextNodes.reduce(
+                (sum: number, node: any) => sum + (node.setTextStyleIdAsync as jest.Mock).mock.calls.length,
+                0
+            );
+            // One call per list item
+            expect(asyncCallCount).toBe(2);
+        });
+    });
 });
