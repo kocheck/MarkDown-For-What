@@ -647,3 +647,122 @@ describe('Regression Tests', () => {
         expect(nonEmptyBlocks.length).toBe(blocks.length);
     });
 });
+
+describe('callout / admonition parsing', () => {
+    it('should parse > [!NOTE] as a callout block', () => {
+        const blocks = parseMarkdownToBlocks('> [!NOTE]\n> This is a note');
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('note');
+        expect(blocks[0].content).toBe('This is a note');
+    });
+
+    it('should parse > [!WARNING] as a callout block', () => {
+        const blocks = parseMarkdownToBlocks('> [!WARNING]\n> Be careful here');
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('warning');
+        expect(blocks[0].content).toBe('Be careful here');
+    });
+
+    it('should parse all five callout types', () => {
+        const types = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'];
+        for (const t of types) {
+            const blocks = parseMarkdownToBlocks(`> [!${t}]\n> Body`);
+            expect(blocks[0].type).toBe('callout');
+            expect(blocks[0].calloutType).toBe(t.toLowerCase());
+        }
+    });
+
+    it('should be case-insensitive for callout type', () => {
+        const blocks = parseMarkdownToBlocks('> [!note]\n> lowercase');
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('note');
+    });
+
+    it('should fall back to regular quote for unrecognized type', () => {
+        const blocks = parseMarkdownToBlocks('> [!UNKNOWN]\n> Some text');
+        expect(blocks[0].type).toBe('quote');
+    });
+
+    it('should fall back to regular quote for normal blockquotes', () => {
+        const blocks = parseMarkdownToBlocks('> Just a regular quote');
+        expect(blocks[0].type).toBe('quote');
+    });
+
+    it('should handle multiline callout body', () => {
+        const blocks = parseMarkdownToBlocks('> [!TIP]\n> Line one\n> Line two');
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].content).toContain('Line one');
+        expect(blocks[0].content).toContain('Line two');
+    });
+});
+
+describe('table of contents generation', () => {
+    it('should generate TOC from headings when enabled', () => {
+        const md = '# Title\n\n## Section A\n\n### Sub A\n\n## Section B';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[0].tocEntries).toEqual([
+            { text: 'Title', level: 1 },
+            { text: 'Section A', level: 2 },
+            { text: 'Sub A', level: 3 },
+            { text: 'Section B', level: 2 },
+        ]);
+    });
+
+    it('should not generate TOC when disabled', () => {
+        const md = '# Title\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).not.toBe('toc');
+    });
+
+    it('should insert TOC before all other blocks', () => {
+        const md = '# Title\n\nSome text\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[1].type).toBe('heading');
+    });
+
+    it('should not generate TOC if no headings found', () => {
+        const md = 'Just a paragraph with no headings.';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).not.toBe('toc');
+    });
+
+    it('should handle TOC frontmatter flag', () => {
+        const md = '---\ntoc: true\n---\n# Title\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: false });
+        expect(blocks[0].type).toBe('toc');
+    });
+});
+
+describe('P1 integration', () => {
+    it('should parse document with TOC, callouts, and standard content', () => {
+        const md = [
+            '# Guide',
+            '',
+            '## Getting Started',
+            '',
+            '> [!NOTE]',
+            '> Read this first',
+            '',
+            '## Advanced',
+            '',
+            '> [!WARNING]',
+            '> This is dangerous',
+        ].join('\n');
+
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+
+        // TOC should be first
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[0].tocEntries).toHaveLength(3);
+
+        // Should have callout blocks
+        const callouts = blocks.filter((b: Block) => b.type === 'callout');
+        expect(callouts).toHaveLength(2);
+        expect(callouts[0].calloutType).toBe('note');
+        expect(callouts[1].calloutType).toBe('warning');
+    });
+});

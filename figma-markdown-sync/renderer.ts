@@ -33,6 +33,22 @@ export interface RenderResult {
     imageFailures: number;
 }
 
+// ─── Callout Colors ──────────────────────────────────────────────────────────
+
+const CALLOUT_COLORS: Record<string, { border: RGB; bg: RGB; text: RGB }> = {
+    note:      { border: hexToRgb('#0969DA'), bg: hexToRgb('#0969DA'), text: hexToRgb('#0969DA') },
+    tip:       { border: hexToRgb('#1A7F37'), bg: hexToRgb('#1A7F37'), text: hexToRgb('#1A7F37') },
+    important: { border: hexToRgb('#8250DF'), bg: hexToRgb('#8250DF'), text: hexToRgb('#8250DF') },
+    warning:   { border: hexToRgb('#9A6700'), bg: hexToRgb('#9A6700'), text: hexToRgb('#9A6700') },
+    caution:   { border: hexToRgb('#CF222E'), bg: hexToRgb('#CF222E'), text: hexToRgb('#CF222E') },
+};
+
+const CALLOUT_LABELS: Record<string, string> = {
+    note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution',
+};
+
+// ─── List Constants ──────────────────────────────────────────────────────────
+
 const BULLETS = ['• ', '◦ ', '– ', '· '] as const;
 const INDENT_PER_DEPTH = 20;
 const CHECKBOX_CHECKED: SolidPaint = { type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } };
@@ -370,6 +386,14 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             return await createImageNode(block, settings);
         }
 
+        case 'callout': {
+            return await renderCalloutBlock(block, settings);
+        }
+
+        case 'toc': {
+            return await renderTocBlock(block);
+        }
+
         case 'list':
         case 'orderedListItem':
         case 'taskListItem':
@@ -470,6 +494,104 @@ async function renderTaskListBlock(block: Block, listStyle: TextStyle): Promise<
     taskFrame.appendChild(checkbox);
     taskFrame.appendChild(textNode);
     return taskFrame;
+}
+
+/**
+ * Renders a callout/admonition block as a colored frame with label and body.
+ */
+async function renderCalloutBlock(block: Block, _settings: PluginSettings): Promise<FrameNode> {
+    const calloutType = block.calloutType ?? 'note';
+    const colors = CALLOUT_COLORS[calloutType] ?? CALLOUT_COLORS.note;
+
+    const calloutFrame = figma.createFrame();
+    calloutFrame.name = `Callout: ${CALLOUT_LABELS[calloutType] ?? 'Note'}`;
+    calloutFrame.layoutMode = 'VERTICAL';
+    calloutFrame.primaryAxisSizingMode = 'AUTO';
+    calloutFrame.counterAxisSizingMode = 'FIXED';
+    calloutFrame.layoutAlign = 'STRETCH';
+    calloutFrame.itemSpacing = 8;
+    calloutFrame.paddingTop = 12;
+    calloutFrame.paddingBottom = 12;
+    calloutFrame.paddingLeft = 16;
+    calloutFrame.paddingRight = 16;
+
+    // Background fill at 10% opacity
+    calloutFrame.fills = [{
+        type: 'SOLID',
+        color: colors.bg,
+        opacity: 0.1,
+    }];
+
+    // Left border only (4px)
+    calloutFrame.strokes = [{ type: 'SOLID', color: colors.border }];
+    calloutFrame.strokeWeight = 0;
+    calloutFrame.strokeLeftWeight = 4;
+    calloutFrame.strokeTopWeight = 0;
+    calloutFrame.strokeBottomWeight = 0;
+    calloutFrame.strokeRightWeight = 0;
+
+    // Label text (bold, colored)
+    const labelNode = figma.createText();
+    const boldFont = await loadFont('Inter', 'Bold');
+    labelNode.fontName = boldFont;
+    labelNode.fontSize = 14;
+    labelNode.characters = CALLOUT_LABELS[calloutType] ?? 'Note';
+    labelNode.fills = [{ type: 'SOLID', color: colors.text }];
+    labelNode.layoutAlign = 'STRETCH';
+
+    // Body text
+    const bodyNode = figma.createText();
+    const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+    await bodyNode.setTextStyleIdAsync(bodyStyle.id);
+    bodyNode.layoutAlign = 'STRETCH';
+    bodyNode.characters = block.content ?? '';
+
+    calloutFrame.appendChild(labelNode);
+    calloutFrame.appendChild(bodyNode);
+    return calloutFrame;
+}
+
+/**
+ * Renders a table of contents block with a "Contents" label and indented heading entries.
+ */
+async function renderTocBlock(block: Block): Promise<FrameNode> {
+    const tocFrame = figma.createFrame();
+    tocFrame.name = 'Table of Contents';
+    tocFrame.layoutMode = 'VERTICAL';
+    tocFrame.primaryAxisSizingMode = 'AUTO';
+    tocFrame.counterAxisSizingMode = 'FIXED';
+    tocFrame.layoutAlign = 'STRETCH';
+    tocFrame.itemSpacing = 4;
+    tocFrame.paddingBottom = 12;
+    tocFrame.fills = [];
+
+    // "Contents" label using H3 style
+    const labelNode = figma.createText();
+    const h3Style = await getOrCreateTextStyle(STYLE_NAMES.H3, DEFAULT_STYLES[STYLE_NAMES.H3]);
+    await labelNode.setTextStyleIdAsync(h3Style.id);
+    labelNode.characters = 'Contents';
+    labelNode.layoutAlign = 'STRETCH';
+    tocFrame.appendChild(labelNode);
+
+    // TOC entries
+    const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+    for (const entry of (block.tocEntries ?? [])) {
+        const entryNode = figma.createText();
+        await entryNode.setTextStyleIdAsync(bodyStyle.id);
+        entryNode.fontSize = 14;
+        entryNode.characters = entry.text;
+        entryNode.layoutAlign = 'STRETCH';
+
+        // Indent: H1 = 0, H2 = 20px, H3 = 40px
+        const indent = Math.max(0, (entry.level - 1)) * 20;
+        if (indent > 0) {
+            entryNode.paragraphIndent = indent;
+        }
+
+        tocFrame.appendChild(entryNode);
+    }
+
+    return tocFrame;
 }
 
 /**

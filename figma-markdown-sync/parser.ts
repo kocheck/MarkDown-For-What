@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -42,6 +42,10 @@ export interface Block {
     index?: number;
     // Task list-specific
     checked?: boolean;
+    // Callout-specific
+    calloutType?: 'note' | 'tip' | 'important' | 'warning' | 'caution';
+    // TOC-specific
+    tocEntries?: Array<{ text: string; level: number }>;
 }
 
 /**
@@ -271,6 +275,27 @@ function flattenListItems(
     return result;
 }
 
+// ─── Callout Detection ──────────────────────────────────────────────────────────
+
+const CALLOUT_REGEX = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
+const VALID_CALLOUT_TYPES = ['note', 'tip', 'important', 'warning', 'caution'] as const;
+type CalloutType = typeof VALID_CALLOUT_TYPES[number];
+
+function parseCallout(text: string): { calloutType: CalloutType; body: string } | null {
+    const match = text.match(CALLOUT_REGEX);
+    if (!match) return null;
+    const type = match[1].toLowerCase();
+    if (!(VALID_CALLOUT_TYPES as readonly string[]).includes(type)) return null;
+    const body = text.slice(match[0].length).replace(/^\n+/, '').trim();
+    return { calloutType: type as CalloutType, body };
+}
+
+// ─── Parse Options ──────────────────────────────────────────────────────────────
+
+export interface ParseOptions {
+    generateToc?: boolean;
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -287,8 +312,16 @@ function flattenListItems(
  * const blocks = parseMarkdownToBlocks('# Hello\n\nSome paragraph');
  * // → [{ type: 'heading', level: 1, content: 'Hello' }, { type: 'paragraph', ... }]
  */
-export function parseMarkdownToBlocks(markdown: string): Block[] {
+export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions): Block[] {
     const frontMatterRegex = /^---[\s\S]*?---\r?\n/;
+    const frontMatterMatch = markdown.match(frontMatterRegex);
+
+    // Check frontmatter for toc: true
+    let tocFromFrontmatter = false;
+    if (frontMatterMatch) {
+        tocFromFrontmatter = /^toc:\s*true\s*$/m.test(frontMatterMatch[0]);
+    }
+
     const cleanMarkdown = markdown.replace(frontMatterRegex, '');
 
     let tokens: marked.TokensList;
@@ -354,7 +387,17 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'blockquote': {
                 const bToken = token as marked.Tokens.Blockquote;
-                blocks.push({ type: 'quote', content: bToken.text });
+                const calloutResult = parseCallout(bToken.text);
+                if (calloutResult) {
+                    blocks.push({
+                        type: 'callout',
+                        calloutType: calloutResult.calloutType,
+                        content: calloutResult.body,
+                        tokens: bToken.tokens,
+                    });
+                } else {
+                    blocks.push({ type: 'quote', content: bToken.text });
+                }
                 break;
             }
             case 'list': {
@@ -384,11 +427,25 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
                 break;
         }
     }
+
+    // Generate TOC if requested via option or frontmatter
+    const shouldGenerateToc = options?.generateToc || tocFromFrontmatter;
+    if (shouldGenerateToc) {
+        const headings = blocks.filter(b => b.type === 'heading');
+        if (headings.length > 0) {
+            const tocBlock: Block = {
+                type: 'toc',
+                tocEntries: headings.map(h => ({ text: h.content ?? '', level: h.level ?? 1 })),
+            };
+            blocks.unshift(tocBlock);
+        }
+    }
+
     return blocks;
 }
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT };
+    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT, ParseOptions: {} };
 }
 

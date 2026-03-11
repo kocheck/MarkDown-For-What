@@ -526,4 +526,98 @@ describe('renderBlocks', () => {
             expect(countAsyncStyleCalls()).toBe(1);
         });
     });
+
+    describe('callout block rendering', () => {
+        it('should render a callout as a frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'note',
+                content: 'This is a note',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0];
+            expect(calloutFrame.type).toBe('FRAME');
+            expect(calloutFrame.name).toBe('Callout: Note');
+        });
+
+        it('should render callout with label and body children', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'warning',
+                content: 'Watch out!',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0] as any;
+            expect(calloutFrame.children.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('should render all five callout types without error', async () => {
+            const types = ['note', 'tip', 'important', 'warning', 'caution'] as const;
+            for (const t of types) {
+                const blocks: Block[] = [{ type: 'callout', calloutType: t, content: 'Body' }];
+                const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+                expect(result.frame.children.length).toBe(1);
+            }
+        });
+
+        it('should set left border on callout frame', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'tip',
+                content: 'A tip',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0] as any;
+            expect(calloutFrame.strokeLeftWeight).toBe(4);
+            expect(calloutFrame.strokeTopWeight).toBe(0);
+        });
+    });
+
+    describe('TOC block rendering', () => {
+        it('should render a TOC frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'Title', level: 1 },
+                    { text: 'Section', level: 2 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0];
+            expect(tocFrame.type).toBe('FRAME');
+            expect(tocFrame.name).toBe('Table of Contents');
+        });
+
+        it('should render Contents label and entries', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'Heading 1', level: 1 },
+                    { text: 'Heading 2', level: 2 },
+                    { text: 'Heading 3', level: 3 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0] as any;
+            // Label + 3 entries = 4 children
+            expect(tocFrame.children.length).toBe(4);
+        });
+
+        it('should indent TOC entries by heading level', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'H1', level: 1 },
+                    { text: 'H2', level: 2 },
+                    { text: 'H3', level: 3 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0] as any;
+            // H1 has no indent, H2 has 20px, H3 has 40px
+            expect(tocFrame.children[1].paragraphIndent).toBe(0);
+            expect(tocFrame.children[2].paragraphIndent).toBe(20);
+            expect(tocFrame.children[3].paragraphIndent).toBe(40);
+        });
+    });
 });
