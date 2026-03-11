@@ -12,7 +12,11 @@ import {
     THEME_PRESETS,
     loadSettings,
     saveSettings,
+    loadHistory,
+    recordImport,
+    clearHistory,
     PluginSettings,
+    ImportHistoryEntry,
 } from './settings';
 
 describe('DEFAULT_SETTINGS', () => {
@@ -351,5 +355,79 @@ describe('resolveThemeSettings', () => {
     test('returns empty overrides for custom theme', () => {
         const resolved = resolveThemeSettings('custom');
         expect(Object.keys(resolved)).toHaveLength(0);
+    });
+});
+
+// ─── Import History ─────────────────────────────────────────────────────────
+
+describe('import history', () => {
+    beforeEach(() => {
+        (figma.clientStorage.getAsync as jest.Mock).mockReset();
+        (figma.clientStorage.setAsync as jest.Mock).mockReset();
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue(undefined);
+        (figma.clientStorage.setAsync as jest.Mock).mockResolvedValue(undefined);
+    });
+
+    test('loadHistory returns empty array on first run', async () => {
+        const history = await loadHistory();
+        expect(history).toEqual([]);
+    });
+
+    test('loadHistory returns stored entries', async () => {
+        const entries: ImportHistoryEntry[] = [
+            { filename: 'test.md', timestamp: 1000, blockCount: 5 },
+        ];
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue(entries);
+        const history = await loadHistory();
+        expect(history).toHaveLength(1);
+        expect(history[0].filename).toBe('test.md');
+    });
+
+    test('recordImport adds a new entry at the top', async () => {
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue([]);
+        await recordImport('readme.md', 10);
+        expect(figma.clientStorage.setAsync).toHaveBeenCalled();
+        const savedEntries = (figma.clientStorage.setAsync as jest.Mock).mock.calls[0][1];
+        expect(savedEntries).toHaveLength(1);
+        expect(savedEntries[0].filename).toBe('readme.md');
+        expect(savedEntries[0].blockCount).toBe(10);
+    });
+
+    test('recordImport deduplicates by filename', async () => {
+        const existing: ImportHistoryEntry[] = [
+            { filename: 'readme.md', timestamp: 1000, blockCount: 5 },
+            { filename: 'other.md', timestamp: 900, blockCount: 3 },
+        ];
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue(existing);
+        await recordImport('readme.md', 12);
+        const savedEntries = (figma.clientStorage.setAsync as jest.Mock).mock.calls[0][1];
+        expect(savedEntries).toHaveLength(2);
+        expect(savedEntries[0].filename).toBe('readme.md');
+        expect(savedEntries[0].blockCount).toBe(12); // updated
+        expect(savedEntries[1].filename).toBe('other.md');
+    });
+
+    test('recordImport trims to max 20 entries', async () => {
+        const existing: ImportHistoryEntry[] = Array.from({ length: 20 }, (_, i) => ({
+            filename: `file${i}.md`,
+            timestamp: 1000 + i,
+            blockCount: i,
+        }));
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue(existing);
+        await recordImport('new.md', 7);
+        const savedEntries = (figma.clientStorage.setAsync as jest.Mock).mock.calls[0][1];
+        expect(savedEntries).toHaveLength(20);
+        expect(savedEntries[0].filename).toBe('new.md');
+    });
+
+    test('clearHistory sets empty array', async () => {
+        await clearHistory();
+        expect(figma.clientStorage.setAsync).toHaveBeenCalledWith('importHistory', []);
+    });
+
+    test('loadHistory returns empty on storage error', async () => {
+        (figma.clientStorage.getAsync as jest.Mock).mockRejectedValue(new Error('storage error'));
+        const history = await loadHistory();
+        expect(history).toEqual([]);
     });
 });

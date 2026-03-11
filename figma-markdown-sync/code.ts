@@ -1,5 +1,5 @@
 import { parseMarkdownToBlocks } from './parser';
-import { DEFAULT_SETTINGS, loadSettings, saveSettings } from './settings';
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, loadHistory, recordImport, clearHistory } from './settings';
 import { loadFont } from './styles';
 import { renderBlocks, RenderResult } from './renderer';
 import { errorMessage } from './utils';
@@ -70,6 +70,19 @@ figma.showUI(__html__, { width: 400, height: 500 });
             return;
         }
 
+        if (msg.type === 'get-history') {
+            const history = await loadHistory();
+            figma.ui.postMessage({ type: 'history', entries: history });
+            return;
+        }
+
+        if (msg.type === 'clear-history') {
+            await clearHistory();
+            figma.ui.postMessage({ type: 'history', entries: [] });
+            figma.ui.postMessage({ type: 'status', message: 'Import history cleared.', error: false });
+            return;
+        }
+
         if (msg.type === 'import-markdown-batch') {
             const files = msg.files;
 
@@ -122,6 +135,8 @@ figma.showUI(__html__, { width: 400, height: 500 });
                     const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
+                    // Record in import history (fire-and-forget — don't block render)
+                    recordImport(file.name, blocks.length).catch(() => {});
                 } catch (e) {
                     failedCount++;
                     console.error(`Failed to import ${file.name}`, e);

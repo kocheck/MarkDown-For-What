@@ -10,6 +10,7 @@
     <!-- Tab bar -->
     <nav class="tab-bar">
         <button class="tab active" data-tab="import">Import</button>
+        <button class="tab" data-tab="history">History</button>
         <button class="tab" data-tab="settings">Settings</button>
     </nav>
 
@@ -60,6 +61,18 @@
             <button id="import-btn" disabled>Import</button>
         </div>
 
+    </div>
+
+    <!-- History tab -->
+    <div id="tab-history" class="tab-panel hidden">
+        <div class="settings-section">
+            <h3 class="settings-section-title">Recent Imports</h3>
+            <p id="history-empty" class="settings-hint">No imports yet.</p>
+            <ul id="history-list" class="history-list"></ul>
+        </div>
+        <div class="settings-footer">
+            <button id="clear-history-btn" class="btn-secondary">Clear history</button>
+        </div>
     </div>
 
     <!-- Settings tab -->

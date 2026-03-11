@@ -92,6 +92,62 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 };
 
 const STORAGE_KEY = 'pluginSettings';
+const HISTORY_STORAGE_KEY = 'importHistory';
+
+// ─── Import History ────────────────────────────────────────────────────────────
+
+/** A single import history entry. No file content is cached — only metadata. */
+export interface ImportHistoryEntry {
+    filename: string;
+    timestamp: number;
+    blockCount: number;
+}
+
+/** Maximum number of history entries to retain. */
+const MAX_HISTORY_ENTRIES = 20;
+
+/**
+ * Loads import history from Figma's clientStorage.
+ * Returns an empty array on first run or storage errors.
+ */
+export async function loadHistory(): Promise<ImportHistoryEntry[]> {
+    try {
+        const raw = await figma.clientStorage.getAsync(HISTORY_STORAGE_KEY);
+        if (Array.isArray(raw)) return raw.slice(0, MAX_HISTORY_ENTRIES);
+        return [];
+    } catch {
+        return [];
+    }
+}
+
+/**
+ * Records a new import in history.
+ * Prepends to the list, deduplicates by filename (keeps latest), and trims to MAX_HISTORY_ENTRIES.
+ */
+export async function recordImport(filename: string, blockCount: number): Promise<void> {
+    const history = await loadHistory();
+    const entry: ImportHistoryEntry = { filename, timestamp: Date.now(), blockCount };
+    // Remove any existing entry with the same filename
+    const filtered = history.filter(h => h.filename !== filename);
+    // Prepend new entry and trim
+    const updated = [entry, ...filtered].slice(0, MAX_HISTORY_ENTRIES);
+    try {
+        await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, updated);
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to save import history:', err);
+    }
+}
+
+/**
+ * Clears all import history.
+ */
+export async function clearHistory(): Promise<void> {
+    try {
+        await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, []);
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to clear import history:', err);
+    }
+}
 
 // ─── Theme Presets ──────────────────────────────────────────────────────────────
 
