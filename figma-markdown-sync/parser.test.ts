@@ -465,6 +465,55 @@ describe('parseMarkdownToBlocks — ordered lists', () => {
     });
 });
 
+describe('parseMarkdownToBlocks — nested lists', () => {
+    test('should parse nested unordered lists with depth', () => {
+        const markdown = '- Item 1\n  - Nested 1\n  - Nested 2\n- Item 2';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(listBlocks.length).toBeGreaterThanOrEqual(4);
+        expect(listBlocks[0].depth).toBe(0);
+        expect(listBlocks[0].content).toBe('Item 1');
+        // Nested items should have depth 1
+        const nestedBlocks = listBlocks.filter((b: Block) => b.depth === 1);
+        expect(nestedBlocks.length).toBe(2);
+    });
+
+    test('should parse deeply nested lists up to depth 3', () => {
+        const markdown = '- Level 0\n  - Level 1\n    - Level 2\n      - Level 3\n        - Level 4 (clamped)';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        const depths = listBlocks.map((b: Block) => b.depth);
+        // Depth should be 0, 1, 2, 3, 3 (clamped)
+        expect(depths).toContain(0);
+        expect(depths).toContain(1);
+        expect(depths).toContain(2);
+        expect(depths).toContain(3);
+        // No depth > 3
+        expect(depths.every((d: number) => d !== undefined && d <= 3)).toBe(true);
+    });
+
+    test('should parse nested ordered lists with depth', () => {
+        const markdown = '1. First\n   1. Nested First\n   2. Nested Second\n2. Second';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks.length).toBeGreaterThanOrEqual(4);
+        const nestedBlocks = orderedBlocks.filter((b: Block) => b.depth === 1);
+        expect(nestedBlocks.length).toBe(2);
+    });
+
+    test('flat lists still work with depth 0', () => {
+        const markdown = '- Item 1\n- Item 2\n- Item 3';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(listBlocks).toHaveLength(3);
+        listBlocks.forEach((b: Block) => expect(b.depth).toBe(0));
+    });
+});
+
 describe('Regression Tests', () => {
     test('should handle image with title attribute', () => {
         const markdown = '![Alt text](https://example.com/img.png "Image Title")';

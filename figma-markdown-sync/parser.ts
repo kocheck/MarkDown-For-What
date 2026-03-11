@@ -167,6 +167,82 @@ export function flattenTokens(
     return segments;
 }
 
+// ─── List Helpers ──────────────────────────────────────────────────────────────
+
+/**
+ * Recursively flattens nested list items into a flat array of Blocks with depth annotations.
+ * marked represents nesting via child list tokens inside ListItem.tokens arrays.
+ *
+ * @param items    - Array of ListItem tokens from a marked List
+ * @param depth    - Current nesting depth (0 for top-level)
+ * @param ordered  - Whether this list level is ordered
+ * @param startNum - Starting number for ordered lists at this level
+ * @returns Flat array of Block objects with depth annotations
+ */
+function flattenListItems(
+    items: marked.Tokens.ListItem[],
+    depth: number,
+    ordered: boolean,
+    startNum: number
+): Block[] {
+    const clampedDepth = Math.min(depth, 3);
+    const result: Block[] = [];
+
+    items.forEach((item, idx) => {
+        // Extract only the non-list tokens for this item's content.
+        // IMPORTANT: item.text includes text from nested children, so we
+        // cannot use it directly. Instead, filter item.tokens to exclude
+        // nested list tokens, then reconstruct content from those.
+        const ownTokens = (item.tokens ?? []).filter(t => t.type !== 'list');
+        const ownText = ownTokens.map(t => t.raw).join('').trim();
+
+        // Emit the item itself
+        if (item.task) {
+            result.push({
+                type: 'taskListItem',
+                content: ownText,
+                tokens: ownTokens,
+                depth: 0, // Task lists are always flat per spec
+                checked: item.checked ?? false,
+            });
+        } else if (ordered) {
+            result.push({
+                type: 'orderedListItem',
+                content: ownText,
+                tokens: ownTokens,
+                depth: clampedDepth,
+                index: startNum + idx,
+            });
+        } else {
+            result.push({
+                type: 'list',
+                content: ownText,
+                tokens: ownTokens,
+                depth: clampedDepth,
+            });
+        }
+
+        // Recurse into any nested lists inside this item's tokens
+        if (item.tokens) {
+            for (const subToken of item.tokens) {
+                if (subToken.type === 'list') {
+                    const subList = subToken as marked.Tokens.List;
+                    result.push(
+                        ...flattenListItems(
+                            subList.items,
+                            depth + 1,
+                            subList.ordered,
+                            typeof subList.start === 'number' ? subList.start : 1
+                        )
+                    );
+                }
+            }
+        }
+    });
+
+    return result;
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -255,22 +331,14 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'list': {
                 const listToken = token as marked.Tokens.List;
-                if (listToken.ordered) {
-                    const startNum = typeof listToken.start === 'number' ? listToken.start : 1;
-                    listToken.items.forEach((item, idx) => {
-                        blocks.push({
-                            type: 'orderedListItem',
-                            content: item.text,
-                            tokens: item.tokens,
-                            index: startNum + idx,
-                            depth: 0,
-                        });
-                    });
-                } else {
-                    for (const item of listToken.items) {
-                        blocks.push({ type: 'list', content: item.text, tokens: item.tokens, depth: 0 });
-                    }
-                }
+                blocks.push(
+                    ...flattenListItems(
+                        listToken.items,
+                        0,
+                        listToken.ordered,
+                        typeof listToken.start === 'number' ? listToken.start : 1
+                    )
+                );
                 break;
             }
             case 'table': {
