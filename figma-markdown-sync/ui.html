@@ -16,21 +16,43 @@
     <!-- Import tab -->
     <div id="tab-import" class="tab-panel active">
 
-        <div class="import-color-block">
+        <div id="import-section" class="import-color-block">
             <span class="plugin-wordmark">Markdown For What</span>
 
             <div id="drop-zone" class="drop-zone">
-                <span class="drop-zone-icon">↓</span>
+                <span class="drop-zone-icon">&darr;</span>
                 <p class="drop-zone-label">Drop your Markdown here</p>
-                <p class="drop-zone-sub">or click to browse · .md .markdown .txt</p>
+                <p class="drop-zone-sub">or click to browse &middot; .md .markdown .txt</p>
                 <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple aria-label="Choose Markdown files">
+            </div>
+
+            <!-- Paste section -->
+            <div class="paste-section">
+                <button id="paste-toggle" class="paste-toggle-btn">or paste Markdown text</button>
+                <div id="paste-area-wrap" class="paste-area-wrap hidden">
+                    <textarea id="paste-area" class="paste-area" rows="6" placeholder="Paste your Markdown here..."></textarea>
+                    <div class="paste-actions">
+                        <input type="text" id="paste-name" class="paste-name-input" placeholder="Frame name (optional)">
+                        <button id="paste-import-btn" class="btn-secondary" disabled>Import Paste</button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <ul id="file-list" class="file-list"></ul>
 
+        <!-- Preview pane (hidden by default, shown after file drop) -->
+        <div id="preview-pane" class="preview-pane hidden">
+            <div class="preview-header">
+                <span class="preview-title">Preview</span>
+                <span id="preview-summary" class="preview-summary"></span>
+            </div>
+            <div id="preview-content" class="preview-content"></div>
+        </div>
+
         <div class="bottom-bar">
             <p id="status-message" class="status-message"></p>
+            <button id="preview-cancel" class="btn-secondary hidden">Cancel</button>
             <button id="import-btn" disabled>Import</button>
         </div>
 
@@ -59,7 +81,26 @@
             </label>
             <label class="settings-row">
                 <span class="settings-label">Width</span>
-                <div class="settings-input-wrap"><input type="number" id="frameWidth" min="200" max="4000"><span class="settings-unit">px</span></div>
+                <div class="settings-input-wrap">
+                    <select id="widthMode" class="settings-select">
+                        <option value="narrow">Narrow (480px)</option>
+                        <option value="medium" selected>Medium (800px)</option>
+                        <option value="wide">Wide (960px)</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+            </label>
+            <label class="settings-row" id="customWidthRow" style="display:none">
+                <span class="settings-label">Custom width</span>
+                <div class="settings-input-wrap"><input type="number" id="customWidth" min="200" max="4000"><span class="settings-unit">px</span></div>
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Content</h3>
+            <label class="settings-row">
+                <span class="settings-label">Generate TOC</span>
+                <div class="settings-input-wrap"><input type="checkbox" id="generateToc" class="settings-checkbox"></div>
             </label>
         </div>
 
@@ -89,7 +130,7 @@
     <div id="loader" class="loader-overlay hidden">
         <div class="loader-content">
             <div class="spinner"></div>
-            <p>Importing…<br>Please do not close this window.</p>
+            <p>Importing&hellip;<br>Please do not close this window.</p>
         </div>
     </div>
 
