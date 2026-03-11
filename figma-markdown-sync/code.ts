@@ -20,7 +20,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
         return;
     }
 
-    // Message handler — processes: get-settings, save-settings, reset-settings, import-markdown-batch
+    // Message handler — see messages.ts for all supported message types
     figma.ui.onmessage = async (msg) => {
     try {
         if (msg.type === MSG_GET_SETTINGS) {

@@ -256,7 +256,6 @@ function showPreview(files: { name: string; content: string }[]) {
     previewCancelBtn.classList.remove('hidden');
     importBtn.disabled = false;
     importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
-
 }
 
 function hidePreview() {
@@ -266,7 +265,6 @@ function hidePreview() {
     importSection.style.display = '';
     fileList.style.display = '';
     importBtn.textContent = 'Import';
-
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
