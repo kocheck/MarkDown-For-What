@@ -47,6 +47,8 @@ export interface StyledSegment {
     bold?: boolean;
     italic?: boolean;
     code?: boolean;
+    strikethrough?: boolean;
+    link?: string;
 }
 
 // ─── Helpers (exported for testability) ────────────────────────────────────────
@@ -81,10 +83,19 @@ export function extractImagesFromTokens(tokens: marked.Token[]): {
     return { textTokens, images };
 }
 
+/** Inherited formatting state passed through recursive token flattening. */
+export interface FlattenContext {
+    bold: boolean;
+    italic: boolean;
+    code: boolean;
+    strikethrough?: boolean;
+    link?: string;
+}
+
 /**
  * Recursively flattens a tree of inline marked tokens into a flat array of
  * StyledSegments. Each segment carries the accumulated formatting from its
- * ancestor tokens (bold, italic, code).
+ * ancestor tokens (bold, italic, code, strikethrough, link).
  *
  * @param tokens  - Inline token array (from a paragraph, heading, list item, etc.)
  * @param context - Inherited formatting state from parent tokens
@@ -96,7 +107,7 @@ export function extractImagesFromTokens(tokens: marked.Token[]): {
  */
 export function flattenTokens(
     tokens: marked.Token[],
-    context: { bold: boolean; italic: boolean; code: boolean }
+    context: FlattenContext
 ): StyledSegment[] {
     let segments: StyledSegment[] = [];
 
@@ -112,6 +123,11 @@ export function flattenTokens(
             case 'em':
                 segments = segments.concat(
                     flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true })
+                );
+                break;
+            case 'del':
+                segments = segments.concat(
+                    flattenTokens((token as marked.Tokens.Del).tokens, { ...context, strikethrough: true })
                 );
                 break;
             case 'codespan':
@@ -255,3 +271,4 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens };
 }
+

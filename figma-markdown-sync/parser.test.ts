@@ -309,6 +309,49 @@ describe('flattenTokens', () => {
     });
 });
 
+describe('flattenTokens — strikethrough', () => {
+    test('should handle strikethrough (del) tokens', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'del',
+                raw: '~~struck~~',
+                text: 'struck',
+                tokens: [{ type: 'text', raw: 'struck', text: 'struck' } as marked.Tokens.Text]
+            } as marked.Tokens.Del
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('struck');
+        expect(segments[0].strikethrough).toBe(true);
+    });
+
+    test('should combine strikethrough with bold', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'strong',
+                raw: '**~~bold struck~~**',
+                text: 'bold struck',
+                tokens: [
+                    {
+                        type: 'del',
+                        raw: '~~bold struck~~',
+                        text: 'bold struck',
+                        tokens: [{ type: 'text', raw: 'bold struck', text: 'bold struck' } as marked.Tokens.Text]
+                    } as marked.Tokens.Del
+                ]
+            } as marked.Tokens.Strong
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].bold).toBe(true);
+        expect(segments[0].strikethrough).toBe(true);
+    });
+});
+
 describe('Regression Tests', () => {
     test('should handle image with title attribute', () => {
         const markdown = '![Alt text](https://example.com/img.png "Image Title")';
