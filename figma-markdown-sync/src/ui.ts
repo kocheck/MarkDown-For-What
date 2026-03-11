@@ -2,13 +2,17 @@ import './styles.css';
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 
+function escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 const FRONT_MATTER_REGEX = /^---[\s\S]*?---\r?\n/;
 
 // Sanitize marked output: escape raw HTML blocks and inline HTML to prevent XSS
 marked.use({
     renderer: {
         html(text: string): string {
-            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return escapeHtml(text);
         },
     },
 });
@@ -165,10 +169,6 @@ function hidePreview() {
     isPreviewVisible = false;
 }
 
-function escapeHtml(str: string): string {
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
 // ── Paste ───────────────────────────────────────────────────────────────────
 
 pasteToggle.addEventListener('click', () => {
@@ -293,7 +293,8 @@ function sendCurrentSettings() {
         settings.generateToc = tocCheckbox.checked;
     }
 
-    // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings
+    // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
+    // Keep in sync with WIDTH_PRESETS in settings.ts (separate build target prevents direct import).
     const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
     const mode = settings.widthMode as string;
     settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;

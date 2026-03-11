@@ -74,8 +74,13 @@ const HTTP_URL_RE = /^https?:\/\//i;
 
 // ─── Font Loading ──────────────────────────────────────────────────────────────
 
+// Cache font load promises to avoid redundant async IPC calls to figma.loadFontAsync.
+// Key format: "family\tstyle". Cleared by initializeStyles() alongside styleCache.
+const fontCache = new Map<string, Promise<FontName>>();
+
 /**
  * Loads a font by family and style, falling back to Inter Regular if not found.
+ * Results are cached so repeated calls with the same arguments reuse the same promise.
  * Figma requires fonts to be loaded before they can be set on text nodes.
  *
  * @param family - Font family name (e.g. 'Inter', 'Roboto Mono')
@@ -83,21 +88,30 @@ const HTTP_URL_RE = /^https?:\/\//i;
  * @returns The loaded FontName — may differ from input if fallback was used
  */
 export async function loadFont(family: string, style: string): Promise<FontName> {
-    const font: FontName = { family, style };
-    try {
-        await figma.loadFontAsync(font);
-        return font;
-    } catch (err) {
-        console.warn(`[MarkDown For What] Font not found: ${family} ${style}, falling back to Inter Regular`, err);
-        const fallback: FontName = { family: 'Inter', style: 'Regular' };
+    const key = `${family}\t${style}`;
+    const cached = fontCache.get(key);
+    if (cached) return cached;
+
+    const promise = (async (): Promise<FontName> => {
+        const font: FontName = { family, style };
         try {
-            await figma.loadFontAsync(fallback);
-        } catch (fallbackErr) {
-            console.error('[MarkDown For What] Fallback font Inter Regular also failed to load:', fallbackErr);
-            throw fallbackErr;
+            await figma.loadFontAsync(font);
+            return font;
+        } catch (err) {
+            console.warn(`[MarkDown For What] Font not found: ${family} ${style}, falling back to Inter Regular`, err);
+            const fallback: FontName = { family: 'Inter', style: 'Regular' };
+            try {
+                await figma.loadFontAsync(fallback);
+            } catch (fallbackErr) {
+                console.error('[MarkDown For What] Fallback font Inter Regular also failed to load:', fallbackErr);
+                throw fallbackErr;
+            }
+            return fallback;
         }
-        return fallback;
-    }
+    })();
+
+    fontCache.set(key, promise);
+    return promise;
 }
 
 // ─── Style Management ──────────────────────────────────────────────────────────
@@ -155,6 +169,7 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
  */
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
+    fontCache.clear();
 
     let allStyles: TextStyle[];
     try {
@@ -264,6 +279,12 @@ export async function applyInlineStyles(
     }
 }
 
+/** @internal Test-only: clears all module-level caches (font + style). */
+export function _resetCaches(): void {
+    fontCache.clear();
+    styleCache.clear();
+}
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -273,5 +294,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getOrCreateTextStyle,
         initializeStyles,
         applyInlineStyles,
+        _resetCaches,
     };
 }

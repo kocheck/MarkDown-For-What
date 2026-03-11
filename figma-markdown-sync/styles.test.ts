@@ -3,7 +3,12 @@
  * Key invariant: existing Figma text styles are NEVER overwritten on re-import.
  */
 
-import { getOrCreateTextStyle, STYLE_NAMES, DEFAULT_STYLES, loadFont, initializeStyles, applyInlineStyles } from './styles';
+import { getOrCreateTextStyle, STYLE_NAMES, DEFAULT_STYLES, loadFont, initializeStyles, applyInlineStyles, _resetCaches } from './styles';
+
+// Clear module-level caches between tests so mocked font/style behavior is isolated
+beforeEach(() => {
+    _resetCaches();
+});
 
 describe('getOrCreateTextStyle', () => {
     beforeEach(() => {

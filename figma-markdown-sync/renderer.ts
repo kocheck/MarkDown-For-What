@@ -13,7 +13,7 @@
  *   renderBlocks(name, blocks, settings, targetNode?) — async: returns RenderResult { frame, imageFailures }
  */
 
-import type { Block } from './parser';
+import type { Block, CalloutType } from './parser';
 import type { PluginSettings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import type { marked } from 'marked';
@@ -40,7 +40,7 @@ function calloutColor(hex: string): { border: RGB; bg: RGB; text: RGB } {
     return { border: c, bg: c, text: c };
 }
 
-const CALLOUT_COLORS: Record<string, { border: RGB; bg: RGB; text: RGB }> = {
+const CALLOUT_COLORS: Record<CalloutType, { border: RGB; bg: RGB; text: RGB }> = {
     note:      calloutColor('#0969DA'),
     tip:       calloutColor('#1A7F37'),
     important: calloutColor('#8250DF'),
@@ -48,7 +48,7 @@ const CALLOUT_COLORS: Record<string, { border: RGB; bg: RGB; text: RGB }> = {
     caution:   calloutColor('#CF222E'),
 };
 
-const CALLOUT_LABELS: Record<string, string> = {
+const CALLOUT_LABELS: Record<CalloutType, string> = {
     note: 'Note', tip: 'Tip', important: 'Important', warning: 'Warning', caution: 'Caution',
 };
 
@@ -505,11 +505,11 @@ async function renderTaskListBlock(block: Block, listStyle: TextStyle): Promise<
  * Renders a callout/admonition block as a colored frame with label and body.
  */
 async function renderCalloutBlock(block: Block): Promise<FrameNode> {
-    const calloutType = block.calloutType ?? 'note';
-    const colors = CALLOUT_COLORS[calloutType] ?? CALLOUT_COLORS.note;
+    const calloutType: CalloutType = block.calloutType ?? 'note';
+    const colors = CALLOUT_COLORS[calloutType];
 
     const calloutFrame = figma.createFrame();
-    calloutFrame.name = `Callout: ${CALLOUT_LABELS[calloutType] ?? 'Note'}`;
+    calloutFrame.name = `Callout: ${CALLOUT_LABELS[calloutType]}`;
     calloutFrame.layoutMode = 'VERTICAL';
     calloutFrame.primaryAxisSizingMode = 'AUTO';
     calloutFrame.counterAxisSizingMode = 'FIXED';
@@ -540,7 +540,7 @@ async function renderCalloutBlock(block: Block): Promise<FrameNode> {
     const boldFont = await loadFont('Inter', 'Bold');
     labelNode.fontName = boldFont;
     labelNode.fontSize = 14;
-    labelNode.characters = CALLOUT_LABELS[calloutType] ?? 'Note';
+    labelNode.characters = CALLOUT_LABELS[calloutType];
     labelNode.fills = [{ type: 'SOLID', color: colors.text }];
     labelNode.layoutAlign = 'STRETCH';
 
