@@ -51,6 +51,8 @@ const settingInputIds = [
     'codeBackground', 'tableHeaderBackground', 'separatorColor', 'frameFillColor',
 ] as const;
 
+const checkboxSettingIds = ['generateToc', 'componentNames'] as const;
+
 // Theme buttons
 const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 
@@ -341,13 +343,9 @@ function populateSettings(settings: Record<string, unknown>) {
     }
 
     // Handle checkboxes
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    if (tocCheckbox && 'generateToc' in settings) {
-        tocCheckbox.checked = !!settings.generateToc;
-    }
-    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
-    if (compNamesCheckbox && 'componentNames' in settings) {
-        compNamesCheckbox.checked = !!settings.componentNames;
+    for (const id of checkboxSettingIds) {
+        const cb = document.getElementById(id) as HTMLInputElement | null;
+        if (cb && id in settings) cb.checked = !!settings[id];
     }
 
     // Handle theme button active state
@@ -419,17 +417,10 @@ function setupSettingListeners() {
         });
     }
 
-    // TOC checkbox
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    tocCheckbox?.addEventListener('change', () => {
-        sendCurrentSettings();
-    });
-
-    // Component names checkbox
-    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
-    compNamesCheckbox?.addEventListener('change', () => {
-        sendCurrentSettings();
-    });
+    // Checkbox listeners
+    for (const id of checkboxSettingIds) {
+        document.getElementById(id)?.addEventListener('change', () => sendCurrentSettings());
+    }
 
     // Theme buttons
     themeBtns.forEach(btn => {
@@ -480,13 +471,9 @@ function sendCurrentSettings() {
     }
 
     // Include checkbox values
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    if (tocCheckbox) {
-        settings.generateToc = tocCheckbox.checked;
-    }
-    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
-    if (compNamesCheckbox) {
-        settings.componentNames = compNamesCheckbox.checked;
+    for (const id of checkboxSettingIds) {
+        const cb = document.getElementById(id) as HTMLInputElement | null;
+        if (cb) settings[id] = cb.checked;
     }
 
     // Include style bindings

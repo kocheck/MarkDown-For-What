@@ -456,7 +456,7 @@ const mathInlineExtension = {
     name: 'mathInline',
     level: 'inline' as const,
     start(src: string) {
-        return src.match(/\$/)?.index;
+        return src.match(/\$(?!\$)/)?.index;
     },
     tokenizer(src: string) {
         // Match $...$ but not $$ (display math) and not escaped \$

@@ -29,6 +29,11 @@ import {
     CHECKBOX_UNCHECKED_STROKE,
     BADGE_NAMED_COLORS,
     badgeColorForLabel,
+    MERMAID_BG,
+    MERMAID_BORDER,
+    MERMAID_TEXT,
+    MATH_BG,
+    MATH_BORDER,
     ERROR_BORDER_COLOR,
     ERROR_TEXT_COLOR,
 } from './constants';
@@ -368,11 +373,6 @@ export async function renderBadgeRowBlock(block: Block): Promise<FrameNode> {
 
 // ─── Mermaid Diagram Rendering ───────────────────────────────────────────────
 
-/** Color constants for mermaid placeholder */
-const MERMAID_BG = { r: 0.96, g: 0.97, b: 1 }; // #F5F8FF
-const MERMAID_BORDER = { r: 0.6, g: 0.7, b: 0.9 }; // #99B3E6
-const MERMAID_TEXT = { r: 0.3, g: 0.4, b: 0.6 }; // #4D6699
-
 /**
  * Renders a mermaid diagram block as a styled placeholder frame
  * containing the diagram source. Figma plugins can't render SVG natively,
@@ -396,9 +396,14 @@ export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
     mermaidFrame.strokeWeight = 1;
     mermaidFrame.dashPattern = [4, 4];
 
+    // Pre-load font and style concurrently
+    const [boldFont, codeStyle] = await Promise.all([
+        loadFont('Inter', 'Bold'),
+        getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]),
+    ]);
+
     // Label
     const labelNode = figma.createText();
-    const boldFont = await loadFont('Inter', 'Bold');
     labelNode.fontName = boldFont;
     labelNode.fontSize = 13;
     labelNode.characters = 'Mermaid Diagram';
@@ -407,7 +412,6 @@ export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
 
     // Source code
     const sourceNode = figma.createText();
-    const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
     await sourceNode.setTextStyleIdAsync(codeStyle.id);
     sourceNode.characters = block.content ?? '';
     sourceNode.layoutAlign = 'STRETCH';
@@ -419,13 +423,9 @@ export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
 
 // ─── Math Block Rendering ────────────────────────────────────────────────────
 
-/** Color constants for math blocks */
-const MATH_BG = { r: 1, g: 0.98, b: 0.95 }; // #FFF9F2
-const MATH_BORDER = { r: 0.85, g: 0.75, b: 0.55 }; // #D9BF8C
-
 /**
  * Renders a display math block ($$...$$) as a styled frame with the LaTeX source.
- * Uses italic monospace to visually distinguish from regular code blocks.
+ * Uses monospace font to visually distinguish from regular code blocks.
  */
 export async function renderMathBlock(block: Block): Promise<FrameNode> {
     const mathFrame = figma.createFrame();
@@ -444,10 +444,10 @@ export async function renderMathBlock(block: Block): Promise<FrameNode> {
     mathFrame.strokes = [{ type: 'SOLID', color: MATH_BORDER }];
     mathFrame.strokeWeight = 1;
 
-    // Render the LaTeX source in italic monospace
+    // Render the LaTeX source in monospace
     const mathText = figma.createText();
-    const monoItalicFont = await loadFont('Roboto Mono', 'Regular');
-    mathText.fontName = monoItalicFont;
+    const monoFont = await loadFont('Roboto Mono', 'Regular');
+    mathText.fontName = monoFont;
     mathText.fontSize = 15;
     mathText.characters = block.content ?? '';
     mathText.layoutAlign = 'STRETCH';
