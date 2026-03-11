@@ -40,6 +40,7 @@ import {
     renderListBlock,
     renderOrderedListBlock,
     renderTaskListBlock,
+    renderDefinitionListBlock,
     createImageNode,
     createErrorPlaceholder,
 } from './blockRenderers';
@@ -308,6 +309,10 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
         case 'toc': {
             return await renderTocBlock(block);
+        }
+
+        case 'definitionList': {
+            return await renderDefinitionListBlock(block);
         }
 
         case 'list':

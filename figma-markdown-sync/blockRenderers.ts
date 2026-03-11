@@ -235,6 +235,47 @@ export async function renderTaskListBlock(block: Block, listStyle: TextStyle): P
     return taskFrame;
 }
 
+// ─── Definition List Rendering ───────────────────────────────────────────────
+
+/**
+ * Renders a definition list block with bold terms and indented definitions.
+ */
+export async function renderDefinitionListBlock(block: Block): Promise<FrameNode> {
+    const dlFrame = figma.createFrame();
+    dlFrame.name = 'Definition List';
+    dlFrame.layoutMode = 'VERTICAL';
+    dlFrame.primaryAxisSizingMode = 'AUTO';
+    dlFrame.counterAxisSizingMode = 'FIXED';
+    dlFrame.layoutAlign = 'STRETCH';
+    dlFrame.itemSpacing = 8;
+    dlFrame.fills = [];
+
+    for (const item of (block.definitions ?? [])) {
+        // Term: bold text node
+        const termNode = figma.createText();
+        const boldFont = await loadFont('Inter', 'Bold');
+        termNode.fontName = boldFont;
+        termNode.fontSize = 16;
+        termNode.characters = item.term;
+        termNode.layoutAlign = 'STRETCH';
+        dlFrame.appendChild(termNode);
+
+        // Definitions: indented body text
+        for (const def of item.definitions) {
+            const defNode = figma.createText();
+            const regularFont = await loadFont('Inter', 'Regular');
+            defNode.fontName = regularFont;
+            defNode.fontSize = 16;
+            defNode.characters = def;
+            defNode.paragraphIndent = 20;
+            defNode.layoutAlign = 'STRETCH';
+            dlFrame.appendChild(defNode);
+        }
+    }
+
+    return dlFrame;
+}
+
 // ─── Image Rendering ────────────────────────────────────────────────────────
 
 /**
@@ -352,6 +393,7 @@ if (typeof module !== 'undefined' && module.exports) {
         renderListBlock,
         renderOrderedListBlock,
         renderTaskListBlock,
+        renderDefinitionListBlock,
         createImageNode,
         createErrorPlaceholder,
     };
