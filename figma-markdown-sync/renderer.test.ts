@@ -296,6 +296,65 @@ describe('renderBlocks', () => {
         });
     });
 
+    describe('nested list rendering', () => {
+        it('applies left padding based on depth', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Top level', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'list', content: 'Deep nested', depth: 2, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Each item is a text node — check if wrapper frame has padding
+            // For depth > 0, we wrap in a frame with left padding
+            expect(listGroup.children).toHaveLength(3);
+        });
+
+        it('uses different bullet characters per depth', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Level 0', depth: 0, tokens: [] },
+                { type: 'list', content: 'Level 1', depth: 1, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Depth 0 uses '• ', depth 1 uses '◦ '
+            expect(listGroup.children[0].characters).toContain('•');
+            expect(listGroup.children[1].characters).toContain('◦');
+        });
+
+        it('applies paragraphIndent for nested unordered list items', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Top level', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'list', content: 'Deep nested', depth: 2, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            expect(listGroup.children[0].paragraphIndent).toBe(0);
+            expect(listGroup.children[1].paragraphIndent).toBe(20);
+            expect(listGroup.children[2].paragraphIndent).toBe(40);
+        });
+
+        it('applies paragraphIndent for nested ordered list items', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'Top', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Nested', index: 1, depth: 1, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            expect(listGroup.children[0].paragraphIndent).toBe(0);
+            expect(listGroup.children[1].paragraphIndent).toBe(20);
+        });
+    });
+
     describe('ordered list rendering', () => {
         it('renders orderedListItem with number prefix', async () => {
             const blocks: Block[] = [

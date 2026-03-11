@@ -62,6 +62,7 @@ function makeMockText(): any {
         layoutAlign: 'MIN',
         layoutGrow: 0,
         textAlignHorizontal: 'LEFT',
+        paragraphIndent: 0,
         type: 'TEXT',
         parent: null,
         setRangeFontName: jest.fn(),

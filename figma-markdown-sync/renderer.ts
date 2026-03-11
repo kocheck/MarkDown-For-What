@@ -26,7 +26,8 @@ export interface RenderResult {
     imageFailures: number;
 }
 
-const BULLET = '• ';
+const BULLETS = ['• ', '◦ ', '– ', '· '] as const;
+const INDENT_PER_DEPTH = 20;
 
 /**
  * Returns the X coordinate at which a new frame should be placed so it does not
@@ -372,14 +373,23 @@ async function renderListBlock(block: Block): Promise<TextNode> {
     await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 
+    const depth = block.depth ?? 0;
+    const bullet = BULLETS[Math.min(depth, BULLETS.length - 1)];
+
     if (block.tokens && block.tokens.length > 0) {
         // Prepend bullet as a synthetic text token so applyInlineStyles includes it
-        const bulletToken = { type: 'text', raw: BULLET, text: BULLET } as any;
+        const bulletToken = { type: 'text', raw: bullet, text: bullet } as any;
         await applyInlineStyles(node, [bulletToken, ...block.tokens], STYLE_NAMES.LIST);
     } else {
-        const content = block.content ? `${BULLET}${block.content}` : BULLET.trimEnd();
+        const content = block.content ? `${bullet}${block.content}` : bullet.trimEnd();
         node.characters = content;
     }
+
+    // Apply indentation for nested items
+    if (depth > 0) {
+        node.paragraphIndent = depth * INDENT_PER_DEPTH;
+    }
+
     return node;
 }
 
@@ -396,6 +406,7 @@ async function renderOrderedListBlock(block: Block): Promise<TextNode> {
     node.layoutAlign = 'STRETCH';
 
     const prefix = `${block.index ?? 1}. `;
+    const depth = block.depth ?? 0;
 
     if (block.tokens && block.tokens.length > 0) {
         const prefixToken = { type: 'text', raw: prefix, text: prefix } as any;
@@ -403,6 +414,12 @@ async function renderOrderedListBlock(block: Block): Promise<TextNode> {
     } else {
         node.characters = block.content ? `${prefix}${block.content}` : prefix.trimEnd();
     }
+
+    // Apply indentation for nested items
+    if (depth > 0) {
+        node.paragraphIndent = depth * INDENT_PER_DEPTH;
+    }
+
     return node;
 }
 
