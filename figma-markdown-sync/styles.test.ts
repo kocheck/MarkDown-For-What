@@ -335,7 +335,7 @@ describe('applyInlineStyles — links', () => {
         // 'here' starts at index 6, length 4
         expect(node.setRangeHyperlink).toHaveBeenCalledWith(6, 10, { type: 'URL', value: 'https://example.com' });
         expect(node.setRangeTextDecoration).toHaveBeenCalledWith(6, 10, 'UNDERLINE');
-        expect(node.setRangeFills).toHaveBeenCalledWith(6, 10, [{ type: 'SOLID', color: { r: 0.035, g: 0.412, b: 0.855 } }]);
+        expect(node.setRangeFills).toHaveBeenCalledWith(6, 10, [{ type: 'SOLID', color: { r: 9/255, g: 105/255, b: 218/255 } }]);
     });
 
     it('does not apply hyperlink to non-link segments', async () => {

@@ -22,7 +22,7 @@
 
 import type { marked } from 'marked';
 import { flattenTokens } from './parser';
-import { errorMessage } from './utils';
+import { errorMessage, hexToRgb } from './utils';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
 
@@ -65,6 +65,9 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
     [STYLE_NAMES.LIST]:  { family: 'Inter', style: 'Regular', size: 16, lineHeight: 1.5 },
     [STYLE_NAMES.QUOTE]: { family: 'Inter', style: 'Italic',  size: 16, lineHeight: 1.5 },
 };
+
+/** Link color (#0969DA) — GitHub-style blue for inline hyperlinks */
+const LINK_COLOR: RGB = hexToRgb('#0969DA');
 
 // ─── Font Loading ──────────────────────────────────────────────────────────────
 
@@ -239,8 +242,7 @@ export async function applyInlineStyles(
                 if (!segment.strikethrough) {
                     node.setRangeTextDecoration(start, end, 'UNDERLINE');
                 }
-                // Apply link color (#0969DA) per spec
-                node.setRangeFills(start, end, [{ type: 'SOLID', color: { r: 0.035, g: 0.412, b: 0.855 } }]);
+                node.setRangeFills(start, end, [{ type: 'SOLID', color: LINK_COLOR }]);
             }
         }
         currentIndex = end;

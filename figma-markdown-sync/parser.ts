@@ -194,7 +194,7 @@ function flattenListItems(
         // cannot use it directly. Instead, filter item.tokens to exclude
         // nested list tokens, then reconstruct content from those.
         const ownTokens = (item.tokens ?? []).filter(t => t.type !== 'list');
-        const ownText = ownTokens.map(t => t.raw).join('').trim();
+        const ownText = ownTokens.map(t => 'text' in t ? (t as any).text : t.raw).join('').trim();
 
         // Emit the item itself
         if (item.task) {
