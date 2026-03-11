@@ -2,6 +2,8 @@ import './styles.css';
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 
+const FRONT_MATTER_REGEX = /^---[\s\S]*?---\r?\n/;
+
 // ── DOM references ──────────────────────────────────────────────────────────
 
 const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
@@ -122,11 +124,9 @@ function renderFileList(files: { name: string; content: string }[]) {
 // ── Preview ─────────────────────────────────────────────────────────────────
 
 function showPreview(files: { name: string; content: string }[]) {
-    const frontMatterRegex = /^---[\s\S]*?---\r?\n/;
-
     const allHtml: string[] = [];
     for (const file of files) {
-        const clean = file.content.replace(frontMatterRegex, '');
+        const clean = file.content.replace(FRONT_MATTER_REGEX, '');
         const html = marked.parse(clean) as string;
         allHtml.push(
             `<div class="preview-file"><div class="preview-file-name">${escapeHtml(file.name)}</div><div class="preview-block">${html}</div></div>`
@@ -282,6 +282,11 @@ function sendCurrentSettings() {
     if (tocCheckbox) {
         settings.generateToc = tocCheckbox.checked;
     }
+
+    // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings
+    const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
+    const mode = settings.widthMode as string;
+    settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;
 
     parent.postMessage({ pluginMessage: { type: 'save-settings', settings } }, '*');
 }

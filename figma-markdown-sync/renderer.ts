@@ -35,12 +35,17 @@ export interface RenderResult {
 
 // ─── Callout Colors ──────────────────────────────────────────────────────────
 
+function calloutColor(hex: string): { border: RGB; bg: RGB; text: RGB } {
+    const c = hexToRgb(hex);
+    return { border: c, bg: c, text: c };
+}
+
 const CALLOUT_COLORS: Record<string, { border: RGB; bg: RGB; text: RGB }> = {
-    note:      { border: hexToRgb('#0969DA'), bg: hexToRgb('#0969DA'), text: hexToRgb('#0969DA') },
-    tip:       { border: hexToRgb('#1A7F37'), bg: hexToRgb('#1A7F37'), text: hexToRgb('#1A7F37') },
-    important: { border: hexToRgb('#8250DF'), bg: hexToRgb('#8250DF'), text: hexToRgb('#8250DF') },
-    warning:   { border: hexToRgb('#9A6700'), bg: hexToRgb('#9A6700'), text: hexToRgb('#9A6700') },
-    caution:   { border: hexToRgb('#CF222E'), bg: hexToRgb('#CF222E'), text: hexToRgb('#CF222E') },
+    note:      calloutColor('#0969DA'),
+    tip:       calloutColor('#1A7F37'),
+    important: calloutColor('#8250DF'),
+    warning:   calloutColor('#9A6700'),
+    caution:   calloutColor('#CF222E'),
 };
 
 const CALLOUT_LABELS: Record<string, string> = {
@@ -387,7 +392,7 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         case 'callout': {
-            return await renderCalloutBlock(block, settings);
+            return await renderCalloutBlock(block);
         }
 
         case 'toc': {
@@ -499,7 +504,7 @@ async function renderTaskListBlock(block: Block, listStyle: TextStyle): Promise<
 /**
  * Renders a callout/admonition block as a colored frame with label and body.
  */
-async function renderCalloutBlock(block: Block, _settings: PluginSettings): Promise<FrameNode> {
+async function renderCalloutBlock(block: Block): Promise<FrameNode> {
     const calloutType = block.calloutType ?? 'note';
     const colors = CALLOUT_COLORS[calloutType] ?? CALLOUT_COLORS.note;
 
@@ -539,12 +544,17 @@ async function renderCalloutBlock(block: Block, _settings: PluginSettings): Prom
     labelNode.fills = [{ type: 'SOLID', color: colors.text }];
     labelNode.layoutAlign = 'STRETCH';
 
-    // Body text
+    // Body text — use applyInlineStyles when tokens are available for rich formatting
     const bodyNode = figma.createText();
     const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
     await bodyNode.setTextStyleIdAsync(bodyStyle.id);
     bodyNode.layoutAlign = 'STRETCH';
-    bodyNode.characters = block.content ?? '';
+
+    if (block.tokens && block.tokens.length > 0) {
+        await applyInlineStyles(bodyNode, block.tokens, STYLE_NAMES.BODY);
+    } else {
+        bodyNode.characters = block.content ?? '';
+    }
 
     calloutFrame.appendChild(labelNode);
     calloutFrame.appendChild(bodyNode);
@@ -583,7 +593,7 @@ async function renderTocBlock(block: Block): Promise<FrameNode> {
         entryNode.layoutAlign = 'STRETCH';
 
         // Indent: H1 = 0, H2 = 20px, H3 = 40px
-        const indent = Math.max(0, (entry.level - 1)) * 20;
+        const indent = Math.max(0, (entry.level - 1)) * INDENT_PER_DEPTH;
         if (indent > 0) {
             entryNode.paragraphIndent = indent;
         }

@@ -14,6 +14,8 @@
  *   saveSettings(settings)    — async: writes to clientStorage
  */
 
+import { isValidHex } from './utils';
+
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 /** Width mode preset for the root content frame. */
@@ -75,7 +77,7 @@ const WIDTH_PRESETS: Record<WidthMode, number | null> = {
     custom: null,
 };
 
-const VALID_WIDTH_MODES: readonly string[] = ['narrow', 'medium', 'wide', 'custom'];
+const VALID_WIDTH_MODES: readonly string[] = Object.keys(WIDTH_PRESETS);
 
 function isValidWidthMode(value: unknown): value is WidthMode {
     return typeof value === 'string' && VALID_WIDTH_MODES.includes(value);
@@ -99,11 +101,6 @@ function isNonNegativeNumber(value: unknown): boolean {
 /** Returns true if value is a finite, positive number (greater than zero). */
 function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
-}
-
-/** Returns true if value is a valid 6-digit CSS hex color string (e.g. '#AABBCC'). */
-function isValidHex(value: unknown): boolean {
-    return typeof value === 'string' && /^#[0-9A-Fa-f]{6}$/.test(value);
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────

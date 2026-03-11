@@ -279,7 +279,7 @@ function flattenListItems(
 
 const CALLOUT_REGEX = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
 const VALID_CALLOUT_TYPES = ['note', 'tip', 'important', 'warning', 'caution'] as const;
-type CalloutType = typeof VALID_CALLOUT_TYPES[number];
+export type CalloutType = typeof VALID_CALLOUT_TYPES[number];
 
 function parseCallout(text: string): { calloutType: CalloutType; body: string } | null {
     const match = text.match(CALLOUT_REGEX);
@@ -322,7 +322,9 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
         tocFromFrontmatter = /^toc:\s*true\s*$/m.test(frontMatterMatch[0]);
     }
 
-    const cleanMarkdown = markdown.replace(frontMatterRegex, '');
+    const cleanMarkdown = frontMatterMatch
+        ? markdown.slice(frontMatterMatch[0].length)
+        : markdown;
 
     let tokens: marked.TokensList;
     try {
