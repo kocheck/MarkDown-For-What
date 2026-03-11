@@ -10,6 +10,7 @@
  *   BULLETS          — bullet characters per nesting depth
  *   INDENT_PER_DEPTH — pixel indent per nesting level
  *   CHECKBOX_CHECKED / CHECKBOX_UNCHECKED_FILL / CHECKBOX_UNCHECKED_STROKE
+ *   ERROR_BORDER_COLOR / ERROR_TEXT_COLOR — shared error placeholder colors
  */
 
 import type { CalloutType } from './parser';
@@ -17,9 +18,10 @@ import { hexToRgb } from './utils';
 
 // ─── Callout Constants ──────────────────────────────────────────────────────
 
+/** All callout types currently use a single color for border, bg, and text (bg is applied at 10% opacity by the renderer). */
 function calloutColor(hex: string): { border: RGB; bg: RGB; text: RGB } {
     const c = hexToRgb(hex);
-    return { border: c, bg: c, text: c };
+    return { border: { ...c }, bg: { ...c }, text: { ...c } };
 }
 
 export const CALLOUT_COLORS: Record<CalloutType, { border: RGB; bg: RGB; text: RGB }> = {
@@ -45,6 +47,11 @@ export const CHECKBOX_CHECKED: SolidPaint = { type: 'SOLID', color: { r: 0.2, g:
 export const CHECKBOX_UNCHECKED_FILL: SolidPaint = { type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } };
 export const CHECKBOX_UNCHECKED_STROKE: SolidPaint = { type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } };
 
+// ─── Error Placeholder Colors ───────────────────────────────────────────────
+
+export const ERROR_BORDER_COLOR: RGB = { r: 0.8, g: 0.2, b: 0.2 };
+export const ERROR_TEXT_COLOR: RGB = { r: 0.6, g: 0.1, b: 0.1 };
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -55,5 +62,7 @@ if (typeof module !== 'undefined' && module.exports) {
         CHECKBOX_CHECKED,
         CHECKBOX_UNCHECKED_FILL,
         CHECKBOX_UNCHECKED_STROKE,
+        ERROR_BORDER_COLOR,
+        ERROR_TEXT_COLOR,
     };
 }

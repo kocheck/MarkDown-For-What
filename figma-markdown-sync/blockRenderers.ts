@@ -19,7 +19,6 @@ import type { PluginSettings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import type { marked } from 'marked';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles } from './styles';
-import { hexToRgb, errorMessage } from './utils';
 import {
     CALLOUT_COLORS,
     CALLOUT_LABELS,
@@ -28,6 +27,8 @@ import {
     CHECKBOX_CHECKED,
     CHECKBOX_UNCHECKED_FILL,
     CHECKBOX_UNCHECKED_STROKE,
+    ERROR_BORDER_COLOR,
+    ERROR_TEXT_COLOR,
 } from './constants';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -292,7 +293,7 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
         placeholderFrame.paddingLeft = 40;
         placeholderFrame.paddingRight = 40;
         placeholderFrame.fills = [{ type: 'SOLID', color: { r: 0.95, g: 0.95, b: 0.95 } }];
-        placeholderFrame.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.2, b: 0.2 } }];
+        placeholderFrame.strokes = [{ type: 'SOLID', color: ERROR_BORDER_COLOR }];
         placeholderFrame.strokeWeight = 2;
         placeholderFrame.dashPattern = [5, 5];
         placeholderFrame.resize(600, 200);
@@ -301,7 +302,7 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
         const errorText = figma.createText();
         errorText.fontName = await loadFont('Inter', 'Regular');
         errorText.fontSize = 14;
-        errorText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
+        errorText.fills = [{ type: 'SOLID', color: ERROR_TEXT_COLOR }];
         errorText.characters = `Failed to load image\n${block.imageAlt || 'Unknown'}\nURL: ${block.imageUrl}`;
         errorText.textAlignHorizontal = 'CENTER';
 
@@ -324,7 +325,7 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
     errFrame.paddingLeft = 12;
     errFrame.paddingRight = 12;
     errFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 0.9, b: 0.9 } }];
-    errFrame.strokes = [{ type: 'SOLID', color: { r: 0.8, g: 0.2, b: 0.2 } }];
+    errFrame.strokes = [{ type: 'SOLID', color: ERROR_BORDER_COLOR }];
     errFrame.strokeWeight = 1;
     errFrame.layoutAlign = 'STRETCH';
     errFrame.primaryAxisSizingMode = 'AUTO';
@@ -333,7 +334,7 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
     const errText = figma.createText();
     errText.fontName = await loadFont('Inter', 'Regular');
     errText.fontSize = 12;
-    errText.fills = [{ type: 'SOLID', color: { r: 0.6, g: 0.1, b: 0.1 } }];
+    errText.fills = [{ type: 'SOLID', color: ERROR_TEXT_COLOR }];
     errText.characters = reason
         ? `Failed to render block: ${block.type} — ${reason}`
         : `Failed to render block: ${block.type}`;
