@@ -229,6 +229,10 @@ export async function applyInlineStyles(
                 else font = regularFont;
             }
             node.setRangeFontName(start, end, font);
+
+            if (segment.strikethrough) {
+                node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
+            }
         }
         currentIndex = end;
     }

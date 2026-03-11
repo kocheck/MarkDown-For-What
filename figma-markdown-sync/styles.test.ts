@@ -227,3 +227,72 @@ describe('applyInlineStyles', () => {
         );
     });
 });
+
+describe('applyInlineStyles — strikethrough', () => {
+    let node: any;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        node = {
+            characters: '',
+            textStyleId: '',
+            setRangeFontName: jest.fn(),
+            setRangeTextDecoration: jest.fn(),
+        };
+        (figma.createText as jest.Mock).mockReturnValue(node);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+    });
+
+    it('applies STRIKETHROUGH text decoration for ~~text~~', async () => {
+        const tokens: any[] = [
+            {
+                type: 'del',
+                raw: '~~struck~~',
+                text: 'struck',
+                tokens: [{ type: 'text', raw: 'struck', text: 'struck' }]
+            }
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.characters).toBe('struck');
+        expect(node.setRangeTextDecoration).toHaveBeenCalledWith(0, 6, 'STRIKETHROUGH');
+    });
+
+    it('does not apply STRIKETHROUGH for non-del tokens', async () => {
+        const tokens: any[] = [
+            { type: 'text', text: 'normal text' }
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.characters).toBe('normal text');
+        expect(node.setRangeTextDecoration).not.toHaveBeenCalled();
+    });
+
+    it('applies STRIKETHROUGH combined with bold', async () => {
+        const tokens: any[] = [
+            {
+                type: 'del',
+                raw: '~~**bold struck**~~',
+                text: 'bold struck',
+                tokens: [{
+                    type: 'strong',
+                    tokens: [{ type: 'text', text: 'bold struck' }]
+                }]
+            }
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.characters).toBe('bold struck');
+        expect(node.setRangeTextDecoration).toHaveBeenCalledWith(0, 11, 'STRIKETHROUGH');
+        expect(node.setRangeFontName).toHaveBeenCalledWith(
+            0, 11,
+            expect.objectContaining({ style: 'Bold' })
+        );
+    });
+});
