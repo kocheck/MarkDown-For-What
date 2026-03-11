@@ -4,6 +4,15 @@ import { isValidHex, hasSupportedExtension } from '../utils';
 
 const FRONT_MATTER_REGEX = /^---[\s\S]*?---\r?\n/;
 
+// Sanitize marked output: escape raw HTML blocks and inline HTML to prevent XSS
+marked.use({
+    renderer: {
+        html(text: string): string {
+            return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        },
+    },
+});
+
 // ── DOM references ──────────────────────────────────────────────────────────
 
 const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
