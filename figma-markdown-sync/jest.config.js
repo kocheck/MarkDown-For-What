@@ -11,6 +11,8 @@ module.exports = {
     'settings.ts',
     'tables.ts',
     'renderer.ts',
+    'blockRenderers.ts',
+    'constants.ts',
     'utils.ts',
     '!**/*.d.ts',
     '!**/node_modules/**',

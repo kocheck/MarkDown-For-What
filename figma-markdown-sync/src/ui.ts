@@ -294,7 +294,8 @@ function sendCurrentSettings() {
     }
 
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
-    // Keep in sync with WIDTH_PRESETS in settings.ts (separate build target prevents direct import).
+    // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
+    // so it cannot import from the plugin sandbox bundle directly.
     const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
     const mode = settings.widthMode as string;
     settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;
