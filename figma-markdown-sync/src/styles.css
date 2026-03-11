@@ -267,6 +267,64 @@ body {
     margin: 12px 0;
 }
 
+/* ── Preview select controls ─────────────────────────────── */
+.preview-select-controls {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+    font-size: 10px;
+}
+
+.btn-link {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 10px;
+    padding: 2px 4px;
+    cursor: pointer;
+    text-decoration: underline;
+    border-radius: 0;
+}
+
+.btn-link:hover { color: var(--color-block); }
+
+/* ── Preview block rows ─────────────────────────────────── */
+.preview-block-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 2px 0;
+    border-bottom: 1px solid #F5F5F5;
+}
+
+.preview-block-row:last-child { border-bottom: none; }
+
+.preview-block-checkbox {
+    width: 14px;
+    height: 14px;
+    margin-top: 2px;
+    flex-shrink: 0;
+    accent-color: var(--color-accent);
+    cursor: pointer;
+}
+
+.preview-block-label {
+    font-size: 10px;
+    color: #888;
+    font-weight: 500;
+    flex-shrink: 0;
+    min-width: 60px;
+}
+
+.preview-block-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.preview-block-row.unchecked {
+    opacity: 0.4;
+}
+
 /* Preview block element styles */
 .preview-block h1 { font-size: 18px; font-weight: 700; margin: 10px 0 4px; }
 .preview-block h2 { font-size: 15px; font-weight: 700; margin: 8px 0 4px; }
@@ -466,6 +524,45 @@ button {
     background: none;
     overflow: hidden;
     flex-shrink: 0;
+}
+
+/* ── Theme selector ───────────────────────────────────────── */
+.theme-selector {
+    display: flex;
+    gap: 0;
+    border: 1px solid #E0E0E0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.theme-btn {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 0;
+    background: #fff;
+    font-size: 11px;
+    font-weight: 500;
+    color: #666;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    border-right: 1px solid #E0E0E0;
+}
+
+.theme-btn:last-child { border-right: none; }
+.theme-btn:hover { background: #F5F5F5; }
+
+.theme-btn.active {
+    background: var(--color-block);
+    color: #fff;
+}
+
+/* ── Settings hints ──────────────────────────────────────── */
+.settings-hint {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 10px;
+    line-height: 1.4;
 }
 
 .settings-footer {

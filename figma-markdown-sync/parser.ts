@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc' | 'definitionList';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -46,6 +46,8 @@ export interface Block {
     calloutType?: CalloutType;
     // TOC-specific
     tocEntries?: Array<{ text: string; level: number }>;
+    // Definition list-specific
+    definitions?: Array<{ term: string; definitions: string[] }>;
 }
 
 /**
@@ -290,6 +292,66 @@ function parseCallout(text: string): { calloutType: CalloutType; body: string } 
     return { calloutType: type as CalloutType, body };
 }
 
+// ─── Definition List Extension ──────────────────────────────────────────────────
+
+/**
+ * Custom marked block extension for definition lists.
+ * Matches patterns like:
+ *   Term
+ *   : Definition text
+ *   : Another definition
+ */
+const definitionListExtension = {
+    name: 'definitionList',
+    level: 'block' as const,
+    start(src: string) {
+        return src.match(/^[^\n]+\n(?=: )/)?.index;
+    },
+    tokenizer(src: string) {
+        // Match one or more term+definitions groups
+        const rule = /^([^\n]+)\n((?:: [^\n]+\n?)+)/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+
+        // Consume as many consecutive term+defs as possible
+        let consumed = '';
+        let remaining = src;
+        const items: Array<{ term: string; definitions: string[] }> = [];
+
+        while (remaining.length > 0) {
+            const m = rule.exec(remaining);
+            if (!m) break;
+            const term = m[1].trim();
+            const defsRaw = m[2];
+            const defs = defsRaw
+                .split('\n')
+                .filter(line => line.startsWith(': '))
+                .map(line => line.slice(2).trim());
+            items.push({ term, definitions: defs });
+            consumed += m[0];
+            remaining = remaining.slice(m[0].length);
+            // Skip blank lines between term-def groups
+            const blankMatch = remaining.match(/^\n+/);
+            if (blankMatch) {
+                consumed += blankMatch[0];
+                remaining = remaining.slice(blankMatch[0].length);
+            }
+        }
+
+        if (items.length === 0) return undefined;
+
+        return {
+            type: 'definitionList',
+            raw: consumed,
+            items,
+        };
+    },
+    renderer() { return ''; }, // Not used — we parse to Block[], not HTML
+};
+
+// Register the extension
+marked.use({ extensions: [definitionListExtension] });
+
 // ─── Parse Options ──────────────────────────────────────────────────────────────
 
 export interface ParseOptions {
@@ -427,6 +489,17 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
             case 'hr':
                 blocks.push({ type: 'separator' });
                 break;
+            default: {
+                // Handle custom extension tokens (not in marked's token type union)
+                const customToken = token as any;
+                if (customToken.type === 'definitionList' && customToken.items) {
+                    blocks.push({
+                        type: 'definitionList',
+                        definitions: customToken.items,
+                    });
+                }
+                break;
+            }
         }
     }
 

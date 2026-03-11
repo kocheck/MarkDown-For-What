@@ -248,6 +248,27 @@ describe('renderBlocks', () => {
 
             expect(result.frame.x).toBe(0);
         });
+
+        it('applies frameFillColor to root frame', async () => {
+            const settings = { ...DEFAULT_SETTINGS, frameFillColor: '#1E1E1E' };
+            const result = await renderBlocks('Test', [], settings);
+            expect((result.frame as any).fills).toEqual([{
+                type: 'SOLID',
+                color: {
+                    r: expect.closeTo(0.118, 2),
+                    g: expect.closeTo(0.118, 2),
+                    b: expect.closeTo(0.118, 2),
+                },
+            }]);
+        });
+
+        it('applies white fill by default', async () => {
+            const result = await renderBlocks('Test', [], DEFAULT_SETTINGS);
+            expect((result.frame as any).fills).toEqual([{
+                type: 'SOLID',
+                color: { r: 1, g: 1, b: 1 },
+            }]);
+        });
     });
 
     describe('image handling', () => {
@@ -618,6 +639,66 @@ describe('renderBlocks', () => {
             expect(tocFrame.children[1].paragraphIndent).toBe(0);
             expect(tocFrame.children[2].paragraphIndent).toBe(20);
             expect(tocFrame.children[3].paragraphIndent).toBe(40);
+        });
+    });
+
+    describe('definition list rendering', () => {
+        it('should render a definition list with term and definition', async () => {
+            const blocks: Block[] = [{
+                type: 'definitionList',
+                definitions: [
+                    { term: 'API', definitions: ['Application Programming Interface'] }
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const dlFrame = result.frame.children[0] as any;
+            expect(dlFrame.type).toBe('FRAME');
+            expect(dlFrame.name).toBe('Definition List');
+            // Term + definition = 2 children
+            expect(dlFrame.children.length).toBe(2);
+        });
+
+        it('should render term in bold', async () => {
+            const blocks: Block[] = [{
+                type: 'definitionList',
+                definitions: [
+                    { term: 'Bold Term', definitions: ['Some def'] }
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const dlFrame = result.frame.children[0] as any;
+            const termNode = dlFrame.children[0];
+            expect(termNode.characters).toBe('Bold Term');
+            expect(termNode.fontName).toEqual({ family: 'Inter', style: 'Bold' });
+        });
+
+        it('should indent definitions with paragraphIndent', async () => {
+            const blocks: Block[] = [{
+                type: 'definitionList',
+                definitions: [
+                    { term: 'Term', definitions: ['Def 1', 'Def 2'] }
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const dlFrame = result.frame.children[0] as any;
+            // Term + 2 definitions = 3 children
+            expect(dlFrame.children.length).toBe(3);
+            expect(dlFrame.children[1].paragraphIndent).toBe(20);
+            expect(dlFrame.children[2].paragraphIndent).toBe(20);
+        });
+
+        it('should render multiple term-definition pairs', async () => {
+            const blocks: Block[] = [{
+                type: 'definitionList',
+                definitions: [
+                    { term: 'A', definitions: ['Def A'] },
+                    { term: 'B', definitions: ['Def B'] },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const dlFrame = result.frame.children[0] as any;
+            // 2 terms + 2 definitions = 4 children
+            expect(dlFrame.children.length).toBe(4);
         });
     });
 });

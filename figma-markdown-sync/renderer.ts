@@ -18,9 +18,20 @@
  */
 
 import type { Block } from './parser';
-import type { PluginSettings } from './settings';
+import type { PluginSettings, StyleBindings } from './settings';
 import { resolvedFrameWidth } from './settings';
-import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
+import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateTextStyle, getOrCreateTextStyleWithBinding, applyInlineStyles, initializeStyles } from './styles';
+
+/** Maps Markdown/* style names to StyleBindings keys. */
+const STYLE_TO_BINDING_KEY: Record<string, keyof StyleBindings> = {
+    [STYLE_NAMES.H1]:    'h1',
+    [STYLE_NAMES.H2]:    'h2',
+    [STYLE_NAMES.H3]:    'h3',
+    [STYLE_NAMES.BODY]:  'body',
+    [STYLE_NAMES.CODE]:  'code',
+    [STYLE_NAMES.LIST]:  'list',
+    [STYLE_NAMES.QUOTE]: 'quote',
+};
 import { createTableFrame } from './tables';
 import { hexToRgb, errorMessage } from './utils';
 import {
@@ -29,6 +40,7 @@ import {
     renderListBlock,
     renderOrderedListBlock,
     renderTaskListBlock,
+    renderDefinitionListBlock,
     createImageNode,
     createErrorPlaceholder,
 } from './blockRenderers';
@@ -125,6 +137,7 @@ export async function renderBlocks(
     frame.paddingLeft = settings.framePadding;
     frame.paddingRight = settings.framePadding;
     frame.itemSpacing = settings.blockSpacing;
+    frame.fills = [{ type: 'SOLID', color: hexToRgb(settings.frameFillColor ?? '#FFFFFF') }];
     const effectiveWidth = resolvedFrameWidth(settings);
     frame.resize(effectiveWidth, frame.height);
 
@@ -146,7 +159,8 @@ export async function renderBlocks(
             listGroupFrame.layoutAlign = 'STRETCH';
             listGroupFrame.fills = [];
 
-            const listStyle = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
+            const listBindingId = settings.styleBindings?.list;
+            const listStyle = await getOrCreateTextStyleWithBinding(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST], listBindingId);
 
             while (i < blocks.length && isListType(blocks[i])) {
                 const listBlock = blocks[i];
@@ -233,19 +247,19 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             if (block.level === 1) styleName = STYLE_NAMES.H1;
             else if (block.level === 2) styleName = STYLE_NAMES.H2;
             else styleName = STYLE_NAMES.H3;
-            await applyTextStyle(node, block, styleName);
+            await applyTextStyle(node, block, styleName, settings.styleBindings);
             return node;
         }
 
         case 'paragraph': {
             const node = figma.createText();
-            await applyTextStyle(node, block, STYLE_NAMES.BODY);
+            await applyTextStyle(node, block, STYLE_NAMES.BODY, settings.styleBindings);
             return node;
         }
 
         case 'quote': {
             const node = figma.createText();
-            await applyTextStyle(node, block, STYLE_NAMES.QUOTE);
+            await applyTextStyle(node, block, STYLE_NAMES.QUOTE, settings.styleBindings);
             return node;
         }
 
@@ -263,7 +277,8 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             codeFrame.counterAxisSizingMode = 'FIXED';
 
             const codeText = figma.createText();
-            const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
+            const codeBindingId = settings.styleBindings?.code;
+            const codeStyle = await getOrCreateTextStyleWithBinding(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE], codeBindingId);
             await codeText.setTextStyleIdAsync(codeStyle.id);
             codeText.characters = block.content || '';
             codeText.layoutAlign = 'STRETCH';
@@ -296,6 +311,10 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             return await renderTocBlock(block);
         }
 
+        case 'definitionList': {
+            return await renderDefinitionListBlock(block);
+        }
+
         case 'list':
         case 'orderedListItem':
         case 'taskListItem':
@@ -313,9 +332,12 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 /**
  * Applies a named text style and inline formatting to a TextNode.
  * Sets layoutAlign to STRETCH so the node fills the parent frame width.
+ * Uses style bindings when available.
  */
-async function applyTextStyle(node: TextNode, block: Block, styleName: string): Promise<void> {
-    const style = await getOrCreateTextStyle(styleName, DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY]);
+async function applyTextStyle(node: TextNode, block: Block, styleName: string, bindings?: StyleBindings): Promise<void> {
+    const bindingKey = STYLE_TO_BINDING_KEY[styleName];
+    const bindingId = bindingKey ? bindings?.[bindingKey] : undefined;
+    const style = await getOrCreateTextStyleWithBinding(styleName, DEFAULT_STYLES[styleName] ?? DEFAULT_STYLES[STYLE_NAMES.BODY], bindingId);
     await node.setTextStyleIdAsync(style.id);
     node.layoutAlign = 'STRETCH';
 

@@ -46,6 +46,10 @@
             <div class="preview-header">
                 <span class="preview-title">Preview</span>
                 <span id="preview-summary" class="preview-summary"></span>
+                <span class="preview-select-controls">
+                    <button id="select-all-btn" class="btn-link">All</button>
+                    <button id="deselect-all-btn" class="btn-link">None</button>
+                </span>
             </div>
             <div id="preview-content" class="preview-content"></div>
         </div>
@@ -60,6 +64,15 @@
 
     <!-- Settings tab -->
     <div id="tab-settings" class="tab-panel hidden">
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Theme</h3>
+            <div class="theme-selector">
+                <button class="theme-btn active" data-theme="minimal-light">Light</button>
+                <button class="theme-btn" data-theme="dark-mode">Dark</button>
+                <button class="theme-btn" data-theme="documentation">Docs</button>
+            </div>
+        </div>
 
         <div class="settings-section">
             <h3 class="settings-section-title">Spacing</h3>
@@ -96,6 +109,18 @@
             </label>
         </div>
 
+        <div class="settings-section" id="style-mapping-section">
+            <h3 class="settings-section-title">Style Mapping</h3>
+            <p class="settings-hint">Map elements to existing local text styles. "Auto" creates Markdown/* styles.</p>
+            <label class="settings-row"><span class="settings-label">H1</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h1"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">H2</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h2"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">H3</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h3"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Body</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="body"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Code</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="code"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">List</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="list"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Quote</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="quote"><option value="auto">Auto</option></select></div></label>
+        </div>
+
         <div class="settings-section">
             <h3 class="settings-section-title">Content</h3>
             <label class="settings-row">
@@ -106,6 +131,10 @@
 
         <div class="settings-section">
             <h3 class="settings-section-title">Colors</h3>
+            <label class="settings-row">
+                <span class="settings-label">Frame fill</span>
+                <div class="settings-input-wrap"><input type="text" id="frameFillColor" maxlength="7" placeholder="#FFFFFF"><input type="color" class="color-swatch" id="frameFillColor-swatch"></div>
+            </label>
             <label class="settings-row">
                 <span class="settings-label">Code background</span>
                 <div class="settings-input-wrap"><input type="text" id="codeBackground" maxlength="7" placeholder="#F2F2F2"><input type="color" class="color-swatch" id="codeBackground-swatch"></div>

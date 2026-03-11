@@ -766,3 +766,49 @@ describe('P1 integration', () => {
         expect(callouts[1].calloutType).toBe('warning');
     });
 });
+
+describe('definition list parsing', () => {
+    it('should parse a simple definition list', () => {
+        const md = 'API\n: Application Programming Interface\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const dl = blocks.find((b: Block) => b.type === 'definitionList');
+        expect(dl).toBeDefined();
+        expect(dl!.definitions).toEqual([
+            { term: 'API', definitions: ['Application Programming Interface'] }
+        ]);
+    });
+
+    it('should parse multiple definitions for one term', () => {
+        const md = 'Term\n: First definition\n: Second definition\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const dl = blocks.find((b: Block) => b.type === 'definitionList');
+        expect(dl).toBeDefined();
+        expect(dl!.definitions![0].definitions).toEqual(['First definition', 'Second definition']);
+    });
+
+    it('should parse multiple term-definition pairs', () => {
+        const md = 'Term A\n: Def A\n\nTerm B\n: Def B\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const dls = blocks.filter((b: Block) => b.type === 'definitionList');
+        // May be one block with two items or two blocks depending on how the extension consumes
+        const allItems = dls.flatMap((d: Block) => d.definitions ?? []);
+        expect(allItems).toHaveLength(2);
+        expect(allItems[0].term).toBe('Term A');
+        expect(allItems[1].term).toBe('Term B');
+    });
+
+    it('should not interfere with regular paragraphs', () => {
+        const md = 'Just a paragraph\n\nAnother paragraph\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.every((b: Block) => b.type !== 'definitionList')).toBe(true);
+    });
+
+    it('should coexist with other block types', () => {
+        const md = '# Title\n\nSome text\n\nTerm\n: Definition\n\n- List item\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.some((b: Block) => b.type === 'heading')).toBe(true);
+        expect(blocks.some((b: Block) => b.type === 'paragraph')).toBe(true);
+        expect(blocks.some((b: Block) => b.type === 'definitionList')).toBe(true);
+        expect(blocks.some((b: Block) => b.type === 'list')).toBe(true);
+    });
+});

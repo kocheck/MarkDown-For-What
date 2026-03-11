@@ -8,6 +8,8 @@ import {
     validateSettings,
     mergeWithDefaults,
     resolvedFrameWidth,
+    resolveThemeSettings,
+    THEME_PRESETS,
     loadSettings,
     saveSettings,
     PluginSettings,
@@ -116,6 +118,9 @@ describe('mergeWithDefaults', () => {
             tableHeaderBackground: '#E8F0FE',
             separatorColor: '#AAAAAA',
             generateToc: false,
+            theme: 'custom',
+            frameFillColor: '#F0F0F0',
+            styleBindings: { h1: 'S:abc123' },
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);
@@ -248,5 +253,103 @@ describe('mergeWithDefaults migration', () => {
         const result = mergeWithDefaults({ widthMode: 'wide', customWidth: 500 });
         expect(result.widthMode).toBe('wide');
         expect(result.customWidth).toBe(500);
+    });
+});
+
+describe('theme settings', () => {
+    test('has default theme of minimal-light', () => {
+        expect(DEFAULT_SETTINGS.theme).toBe('minimal-light');
+    });
+
+    test('has default frameFillColor of #FFFFFF', () => {
+        expect(DEFAULT_SETTINGS.frameFillColor).toBe('#FFFFFF');
+    });
+
+    test('validates theme enum values', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, theme: 'minimal-light' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, theme: 'dark-mode' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, theme: 'documentation' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, theme: 'custom' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, theme: 'invalid' })).toBe(false);
+    });
+
+    test('validates frameFillColor as hex', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, frameFillColor: '#1E1E1E' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, frameFillColor: 'not-hex' })).toBe(false);
+    });
+
+    test('mergeWithDefaults preserves valid theme', () => {
+        const result = mergeWithDefaults({ theme: 'dark-mode', frameFillColor: '#1E1E1E' });
+        expect(result.theme).toBe('dark-mode');
+        expect(result.frameFillColor).toBe('#1E1E1E');
+    });
+
+    test('mergeWithDefaults uses default for invalid theme', () => {
+        const result = mergeWithDefaults({ theme: 'nope' });
+        expect(result.theme).toBe('minimal-light');
+    });
+
+    test('mergeWithDefaults uses default for invalid frameFillColor', () => {
+        const result = mergeWithDefaults({ frameFillColor: 'bad' });
+        expect(result.frameFillColor).toBe('#FFFFFF');
+    });
+});
+
+describe('style binding settings', () => {
+    test('has empty default styleBindings', () => {
+        expect(DEFAULT_SETTINGS.styleBindings).toEqual({});
+    });
+
+    test('validates styleBindings with known element keys', () => {
+        const valid = { ...DEFAULT_SETTINGS, styleBindings: { h1: 'S:abc123', body: 'auto' } };
+        expect(validateSettings(valid)).toBe(true);
+    });
+
+    test('rejects styleBindings with unknown keys', () => {
+        const invalid = { ...DEFAULT_SETTINGS, styleBindings: { invalid: 'S:abc' } };
+        expect(validateSettings(invalid)).toBe(false);
+    });
+
+    test('rejects styleBindings with non-string values', () => {
+        const invalid = { ...DEFAULT_SETTINGS, styleBindings: { h1: 42 } };
+        expect(validateSettings(invalid)).toBe(false);
+    });
+
+    test('mergeWithDefaults preserves existing styleBindings', () => {
+        const stored = { styleBindings: { h1: 'S:abc123' } };
+        const merged = mergeWithDefaults(stored);
+        expect(merged.styleBindings.h1).toBe('S:abc123');
+    });
+
+    test('mergeWithDefaults uses default for invalid styleBindings', () => {
+        const stored = { styleBindings: 'not-an-object' };
+        const merged = mergeWithDefaults(stored);
+        expect(merged.styleBindings).toEqual({});
+    });
+});
+
+describe('resolveThemeSettings', () => {
+    test('returns minimal-light defaults', () => {
+        const resolved = resolveThemeSettings('minimal-light');
+        expect(resolved.frameFillColor).toBe('#FFFFFF');
+        expect(resolved.blockSpacing).toBe(16);
+    });
+
+    test('returns dark-mode overrides', () => {
+        const resolved = resolveThemeSettings('dark-mode');
+        expect(resolved.frameFillColor).toBe('#1E1E1E');
+        expect(resolved.codeBackground).toBe('#2D2D2D');
+    });
+
+    test('returns documentation preset with tighter spacing', () => {
+        const resolved = resolveThemeSettings('documentation');
+        expect(resolved.blockSpacing).toBe(8);
+        expect(resolved.listSpacing).toBe(4);
+        expect(resolved.framePadding).toBe(24);
+    });
+
+    test('returns empty overrides for custom theme', () => {
+        const resolved = resolveThemeSettings('custom');
+        expect(Object.keys(resolved)).toHaveLength(0);
     });
 });

@@ -35,6 +35,8 @@ const previewPane = document.getElementById('preview-pane') as HTMLElement;
 const previewContent = document.getElementById('preview-content') as HTMLElement;
 const previewSummary = document.getElementById('preview-summary') as HTMLElement;
 const previewCancelBtn = document.getElementById('preview-cancel') as HTMLButtonElement;
+const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
+const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButtonElement;
 
 // Paste elements
 const pasteToggle = document.getElementById('paste-toggle') as HTMLButtonElement;
@@ -46,8 +48,33 @@ const pasteImportBtn = document.getElementById('paste-import-btn') as HTMLButton
 // Settings inputs
 const settingInputIds = [
     'blockSpacing', 'listSpacing', 'framePadding', 'widthMode', 'customWidth',
-    'codeBackground', 'tableHeaderBackground', 'separatorColor',
+    'codeBackground', 'tableHeaderBackground', 'separatorColor', 'frameFillColor',
 ] as const;
+
+// Theme buttons
+const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
+
+// Style binding selects
+const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
+
+// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
+const THEME_PRESETS: Record<string, Record<string, unknown>> = {
+    'minimal-light': {
+        frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
+        tableHeaderBackground: '#F2F2F7', separatorColor: '#CCCCCC',
+        blockSpacing: 16, listSpacing: 6, framePadding: 40,
+    },
+    'dark-mode': {
+        frameFillColor: '#1E1E1E', codeBackground: '#2D2D2D',
+        tableHeaderBackground: '#2D2D2D', separatorColor: '#404040',
+        blockSpacing: 16, listSpacing: 6, framePadding: 40,
+    },
+    'documentation': {
+        frameFillColor: '#FFFFFF', codeBackground: '#F6F8FA',
+        tableHeaderBackground: '#F6F8FA', separatorColor: '#D0D7DE',
+        blockSpacing: 8, listSpacing: 4, framePadding: 24,
+    },
+};
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +95,7 @@ tabs.forEach(tab => {
 
         if (tab.dataset.tab === 'settings') {
             parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
+            parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
         }
     });
 });
@@ -136,18 +164,76 @@ function renderFileList(files: { name: string; content: string }[]) {
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
+/** Returns a human-readable label for a block-level HTML element. */
+function blockLabel(el: Element): string {
+    const tag = el.tagName.toLowerCase();
+    const text = (el.textContent ?? '').trim().slice(0, 30);
+    const labels: Record<string, string> = {
+        h1: 'H1', h2: 'H2', h3: 'H3', h4: 'H4', h5: 'H5', h6: 'H6',
+        p: 'Para', ul: 'List', ol: 'List', pre: 'Code',
+        blockquote: 'Quote', table: 'Table', hr: 'Rule', img: 'Image',
+    };
+    const prefix = labels[tag] ?? tag;
+    return text ? `${prefix}: ${text}` : prefix;
+}
+
 function showPreview(files: { name: string; content: string }[]) {
-    const allHtml: string[] = [];
-    for (const file of files) {
+    previewContent.innerHTML = '';
+    let totalBlocks = 0;
+
+    for (let fi = 0; fi < files.length; fi++) {
+        const file = files[fi];
+        if (fi > 0) {
+            const divider = document.createElement('hr');
+            divider.className = 'preview-divider';
+            previewContent.appendChild(divider);
+        }
+
+        const fileHeader = document.createElement('div');
+        fileHeader.className = 'preview-file-name';
+        fileHeader.textContent = file.name;
+        previewContent.appendChild(fileHeader);
+
         const clean = file.content.replace(FRONT_MATTER_REGEX, '');
         const html = marked.parse(clean) as string;
-        allHtml.push(
-            `<div class="preview-file"><div class="preview-file-name">${escapeHtml(file.name)}</div><div class="preview-block">${html}</div></div>`
-        );
+
+        // Parse HTML into DOM elements for per-block checkboxes
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+
+        const children = Array.from(temp.children);
+        for (let i = 0; i < children.length; i++) {
+            const el = children[i];
+            const row = document.createElement('div');
+            row.className = 'preview-block-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.className = 'preview-block-checkbox';
+            checkbox.dataset.fileIndex = String(fi);
+            checkbox.dataset.blockIndex = String(i);
+            checkbox.addEventListener('change', () => {
+                row.classList.toggle('unchecked', !checkbox.checked);
+            });
+
+            const label = document.createElement('span');
+            label.className = 'preview-block-label';
+            label.textContent = blockLabel(el);
+
+            const content = document.createElement('div');
+            content.className = 'preview-block-content preview-block';
+            content.appendChild(el);
+
+            row.appendChild(checkbox);
+            row.appendChild(label);
+            row.appendChild(content);
+            previewContent.appendChild(row);
+            totalBlocks++;
+        }
     }
 
-    previewContent.innerHTML = allHtml.join('<hr class="preview-divider">');
-    previewSummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} ready`;
+    previewSummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'}, ${totalBlocks} block${totalBlocks === 1 ? '' : 's'}`;
 
     // Show preview, hide drop/paste
     importSection.style.display = 'none';
@@ -195,10 +281,36 @@ importBtn.addEventListener('click', () => {
     loader.classList.remove('hidden');
     importBtn.disabled = true;
 
+    // Collect unchecked block indices per file
+    const excludedBlocks: Record<number, number[]> = {};
+    const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
+    checkboxes.forEach(cb => {
+        if (!cb.checked) {
+            const fi = Number(cb.dataset.fileIndex ?? 0);
+            const bi = Number(cb.dataset.blockIndex ?? 0);
+            if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
+            excludedBlocks[fi].push(bi);
+        }
+    });
+
     parent.postMessage({
-        pluginMessage: { type: 'import-markdown-batch', files: currentFiles }
+        pluginMessage: {
+            type: 'import-markdown-batch',
+            files: currentFiles,
+            excludedBlocks,
+        }
     }, '*');
 });
+
+function setAllCheckboxes(checked: boolean) {
+    previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
+        cb.checked = checked;
+        cb.closest('.preview-block-row')?.classList.toggle('unchecked', !checked);
+    });
+}
+
+selectAllBtn.addEventListener('click', () => setAllCheckboxes(true));
+deselectAllBtn.addEventListener('click', () => setAllCheckboxes(false));
 
 previewCancelBtn.addEventListener('click', () => {
     hidePreview();
@@ -231,8 +343,41 @@ function populateSettings(settings: Record<string, unknown>) {
         tocCheckbox.checked = !!settings.generateToc;
     }
 
+    // Handle theme button active state
+    const theme = settings.theme as string ?? 'minimal-light';
+    themeBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+
+    // Handle style bindings
+    const bindings = (settings.styleBindings ?? {}) as Record<string, string>;
+    styleBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && bindings[key]) select.value = bindings[key];
+        else select.value = 'auto';
+    });
+
     // Handle width mode visibility
     updateCustomWidthVisibility();
+}
+
+function populateStyleDropdowns(textStyles: Array<{ id: string; name: string }>) {
+    styleBindingSelects.forEach(select => {
+        const currentValue = select.value;
+        // Clear all options except "Auto"
+        while (select.options.length > 1) select.remove(1);
+        // Add each local text style as an option
+        for (const style of textStyles) {
+            const opt = document.createElement('option');
+            opt.value = style.id;
+            opt.textContent = style.name;
+            select.appendChild(opt);
+        }
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
 }
 
 function updateCustomWidthVisibility() {
@@ -250,6 +395,8 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             if (id === 'widthMode') updateCustomWidthVisibility();
+            // Manual change → deactivate theme preset buttons
+            themeBtns.forEach(b => b.classList.remove('active'));
             sendCurrentSettings();
             if (swatch && input instanceof HTMLInputElement && isValidHex(input.value)) {
                 swatch.value = input.value;
@@ -259,6 +406,7 @@ function setupSettingListeners() {
         swatch?.addEventListener('input', () => {
             if (input && input instanceof HTMLInputElement) {
                 input.value = swatch.value;
+                themeBtns.forEach(b => b.classList.remove('active'));
                 sendCurrentSettings();
             }
         });
@@ -268,6 +416,37 @@ function setupSettingListeners() {
     const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
     tocCheckbox?.addEventListener('change', () => {
         sendCurrentSettings();
+    });
+
+    // Theme buttons
+    themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.dataset.theme;
+            if (!theme || !THEME_PRESETS[theme]) return;
+
+            // Activate this button
+            themeBtns.forEach(b => b.classList.toggle('active', b === btn));
+
+            // Apply preset values to settings inputs
+            const preset = THEME_PRESETS[theme];
+            for (const [key, value] of Object.entries(preset)) {
+                const input = document.getElementById(key) as HTMLInputElement | null;
+                if (input) {
+                    input.value = String(value);
+                    const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
+                    if (swatch && typeof value === 'string') swatch.value = value;
+                }
+            }
+            updateCustomWidthVisibility();
+            sendCurrentSettings();
+        });
+    });
+
+    // Style binding selects
+    styleBindingSelects.forEach(select => {
+        select.addEventListener('change', () => {
+            sendCurrentSettings();
+        });
     });
 
     document.getElementById('reset-btn')?.addEventListener('click', () => {
@@ -292,6 +471,20 @@ function sendCurrentSettings() {
     if (tocCheckbox) {
         settings.generateToc = tocCheckbox.checked;
     }
+
+    // Include style bindings
+    const styleBindings: Record<string, string> = {};
+    styleBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && select.value !== 'auto') {
+            styleBindings[key] = select.value;
+        }
+    });
+    settings.styleBindings = styleBindings;
+
+    // Determine active theme
+    const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
+    settings.theme = activeThemeBtn?.dataset.theme ?? 'custom';
 
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
@@ -335,6 +528,9 @@ window.onmessage = event => {
             break;
         case 'settings':
             populateSettings(msg.settings);
+            break;
+        case 'local-styles':
+            populateStyleDropdowns(msg.textStyles ?? []);
             break;
         default:
             break;

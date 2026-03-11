@@ -160,6 +160,34 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
     return newStyle;
 }
 
+// Cache for style binding lookups — avoids repeated IPC calls for the same binding ID.
+// Cleared alongside styleCache in initializeStyles().
+const bindingCache = new Map<string, TextStyle>();
+
+/**
+ * Returns an existing Figma text style by ID (from a style binding), or falls
+ * back to getOrCreateTextStyle if the binding is 'auto', absent, or the bound
+ * style no longer exists.
+ */
+export async function getOrCreateTextStyleWithBinding(
+    name: string, config: StyleConfig, bindingId?: string
+): Promise<TextStyle> {
+    if (bindingId && bindingId !== 'auto') {
+        const cached = bindingCache.get(bindingId);
+        if (cached) return cached;
+        try {
+            const existing = await figma.getStyleByIdAsync(bindingId);
+            if (existing) {
+                bindingCache.set(bindingId, existing as TextStyle);
+                return existing as TextStyle;
+            }
+        } catch (err) {
+            console.warn(`[MarkDown For What] Style binding lookup failed for "${bindingId}": ${errorMessage(err)}`);
+        }
+    }
+    return getOrCreateTextStyle(name, config);
+}
+
 /**
  * Ensures all Markdown/* text styles exist in the document.
  * Clears the in-memory style cache before re-resolving, so deleted or
@@ -170,6 +198,7 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
     fontCache.clear();
+    bindingCache.clear();
 
     let allStyles: TextStyle[];
     try {
@@ -283,6 +312,7 @@ export async function applyInlineStyles(
 export function _resetCaches(): void {
     fontCache.clear();
     styleCache.clear();
+    bindingCache.clear();
 }
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
@@ -292,6 +322,7 @@ if (typeof module !== 'undefined' && module.exports) {
         DEFAULT_STYLES,
         loadFont,
         getOrCreateTextStyle,
+        getOrCreateTextStyleWithBinding,
         initializeStyles,
         applyInlineStyles,
         _resetCaches,
