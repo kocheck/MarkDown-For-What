@@ -296,6 +296,37 @@ describe('renderBlocks', () => {
         });
     });
 
+    describe('ordered list rendering', () => {
+        it('renders orderedListItem with number prefix', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'First item', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Second item', index: 2, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // Ordered list items should be grouped like regular list items
+            expect(result.frame.children).toHaveLength(1); // One list group
+            const listGroup = result.frame.children[0] as any;
+            expect(listGroup.children).toHaveLength(2);
+            // Check that text contains the number prefix
+            expect(listGroup.children[0].characters).toContain('1.');
+            expect(listGroup.children[1].characters).toContain('2.');
+        });
+
+        it('groups consecutive ordered list items together', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'First', index: 1, depth: 0, tokens: [] },
+                { type: 'paragraph', content: 'Break', tokens: [] },
+                { type: 'orderedListItem', content: 'Second', index: 1, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(result.frame.children).toHaveLength(3); // list group, paragraph, list group
+        });
+    });
+
     describe('async API usage', () => {
         it('calls setTextStyleIdAsync on heading blocks', async () => {
             const blocks: Block[] = [

@@ -137,6 +137,14 @@ async function createImageNode(block: Block, settings: PluginSettings): Promise<
     }
 }
 
+/**
+ * Returns true if the block is any list-like type that should be grouped
+ * into a single List Group frame with tighter spacing.
+ */
+function isListType(block: Block): boolean {
+    return block.type === 'list' || block.type === 'orderedListItem' || block.type === 'taskListItem';
+}
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -198,7 +206,7 @@ export async function renderBlocks(
         const block = blocks[i];
 
         // Group consecutive list blocks into a nested frame with listSpacing
-        if (block.type === 'list') {
+        if (isListType(block)) {
             const listGroupFrame = figma.createFrame();
             listGroupFrame.name = 'List Group';
             listGroupFrame.layoutMode = 'VERTICAL';
@@ -208,10 +216,17 @@ export async function renderBlocks(
             listGroupFrame.layoutAlign = 'STRETCH';
             listGroupFrame.fills = [];
 
-            while (i < blocks.length && blocks[i].type === 'list') {
+            while (i < blocks.length && isListType(blocks[i])) {
                 const listBlock = blocks[i];
                 try {
-                    const listNode = await renderListBlock(listBlock);
+                    let listNode: SceneNode;
+                    if (listBlock.type === 'orderedListItem') {
+                        listNode = await renderOrderedListBlock(listBlock);
+                    } else if (listBlock.type === 'taskListItem') {
+                        listNode = await renderTaskListBlock(listBlock);
+                    } else {
+                        listNode = await renderListBlock(listBlock);
+                    }
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
                     console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`, err);
@@ -366,6 +381,38 @@ async function renderListBlock(block: Block): Promise<TextNode> {
         node.characters = content;
     }
     return node;
+}
+
+/**
+ * Renders an ordered list item as a TextNode with number prefix.
+ * When inline tokens are present, prepends a number token (e.g. '1. ') before passing
+ * to applyInlineStyles so the prefix is part of the formatted character range.
+ * Falls back to prepending the number prefix to block.content when no tokens are present.
+ */
+async function renderOrderedListBlock(block: Block): Promise<TextNode> {
+    const node = figma.createText();
+    const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
+    await node.setTextStyleIdAsync(style.id);
+    node.layoutAlign = 'STRETCH';
+
+    const prefix = `${block.index ?? 1}. `;
+
+    if (block.tokens && block.tokens.length > 0) {
+        const prefixToken = { type: 'text', raw: prefix, text: prefix } as any;
+        await applyInlineStyles(node, [prefixToken, ...block.tokens], STYLE_NAMES.LIST);
+    } else {
+        node.characters = block.content ? `${prefix}${block.content}` : prefix.trimEnd();
+    }
+    return node;
+}
+
+/**
+ * Renders a task list item. Placeholder that delegates to renderListBlock
+ * until Task 11 implements proper checkbox rendering.
+ */
+async function renderTaskListBlock(block: Block): Promise<SceneNode> {
+    // TODO: Task 11 will implement proper checkbox rendering
+    return renderListBlock(block);
 }
 
 /**
