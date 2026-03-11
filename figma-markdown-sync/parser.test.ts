@@ -433,6 +433,38 @@ describe('flattenTokens — inline links', () => {
     });
 });
 
+describe('parseMarkdownToBlocks — ordered lists', () => {
+    test('should parse ordered list items as orderedListItem blocks', () => {
+        const markdown = '1. First\n2. Second\n3. Third';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(3);
+        expect(orderedBlocks[0].content).toBe('First');
+        expect(orderedBlocks[0].index).toBe(1);
+        expect(orderedBlocks[1].index).toBe(2);
+        expect(orderedBlocks[2].index).toBe(3);
+    });
+
+    test('should respect start number', () => {
+        const markdown = '5. Fifth\n6. Sixth';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(2);
+        expect(orderedBlocks[0].index).toBe(5);
+        expect(orderedBlocks[1].index).toBe(6);
+    });
+
+    test('ordered list items should have depth 0 by default', () => {
+        const markdown = '1. First\n2. Second';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks[0].depth).toBe(0);
+    });
+});
+
 describe('Regression Tests', () => {
     test('should handle image with title attribute', () => {
         const markdown = '![Alt text](https://example.com/img.png "Image Title")';
@@ -475,13 +507,13 @@ describe('Regression Tests', () => {
         expect(blocks[0].content).toBe('Actual Content');
     });
 
-    test('ordered list items are parsed as list blocks', () => {
+    test('ordered list items are parsed as orderedListItem blocks', () => {
         const markdown = '1. First\n2. Second\n3. Third';
         const blocks = parseMarkdownToBlocks(markdown);
-        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
-        expect(listBlocks).toHaveLength(3);
-        expect(listBlocks[0].content).toBe('First');
-        expect(listBlocks[1].content).toBe('Second');
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(3);
+        expect(orderedBlocks[0].content).toBe('First');
+        expect(orderedBlocks[1].content).toBe('Second');
     });
 
     test('blockquote block includes the quoted content', () => {

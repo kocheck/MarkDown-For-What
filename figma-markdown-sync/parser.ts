@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -36,6 +36,12 @@ export interface Block {
     // Image-specific
     imageUrl?: string;
     imageAlt?: string;
+    // List-specific
+    depth?: number;
+    // Ordered list-specific
+    index?: number;
+    // Task list-specific
+    checked?: boolean;
 }
 
 /**
@@ -249,8 +255,21 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'list': {
                 const listToken = token as marked.Tokens.List;
-                for (const item of listToken.items) {
-                    blocks.push({ type: 'list', content: item.text, tokens: item.tokens });
+                if (listToken.ordered) {
+                    const startNum = typeof listToken.start === 'number' ? listToken.start : 1;
+                    listToken.items.forEach((item, idx) => {
+                        blocks.push({
+                            type: 'orderedListItem',
+                            content: item.text,
+                            tokens: item.tokens,
+                            index: startNum + idx,
+                            depth: 0,
+                        });
+                    });
+                } else {
+                    for (const item of listToken.items) {
+                        blocks.push({ type: 'list', content: item.text, tokens: item.tokens, depth: 0 });
+                    }
                 }
                 break;
             }
