@@ -70,7 +70,7 @@ const STORAGE_KEY = 'pluginSettings';
 
 // ─── Width Mode ────────────────────────────────────────────────────────────────
 
-const WIDTH_PRESETS: Record<WidthMode, number | null> = {
+export const WIDTH_PRESETS: Record<WidthMode, number | null> = {
     narrow: 480,
     medium: 800,
     wide: 960,
