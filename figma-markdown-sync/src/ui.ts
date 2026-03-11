@@ -1,6 +1,12 @@
 import './styles.css';
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
+import {
+    MSG_GET_SETTINGS, MSG_SAVE_SETTINGS, MSG_RESET_SETTINGS,
+    MSG_GET_LOCAL_STYLES, MSG_GET_LOCAL_COMPONENTS,
+    MSG_GET_HISTORY, MSG_CLEAR_HISTORY, MSG_IMPORT_BATCH,
+    MSG_STATUS, MSG_SETTINGS, MSG_LOCAL_STYLES, MSG_LOCAL_COMPONENTS, MSG_HISTORY,
+} from '../messages';
 
 function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -84,7 +90,6 @@ const THEME_PRESETS: Record<string, Record<string, unknown>> = {
 // ── State ───────────────────────────────────────────────────────────────────
 
 let currentFiles: { name: string; content: string }[] = [];
-let isPreviewVisible = false;
 
 // ── Tab switching ───────────────────────────────────────────────────────────
 
@@ -99,12 +104,12 @@ tabs.forEach(tab => {
         });
 
         if (tab.dataset.tab === 'settings') {
-            parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
-            parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
-            parent.postMessage({ pluginMessage: { type: 'get-local-components' } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
         }
         if (tab.dataset.tab === 'history') {
-            parent.postMessage({ pluginMessage: { type: 'get-history' } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
         }
     });
 });
@@ -251,7 +256,7 @@ function showPreview(files: { name: string; content: string }[]) {
     previewCancelBtn.classList.remove('hidden');
     importBtn.disabled = false;
     importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
-    isPreviewVisible = true;
+
 }
 
 function hidePreview() {
@@ -261,7 +266,7 @@ function hidePreview() {
     importSection.style.display = '';
     fileList.style.display = '';
     importBtn.textContent = 'Import';
-    isPreviewVisible = false;
+
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
@@ -304,7 +309,7 @@ importBtn.addEventListener('click', () => {
 
     parent.postMessage({
         pluginMessage: {
-            type: 'import-markdown-batch',
+            type: MSG_IMPORT_BATCH,
             files: currentFiles,
             excludedBlocks,
         }
@@ -469,7 +474,7 @@ function setupSettingListeners() {
     });
 
     document.getElementById('reset-btn')?.addEventListener('click', () => {
-        parent.postMessage({ pluginMessage: { type: 'reset-settings' } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_RESET_SETTINGS } }, '*');
     });
 }
 
@@ -516,7 +521,7 @@ function sendCurrentSettings() {
     const mode = settings.widthMode as string;
     settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;
 
-    parent.postMessage({ pluginMessage: { type: 'save-settings', settings } }, '*');
+    parent.postMessage({ pluginMessage: { type: MSG_SAVE_SETTINGS, settings } }, '*');
 }
 
 setupSettingListeners();
@@ -556,7 +561,7 @@ function renderHistory(entries: Array<{ filename: string; timestamp: number; blo
 }
 
 clearHistoryBtn.addEventListener('click', () => {
-    parent.postMessage({ pluginMessage: { type: 'clear-history' } }, '*');
+    parent.postMessage({ pluginMessage: { type: MSG_CLEAR_HISTORY } }, '*');
 });
 
 // ── Status helper ───────────────────────────────────────────────────────────
@@ -573,9 +578,9 @@ window.onmessage = event => {
     if (!msg) return;
 
     switch (msg.type) {
-        case 'status':
+        case MSG_STATUS:
             loader.classList.add('hidden');
-            if (isPreviewVisible) hidePreview();
+            if (!previewPane.classList.contains('hidden')) hidePreview();
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             // Clear paste area on successful import
@@ -587,16 +592,16 @@ window.onmessage = event => {
                 renderFileList([]);
             }
             break;
-        case 'settings':
+        case MSG_SETTINGS:
             populateSettings(msg.settings);
             break;
-        case 'local-styles':
+        case MSG_LOCAL_STYLES:
             populateDropdowns(styleBindingSelects, msg.textStyles ?? []);
             break;
-        case 'local-components':
+        case MSG_LOCAL_COMPONENTS:
             populateDropdowns(componentBindingSelects, msg.components ?? []);
             break;
-        case 'history':
+        case MSG_HISTORY:
             renderHistory(msg.entries ?? []);
             break;
         default:
