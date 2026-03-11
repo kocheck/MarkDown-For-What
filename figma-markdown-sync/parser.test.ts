@@ -291,7 +291,7 @@ describe('flattenTokens', () => {
         expect(segments[0].text).toBe('fallback text');
     });
 
-    test('should treat links as text', () => {
+    test('should preserve link URL on segments', () => {
         const tokens: marked.Token[] = [
             {
                 type: 'link',
@@ -306,6 +306,7 @@ describe('flattenTokens', () => {
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('link');
+        expect(segments[0].link).toBe('url');
     });
 });
 
@@ -349,6 +350,73 @@ describe('flattenTokens — strikethrough', () => {
         expect(segments).toHaveLength(1);
         expect(segments[0].bold).toBe(true);
         expect(segments[0].strikethrough).toBe(true);
+    });
+});
+
+describe('flattenTokens — inline links', () => {
+    test('should preserve link URL in segment', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'link',
+                raw: '[Example](https://example.com)',
+                text: 'Example',
+                href: 'https://example.com',
+                tokens: [{ type: 'text', raw: 'Example', text: 'Example' } as marked.Tokens.Text]
+            } as marked.Tokens.Link
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('Example');
+        expect(segments[0].link).toBe('https://example.com');
+    });
+
+    test('should handle link with bold text inside', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'link',
+                raw: '[**Bold Link**](https://example.com)',
+                text: 'Bold Link',
+                href: 'https://example.com',
+                tokens: [
+                    {
+                        type: 'strong',
+                        raw: '**Bold Link**',
+                        text: 'Bold Link',
+                        tokens: [{ type: 'text', raw: 'Bold Link', text: 'Bold Link' } as marked.Tokens.Text]
+                    } as marked.Tokens.Strong
+                ]
+            } as marked.Tokens.Link
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('Bold Link');
+        expect(segments[0].bold).toBe(true);
+        expect(segments[0].link).toBe('https://example.com');
+    });
+
+    test('should handle mixed text and links', () => {
+        const tokens: marked.Token[] = [
+            { type: 'text', raw: 'Visit ', text: 'Visit ' } as marked.Tokens.Text,
+            {
+                type: 'link',
+                raw: '[here](https://example.com)',
+                text: 'here',
+                href: 'https://example.com',
+                tokens: [{ type: 'text', raw: 'here', text: 'here' } as marked.Tokens.Text]
+            } as marked.Tokens.Link,
+            { type: 'text', raw: ' for more', text: ' for more' } as marked.Tokens.Text,
+        ];
+
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+
+        expect(segments).toHaveLength(3);
+        expect(segments[0].link).toBeUndefined();
+        expect(segments[1].link).toBe('https://example.com');
+        expect(segments[2].link).toBeUndefined();
     });
 });
 

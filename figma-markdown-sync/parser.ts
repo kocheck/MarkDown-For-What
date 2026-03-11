@@ -142,9 +142,14 @@ export function flattenTokens(
                 }
                 break;
             case 'link':
-                // Links render as plain text — URL is not shown in the Figma output
                 const lToken = token as marked.Tokens.Link;
-                segments.push({ text: lToken.text, ...context });
+                if (lToken.tokens) {
+                    segments = segments.concat(
+                        flattenTokens(lToken.tokens, { ...context, link: lToken.href })
+                    );
+                } else {
+                    segments.push({ text: lToken.text, ...context, link: lToken.href });
+                }
                 break;
             default:
                 if ('text' in token) {
