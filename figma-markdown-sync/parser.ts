@@ -43,7 +43,7 @@ export interface Block {
     // Task list-specific
     checked?: boolean;
     // Callout-specific
-    calloutType?: 'note' | 'tip' | 'important' | 'warning' | 'caution';
+    calloutType?: CalloutType;
     // TOC-specific
     tocEntries?: Array<{ text: string; level: number }>;
 }
