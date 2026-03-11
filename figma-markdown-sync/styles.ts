@@ -233,6 +233,15 @@ export async function applyInlineStyles(
             if (segment.strikethrough) {
                 node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
             }
+
+            if (segment.link) {
+                node.setRangeHyperlink(start, end, { type: 'URL', value: segment.link });
+                if (!segment.strikethrough) {
+                    node.setRangeTextDecoration(start, end, 'UNDERLINE');
+                }
+                // Apply link color (#0969DA) per spec
+                node.setRangeFills(start, end, [{ type: 'SOLID', color: { r: 0.035, g: 0.412, b: 0.855 } }]);
+            }
         }
         currentIndex = end;
     }

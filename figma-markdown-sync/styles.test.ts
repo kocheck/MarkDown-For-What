@@ -296,3 +296,55 @@ describe('applyInlineStyles — strikethrough', () => {
         );
     });
 });
+
+describe('applyInlineStyles — links', () => {
+    let node: any;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        node = {
+            characters: '',
+            textStyleId: '',
+            setRangeFontName: jest.fn(),
+            setRangeTextDecoration: jest.fn(),
+            setRangeHyperlink: jest.fn(),
+            setRangeFills: jest.fn(),
+        };
+        (figma.createText as jest.Mock).mockReturnValue(node);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+    });
+
+    it('applies hyperlink and underline decoration for link segments', async () => {
+        const tokens: any[] = [
+            { type: 'text', raw: 'Click ', text: 'Click ' },
+            {
+                type: 'link',
+                raw: '[here](https://example.com)',
+                text: 'here',
+                href: 'https://example.com',
+                tokens: [{ type: 'text', raw: 'here', text: 'here' }]
+            },
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.characters).toBe('Click here');
+        // 'here' starts at index 6, length 4
+        expect(node.setRangeHyperlink).toHaveBeenCalledWith(6, 10, { type: 'URL', value: 'https://example.com' });
+        expect(node.setRangeTextDecoration).toHaveBeenCalledWith(6, 10, 'UNDERLINE');
+        expect(node.setRangeFills).toHaveBeenCalledWith(6, 10, [{ type: 'SOLID', color: { r: 0.035, g: 0.412, b: 0.855 } }]);
+    });
+
+    it('does not apply hyperlink to non-link segments', async () => {
+        const tokens: any[] = [
+            { type: 'text', raw: 'plain text', text: 'plain text' },
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.setRangeHyperlink).not.toHaveBeenCalled();
+    });
+});
