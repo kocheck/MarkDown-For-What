@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc' | 'definitionList';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc' | 'definitionList' | 'footnoteSection' | 'badgeRow';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -48,6 +48,10 @@ export interface Block {
     tocEntries?: Array<{ text: string; level: number }>;
     // Definition list-specific
     definitions?: Array<{ term: string; definitions: string[] }>;
+    // Footnote section-specific
+    footnotes?: Array<{ id: string; index: number; text: string }>;
+    // Badge row-specific
+    badges?: Array<{ label: string; color?: string }>;
 }
 
 /**
@@ -61,6 +65,8 @@ export interface StyledSegment {
     code?: boolean;
     strikethrough?: boolean;
     link?: string;
+    footnoteRef?: { id: string; index: number };
+    badge?: { label: string; color?: string };
 }
 
 // ─── Helpers (exported for testability) ────────────────────────────────────────
@@ -105,6 +111,8 @@ export interface FlattenContext {
     code: boolean;
     strikethrough: boolean;
     link: string | undefined;
+    footnoteRef: { id: string; index: number } | undefined;
+    badge: { label: string; color?: string } | undefined;
 }
 
 /** Default FlattenContext with no formatting applied. */
@@ -114,6 +122,8 @@ export const DEFAULT_FLATTEN_CONTEXT: FlattenContext = {
     code: false,
     strikethrough: false,
     link: undefined,
+    footnoteRef: undefined,
+    badge: undefined,
 };
 
 /**
@@ -177,11 +187,27 @@ export function flattenTokens(
                     segments.push({ text: lToken.text, ...context, link: lToken.href });
                 }
                 break;
-            default:
-                if ('text' in token) {
+            default: {
+                const customToken = token as any;
+                if (customToken.type === 'footnoteRef') {
+                    // Footnote reference — rendered as superscript-style text
+                    // The actual index is resolved later in parseMarkdownToBlocks
+                    segments.push({
+                        text: `[${customToken.id}]`,
+                        ...context,
+                        footnoteRef: { id: customToken.id, index: 0 },
+                    });
+                } else if (customToken.type === 'badge') {
+                    segments.push({
+                        text: customToken.label,
+                        ...context,
+                        badge: { label: customToken.label, color: customToken.color },
+                    });
+                } else if ('text' in token) {
                     segments.push({ text: (token as any).text, ...context });
                 }
                 break;
+            }
         }
     }
     return segments;
@@ -292,6 +318,102 @@ function parseCallout(text: string): { calloutType: CalloutType; body: string } 
     return { calloutType: type as CalloutType, body };
 }
 
+// ─── Footnote Extensions ────────────────────────────────────────────────────────
+
+/**
+ * Custom marked block extension for footnote definitions.
+ * Matches patterns like: [^id]: Footnote text
+ */
+const footnoteDefExtension = {
+    name: 'footnoteDef',
+    level: 'block' as const,
+    start(src: string) {
+        return src.match(/^\[\^[^\]]+\]:/)?.index;
+    },
+    tokenizer(src: string) {
+        const rule = /^\[\^([^\]]+)\]: (.+)/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+
+        // Consume consecutive footnote definitions
+        let consumed = '';
+        let remaining = src;
+        const defs: Array<{ id: string; text: string }> = [];
+
+        while (remaining.length > 0) {
+            const m = rule.exec(remaining);
+            if (!m) break;
+            defs.push({ id: m[1], text: m[2].trim() });
+            consumed += m[0];
+            remaining = remaining.slice(m[0].length);
+            // Skip newlines between defs
+            const nlMatch = remaining.match(/^\n+/);
+            if (nlMatch) {
+                consumed += nlMatch[0];
+                remaining = remaining.slice(nlMatch[0].length);
+            }
+        }
+
+        if (defs.length === 0) return undefined;
+
+        return {
+            type: 'footnoteDef',
+            raw: consumed,
+            defs,
+        };
+    },
+    renderer() { return ''; },
+};
+
+/**
+ * Custom marked inline extension for footnote references.
+ * Matches [^id] within text.
+ */
+const footnoteRefExtension = {
+    name: 'footnoteRef',
+    level: 'inline' as const,
+    start(src: string) {
+        return src.match(/\[\^/)?.index;
+    },
+    tokenizer(src: string) {
+        const rule = /^\[\^([^\]]+)\]/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+        return {
+            type: 'footnoteRef',
+            raw: match[0],
+            id: match[1],
+        };
+    },
+    renderer() { return ''; },
+};
+
+// ─── Badge Inline Extension ─────────────────────────────────────────────────────
+
+/**
+ * Custom marked inline extension for badge pills.
+ * Matches [badge:Label] or [badge:Label:color] within text.
+ */
+const badgeInlineExtension = {
+    name: 'badge',
+    level: 'inline' as const,
+    start(src: string) {
+        return src.match(/\[badge:/)?.index;
+    },
+    tokenizer(src: string) {
+        const rule = /^\[badge:([^\]:\n]+?)(?::([^\]:\n]+?))?\]/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+        return {
+            type: 'badge',
+            raw: match[0],
+            label: match[1].trim(),
+            color: match[2]?.trim(),
+        };
+    },
+    renderer() { return ''; },
+};
+
 // ─── Definition List Extension ──────────────────────────────────────────────────
 
 /**
@@ -349,8 +471,8 @@ const definitionListExtension = {
     renderer() { return ''; }, // Not used — we parse to Block[], not HTML
 };
 
-// Register the extension
-marked.use({ extensions: [definitionListExtension] });
+// Register all custom extensions
+marked.use({ extensions: [definitionListExtension, footnoteDefExtension, footnoteRefExtension, badgeInlineExtension] });
 
 // ─── Parse Options ──────────────────────────────────────────────────────────────
 
@@ -378,10 +500,16 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
     const frontMatterRegex = /^---[\s\S]*?---\r?\n/;
     const frontMatterMatch = markdown.match(frontMatterRegex);
 
-    // Check frontmatter for toc: true
+    // Check frontmatter for toc: true and tags
     let tocFromFrontmatter = false;
+    let frontmatterTags: string[] = [];
     if (frontMatterMatch) {
         tocFromFrontmatter = /^toc:\s*true\s*$/m.test(frontMatterMatch[0]);
+        // Extract tags from frontmatter: tags: [tag1, tag2, tag3]
+        const tagsMatch = frontMatterMatch[0].match(/^tags:\s*\[([^\]]*)\]\s*$/m);
+        if (tagsMatch) {
+            frontmatterTags = tagsMatch[1].split(',').map(t => t.trim()).filter(t => t.length > 0);
+        }
     }
 
     const cleanMarkdown = frontMatterMatch
@@ -395,6 +523,7 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
         throw new Error(`Failed to parse Markdown content — ${errorMessage(err)}`);
     }
     const blocks: Block[] = [];
+    const footnoteDefinitions = new Map<string, string>();
 
     for (const token of tokens) {
         switch (token.type) {
@@ -497,9 +626,67 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
                         type: 'definitionList',
                         definitions: customToken.items,
                     });
+                } else if (customToken.type === 'footnoteDef' && customToken.defs) {
+                    // Footnote definitions are collected; the footnoteSection is appended at the end
+                    for (const def of customToken.defs) {
+                        footnoteDefinitions.set(def.id, def.text);
+                    }
                 }
+                // footnoteRef and badge inline tokens are handled by flattenTokens
                 break;
             }
+        }
+    }
+
+    // Generate frontmatter badge row at the top
+    if (frontmatterTags.length > 0) {
+        blocks.unshift({
+            type: 'badgeRow',
+            badges: frontmatterTags.map(tag => ({ label: tag })),
+        });
+    }
+
+    // Collect inline badge tokens from blocks and create standalone badge rows
+    // Inline badges within text are rendered by the inline style system;
+    // this handles badge-only paragraphs as a badge row block.
+
+    // Generate footnote section at the end if there are footnote definitions
+    if (footnoteDefinitions.size > 0) {
+        // Scan blocks for footnote references to determine ordering
+        const referencedIds: string[] = [];
+        for (const block of blocks) {
+            if (block.tokens) {
+                const segments = flattenTokens(block.tokens, DEFAULT_FLATTEN_CONTEXT);
+                for (const seg of segments) {
+                    if (seg.footnoteRef && !referencedIds.includes(seg.footnoteRef.id)) {
+                        referencedIds.push(seg.footnoteRef.id);
+                    }
+                }
+            }
+        }
+        // Add any unreferenced definitions at the end
+        for (const id of Array.from(footnoteDefinitions.keys())) {
+            if (!referencedIds.includes(id)) {
+                referencedIds.push(id);
+            }
+        }
+
+        const footnotes = referencedIds
+            .filter(id => footnoteDefinitions.has(id))
+            .map((id, idx) => ({
+                id,
+                index: idx + 1,
+                text: footnoteDefinitions.get(id)!,
+            }));
+
+        if (footnotes.length > 0) {
+            // Update footnoteRef indices in blocks' segments to match actual ordering
+            // (This is resolved at render time via the footnotes array)
+            blocks.push({ type: 'separator' });
+            blocks.push({
+                type: 'footnoteSection',
+                footnotes,
+            });
         }
     }
 
@@ -521,6 +708,6 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT, ParseOptions: {} };
+    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT };
 }
 

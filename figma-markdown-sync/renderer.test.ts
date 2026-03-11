@@ -701,4 +701,93 @@ describe('renderBlocks', () => {
             expect(dlFrame.children.length).toBe(4);
         });
     });
+
+    describe('footnote section rendering', () => {
+        it('should render a footnote section frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'footnoteSection',
+                footnotes: [
+                    { id: '1', index: 1, text: 'First footnote.' },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const fnFrame = result.frame.children[0] as any;
+            expect(fnFrame.name).toBe('Footnotes');
+            expect(fnFrame.layoutMode).toBe('VERTICAL');
+        });
+
+        it('should render each footnote as a numbered text entry', async () => {
+            const blocks: Block[] = [{
+                type: 'footnoteSection',
+                footnotes: [
+                    { id: '1', index: 1, text: 'First footnote.' },
+                    { id: '2', index: 2, text: 'Second footnote.' },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const fnFrame = result.frame.children[0] as any;
+            expect(fnFrame.children.length).toBe(2);
+            expect(fnFrame.children[0].characters).toBe('1. First footnote.');
+            expect(fnFrame.children[1].characters).toBe('2. Second footnote.');
+        });
+
+        it('should use smaller font size for footnote entries', async () => {
+            const blocks: Block[] = [{
+                type: 'footnoteSection',
+                footnotes: [{ id: '1', index: 1, text: 'A footnote.' }],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const fnFrame = result.frame.children[0] as any;
+            expect(fnFrame.children[0].fontSize).toBe(13);
+        });
+    });
+
+    describe('badge row rendering', () => {
+        it('should render a badge row frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'badgeRow',
+                badges: [{ label: 'NEW' }],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const rowFrame = result.frame.children[0] as any;
+            expect(rowFrame.name).toBe('Badge Row');
+            expect(rowFrame.layoutMode).toBe('HORIZONTAL');
+        });
+
+        it('should render each badge as a pill with label text', async () => {
+            const blocks: Block[] = [{
+                type: 'badgeRow',
+                badges: [
+                    { label: 'Alpha' },
+                    { label: 'Beta' },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const rowFrame = result.frame.children[0] as any;
+            expect(rowFrame.children.length).toBe(2);
+            expect(rowFrame.children[0].name).toBe('Badge: Alpha');
+            expect(rowFrame.children[1].name).toBe('Badge: Beta');
+        });
+
+        it('should render pill text inside each badge frame', async () => {
+            const blocks: Block[] = [{
+                type: 'badgeRow',
+                badges: [{ label: 'Draft' }],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const rowFrame = result.frame.children[0] as any;
+            const pill = rowFrame.children[0] as any;
+            expect(pill.children[0].characters).toBe('Draft');
+        });
+
+        it('should apply rounded corners to badge pills', async () => {
+            const blocks: Block[] = [{
+                type: 'badgeRow',
+                badges: [{ label: 'Tag' }],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const pill = (result.frame.children[0] as any).children[0];
+            expect(pill.cornerRadius).toBe(12);
+        });
+    });
 });

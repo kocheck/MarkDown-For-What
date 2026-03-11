@@ -812,3 +812,118 @@ describe('definition list parsing', () => {
         expect(blocks.some((b: Block) => b.type === 'list')).toBe(true);
     });
 });
+
+// ─── Footnotes ──────────────────────────────────────────────────────────────
+
+describe('parseMarkdownToBlocks — footnotes', () => {
+    it('should parse footnote definitions and create a footnoteSection block', () => {
+        const md = 'Some text with a reference[^1].\n\n[^1]: This is the footnote text.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        // Should have: paragraph, separator, footnoteSection
+        expect(blocks.some((b: Block) => b.type === 'footnoteSection')).toBe(true);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection')!;
+        expect(fnBlock.footnotes).toHaveLength(1);
+        expect(fnBlock.footnotes![0].id).toBe('1');
+        expect(fnBlock.footnotes![0].text).toBe('This is the footnote text.');
+        expect(fnBlock.footnotes![0].index).toBe(1);
+    });
+
+    it('should add a separator before the footnote section', () => {
+        const md = 'Text[^a].\n\n[^a]: Footnote A.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnIdx = blocks.findIndex((b: Block) => b.type === 'footnoteSection');
+        expect(fnIdx).toBeGreaterThan(0);
+        expect(blocks[fnIdx - 1].type).toBe('separator');
+    });
+
+    it('should handle multiple footnotes ordered by first reference', () => {
+        const md = 'First[^2] then second[^1].\n\n[^1]: Footnote one.\n[^2]: Footnote two.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection')!;
+        expect(fnBlock.footnotes).toHaveLength(2);
+        // [^2] is referenced first, so it gets index 1
+        expect(fnBlock.footnotes![0].id).toBe('2');
+        expect(fnBlock.footnotes![0].index).toBe(1);
+        expect(fnBlock.footnotes![1].id).toBe('1');
+        expect(fnBlock.footnotes![1].index).toBe(2);
+    });
+
+    it('should not create a footnoteSection when there are no footnote definitions', () => {
+        const md = '# Just a heading\n\nRegular paragraph.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.some((b: Block) => b.type === 'footnoteSection')).toBe(false);
+    });
+
+    it('should include unreferenced footnote definitions', () => {
+        const md = '[^unused]: An unreferenced footnote.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection');
+        expect(fnBlock).toBeDefined();
+        expect(fnBlock!.footnotes![0].id).toBe('unused');
+    });
+});
+
+describe('flattenTokens — footnote references', () => {
+    it('should produce a segment with footnoteRef for [^id] tokens', () => {
+        // Simulate a footnoteRef inline token as emitted by the custom extension
+        const tokens = [
+            { type: 'text', raw: 'Hello ', text: 'Hello ' },
+            { type: 'footnoteRef', raw: '[^1]', id: '1' },
+            { type: 'text', raw: ' world', text: ' world' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(3);
+        expect(segments[1].footnoteRef).toBeDefined();
+        expect(segments[1].footnoteRef.id).toBe('1');
+        expect(segments[1].text).toBe('[1]');
+    });
+});
+
+// ─── Badge Pills ────────────────────────────────────────────────────────────
+
+describe('parseMarkdownToBlocks — badge pills', () => {
+    it('should extract frontmatter tags as a badgeRow block', () => {
+        const md = '---\ntags: [design, v2, draft]\n---\n# Title\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const badgeBlock = blocks.find((b: Block) => b.type === 'badgeRow');
+        expect(badgeBlock).toBeDefined();
+        expect(badgeBlock!.badges).toHaveLength(3);
+        expect(badgeBlock!.badges![0].label).toBe('design');
+        expect(badgeBlock!.badges![1].label).toBe('v2');
+        expect(badgeBlock!.badges![2].label).toBe('draft');
+    });
+
+    it('should place frontmatter badge row at the top of blocks', () => {
+        const md = '---\ntags: [alpha]\n---\n# Title\n\nParagraph.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('badgeRow');
+    });
+
+    it('should not create badgeRow when frontmatter has no tags', () => {
+        const md = '---\ntitle: Hello\n---\n# Title\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.some((b: Block) => b.type === 'badgeRow')).toBe(false);
+    });
+});
+
+describe('flattenTokens — inline badge tokens', () => {
+    it('should produce a segment with badge for [badge:Label] tokens', () => {
+        const tokens = [
+            { type: 'text', raw: 'Status: ', text: 'Status: ' },
+            { type: 'badge', raw: '[badge:Approved]', label: 'Approved', color: undefined },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(2);
+        expect(segments[1].badge).toBeDefined();
+        expect(segments[1].badge.label).toBe('Approved');
+        expect(segments[1].text).toBe('Approved');
+    });
+
+    it('should pass color through for [badge:Label:color] tokens', () => {
+        const tokens = [
+            { type: 'badge', raw: '[badge:NEW:green]', label: 'NEW', color: 'green' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments[0].badge!.color).toBe('green');
+    });
+});

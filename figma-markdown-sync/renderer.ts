@@ -41,6 +41,8 @@ import {
     renderOrderedListBlock,
     renderTaskListBlock,
     renderDefinitionListBlock,
+    renderFootnoteSectionBlock,
+    renderBadgeRowBlock,
     createImageNode,
     createErrorPlaceholder,
 } from './blockRenderers';
@@ -313,6 +315,14 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
         case 'definitionList': {
             return await renderDefinitionListBlock(block);
+        }
+
+        case 'footnoteSection': {
+            return await renderFootnoteSectionBlock(block);
+        }
+
+        case 'badgeRow': {
+            return await renderBadgeRowBlock(block);
         }
 
         case 'list':

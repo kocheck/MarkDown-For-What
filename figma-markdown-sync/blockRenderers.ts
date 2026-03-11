@@ -27,9 +27,12 @@ import {
     CHECKBOX_CHECKED,
     CHECKBOX_UNCHECKED_FILL,
     CHECKBOX_UNCHECKED_STROKE,
+    BADGE_NAMED_COLORS,
+    badgeColorForLabel,
     ERROR_BORDER_COLOR,
     ERROR_TEXT_COLOR,
 } from './constants';
+import { hexToRgb } from './utils';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -280,6 +283,89 @@ export async function renderDefinitionListBlock(block: Block): Promise<FrameNode
     return dlFrame;
 }
 
+// ─── Footnote Section Rendering ──────────────────────────────────────────────
+
+/**
+ * Renders a footnote section as a vertical frame with numbered footnote entries.
+ * Typically placed after a separator at the end of the document.
+ */
+export async function renderFootnoteSectionBlock(block: Block): Promise<FrameNode> {
+    const fnFrame = figma.createFrame();
+    fnFrame.name = 'Footnotes';
+    fnFrame.layoutMode = 'VERTICAL';
+    fnFrame.primaryAxisSizingMode = 'AUTO';
+    fnFrame.counterAxisSizingMode = 'FIXED';
+    fnFrame.layoutAlign = 'STRETCH';
+    fnFrame.itemSpacing = 4;
+    fnFrame.fills = [];
+
+    const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+    const regularFont = await loadFont('Inter', 'Regular');
+
+    for (const fn of (block.footnotes ?? [])) {
+        const entryNode = figma.createText();
+        await entryNode.setTextStyleIdAsync(bodyStyle.id);
+        entryNode.fontName = regularFont;
+        entryNode.fontSize = 13;
+        entryNode.characters = `${fn.index}. ${fn.text}`;
+        entryNode.layoutAlign = 'STRETCH';
+        fnFrame.appendChild(entryNode);
+    }
+
+    return fnFrame;
+}
+
+// ─── Badge Row Rendering ────────────────────────────────────────────────────
+
+/**
+ * Renders a row of badge pills as a horizontal auto-layout frame with wrapping.
+ */
+export async function renderBadgeRowBlock(block: Block): Promise<FrameNode> {
+    const rowFrame = figma.createFrame();
+    rowFrame.name = 'Badge Row';
+    rowFrame.layoutMode = 'HORIZONTAL';
+    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.counterAxisSizingMode = 'AUTO';
+    rowFrame.layoutAlign = 'STRETCH';
+    rowFrame.itemSpacing = 8;
+    rowFrame.layoutWrap = 'WRAP';
+    rowFrame.fills = [];
+
+    const regularFont = await loadFont('Inter', 'Regular');
+
+    for (const badge of (block.badges ?? [])) {
+        const pillFrame = figma.createFrame();
+        pillFrame.name = `Badge: ${badge.label}`;
+        pillFrame.layoutMode = 'HORIZONTAL';
+        pillFrame.primaryAxisSizingMode = 'AUTO';
+        pillFrame.counterAxisSizingMode = 'AUTO';
+        pillFrame.paddingTop = 4;
+        pillFrame.paddingBottom = 4;
+        pillFrame.paddingLeft = 10;
+        pillFrame.paddingRight = 10;
+        pillFrame.cornerRadius = 12;
+
+        // Determine color
+        const colorHex = badge.color
+            ? (BADGE_NAMED_COLORS[badge.color.toLowerCase()] ?? badge.color)
+            : badgeColorForLabel(badge.label);
+        const bgColor = hexToRgb(colorHex);
+        pillFrame.fills = [{ type: 'SOLID', color: bgColor }];
+
+        // Text (white for good contrast on colored background)
+        const textNode = figma.createText();
+        textNode.fontName = regularFont;
+        textNode.fontSize = 12;
+        textNode.characters = badge.label;
+        textNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+
+        pillFrame.appendChild(textNode);
+        rowFrame.appendChild(pillFrame);
+    }
+
+    return rowFrame;
+}
+
 // ─── Image Rendering ────────────────────────────────────────────────────────
 
 /**
@@ -398,6 +484,8 @@ if (typeof module !== 'undefined' && module.exports) {
         renderOrderedListBlock,
         renderTaskListBlock,
         renderDefinitionListBlock,
+        renderFootnoteSectionBlock,
+        renderBadgeRowBlock,
         createImageNode,
         createErrorPlaceholder,
     };
