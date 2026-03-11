@@ -65,6 +65,8 @@ function makeMockText(): any {
         type: 'TEXT',
         parent: null,
         setRangeFontName: jest.fn(),
+        setRangeTextDecoration: jest.fn(),
+        setRangeHyperlink: jest.fn(),
         insertCharacters: jest.fn(),
         remove: jest.fn(),
         setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
