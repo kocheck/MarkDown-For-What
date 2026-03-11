@@ -568,32 +568,34 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
 
 // ─── Component Output Mode ───────────────────────────────────────────────────
 
+const CONTENT_LAYER_NAMES = ['#content', '#body'];
+const TITLE_LAYER_NAMES = ['#title', '#label'];
+
 /**
- * Recursively searches a node tree for a text layer whose name matches one
- * of the given names (e.g. '#content', '#body'). Returns the first match.
+ * Single-pass recursive search for content and title text layers in a component instance.
+ * Returns both in one traversal to avoid walking the tree twice.
  */
-function findTextLayerByName(node: SceneNode, names: string[]): TextNode | null {
-    if (node.type === 'TEXT' && names.includes(node.name)) {
-        return node as TextNode;
+function findComponentLayers(node: SceneNode, result: { content?: TextNode; title?: TextNode }): void {
+    if (node.type === 'TEXT') {
+        if (!result.content && CONTENT_LAYER_NAMES.includes(node.name)) {
+            result.content = node as TextNode;
+        } else if (!result.title && TITLE_LAYER_NAMES.includes(node.name)) {
+            result.title = node as TextNode;
+        }
+        if (result.content && result.title) return;
     }
     if ('children' in node && Array.isArray((node as any).children)) {
         for (const child of (node as FrameNode).children) {
-            const found = findTextLayerByName(child, names);
-            if (found) return found;
+            findComponentLayers(child, result);
+            if (result.content && result.title) return;
         }
     }
-    return null;
 }
 
 /**
  * Attempts to render a block using a component instance from Component Output Mode.
  * Returns the populated instance node if successful, or null if the component
  * binding doesn't exist, the component can't be found, or no #content layer exists.
- *
- * @param block - The block to render
- * @param bindingKey - The key in ComponentBindings to look up
- * @param bindings - The component bindings from settings
- * @param titleText - Optional text for the #title/#label layer
  */
 export async function tryRenderWithComponent(
     block: Block,
@@ -615,30 +617,33 @@ export async function tryRenderWithComponent(
         const instance = (component as ComponentNode).createInstance();
         instance.layoutAlign = 'STRETCH';
 
-        // Find and populate #content / #body text layer
-        const contentLayer = findTextLayerByName(instance, ['#content', '#body']);
-        if (!contentLayer) {
+        // Single-pass search for both content and title layers
+        const layers: { content?: TextNode; title?: TextNode } = {};
+        findComponentLayers(instance, layers);
+
+        if (!layers.content) {
             console.warn(`[MarkDown For What] Component "${component.name}" has no #content or #body text layer — falling back to default rendering`);
             instance.remove();
             return null;
         }
 
-        // Load font used by the content layer before setting characters
-        await figma.loadFontAsync(contentLayer.fontName as FontName);
+        // Load fonts concurrently for content and title layers
+        const fontLoads: Promise<void>[] = [figma.loadFontAsync(layers.content.fontName as FontName)];
+        if (titleText && layers.title) {
+            fontLoads.push(figma.loadFontAsync(layers.title.fontName as FontName));
+        }
+        await Promise.all(fontLoads);
 
+        // Populate content
         if (block.tokens && block.tokens.length > 0) {
-            await applyInlineStyles(contentLayer, block.tokens, STYLE_NAMES.BODY);
+            await applyInlineStyles(layers.content, block.tokens, STYLE_NAMES.BODY);
         } else {
-            contentLayer.characters = block.content ?? '';
+            layers.content.characters = block.content ?? '';
         }
 
-        // Populate optional #title / #label layer
-        if (titleText) {
-            const titleLayer = findTextLayerByName(instance, ['#title', '#label']);
-            if (titleLayer) {
-                await figma.loadFontAsync(titleLayer.fontName as FontName);
-                titleLayer.characters = titleText;
-            }
+        // Populate optional title
+        if (titleText && layers.title) {
+            layers.title.characters = titleText;
         }
 
         return instance;

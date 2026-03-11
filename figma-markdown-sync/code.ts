@@ -72,7 +72,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
 
         if (msg.type === 'get-local-components') {
             try {
-                const components = figma.currentPage.findAll(n => n.type === 'COMPONENT') as ComponentNode[];
+                const components = figma.currentPage.findAllWithCriteria({ types: ['COMPONENT'] }) as ComponentNode[];
                 figma.ui.postMessage({
                     type: 'local-components',
                     components: components.map(c => ({ id: c.id, name: c.name })),

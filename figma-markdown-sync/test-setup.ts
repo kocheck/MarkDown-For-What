@@ -109,6 +109,7 @@ function makeMockRectangle(): any {
     currentPage: {
         appendChild: jest.fn(),
         findAll: jest.fn(() => []),
+        findAllWithCriteria: jest.fn(() => []),
         children: [],
     },
     editorType: 'figma',

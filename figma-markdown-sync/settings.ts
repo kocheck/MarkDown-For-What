@@ -252,31 +252,26 @@ function isPositiveNumber(value: unknown): boolean {
 }
 
 const VALID_BINDING_KEYS = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
+const VALID_COMPONENT_BINDING_KEYS = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
 
-/** Returns true if value is a valid StyleBindings object (plain object with string values). */
-function isValidStyleBindings(value: unknown): boolean {
+/** Returns true if value is a plain object whose keys are in validKeys and whose values are strings. */
+function isValidBindings(value: unknown, validKeys: string[]): boolean {
     if (value === undefined || value === null) return false;
     if (typeof value !== 'object' || Array.isArray(value)) return false;
     const obj = value as Record<string, unknown>;
     for (const key of Object.keys(obj)) {
-        if (!VALID_BINDING_KEYS.includes(key)) return false;
+        if (!validKeys.includes(key)) return false;
         if (typeof obj[key] !== 'string') return false;
     }
     return true;
 }
 
-const VALID_COMPONENT_BINDING_KEYS = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
+function isValidStyleBindings(value: unknown): boolean {
+    return isValidBindings(value, VALID_BINDING_KEYS);
+}
 
-/** Returns true if value is a valid ComponentBindings object (plain object with string values). */
 function isValidComponentBindings(value: unknown): boolean {
-    if (value === undefined || value === null) return false;
-    if (typeof value !== 'object' || Array.isArray(value)) return false;
-    const obj = value as Record<string, unknown>;
-    for (const key of Object.keys(obj)) {
-        if (!VALID_COMPONENT_BINDING_KEYS.includes(key)) return false;
-        if (typeof obj[key] !== 'string') return false;
-    }
-    return true;
+    return isValidBindings(value, VALID_COMPONENT_BINDING_KEYS);
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────

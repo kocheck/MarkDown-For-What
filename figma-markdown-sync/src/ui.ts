@@ -378,35 +378,19 @@ function populateSettings(settings: Record<string, unknown>) {
     updateCustomWidthVisibility();
 }
 
-function populateStyleDropdowns(textStyles: Array<{ id: string; name: string }>) {
-    styleBindingSelects.forEach(select => {
+/** Populates a set of <select> dropdowns with items, preserving current selections. */
+function populateDropdowns(
+    selects: NodeListOf<HTMLSelectElement>,
+    items: Array<{ id: string; name: string }>,
+) {
+    selects.forEach(select => {
         const currentValue = select.value;
-        // Clear all options except "Auto"
+        // Clear all options except the first default ("Auto" / "None")
         while (select.options.length > 1) select.remove(1);
-        // Add each local text style as an option
-        for (const style of textStyles) {
+        for (const item of items) {
             const opt = document.createElement('option');
-            opt.value = style.id;
-            opt.textContent = style.name;
-            select.appendChild(opt);
-        }
-        // Restore previous selection if it still exists
-        if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
-            select.value = currentValue;
-        }
-    });
-}
-
-function populateComponentDropdowns(components: Array<{ id: string; name: string }>) {
-    componentBindingSelects.forEach(select => {
-        const currentValue = select.value;
-        // Clear all options except "None"
-        while (select.options.length > 1) select.remove(1);
-        // Add each local component as an option
-        for (const comp of components) {
-            const opt = document.createElement('option');
-            opt.value = comp.id;
-            opt.textContent = comp.name;
+            opt.value = item.id;
+            opt.textContent = item.name;
             select.appendChild(opt);
         }
         // Restore previous selection if it still exists
@@ -477,17 +461,10 @@ function setupSettingListeners() {
         });
     });
 
-    // Style binding selects
-    styleBindingSelects.forEach(select => {
-        select.addEventListener('change', () => {
-            sendCurrentSettings();
-        });
-    });
-
-    // Component binding selects
-    componentBindingSelects.forEach(select => {
-        select.addEventListener('change', () => {
-            sendCurrentSettings();
+    // Style and component binding selects
+    [styleBindingSelects, componentBindingSelects].forEach(selects => {
+        selects.forEach(select => {
+            select.addEventListener('change', () => sendCurrentSettings());
         });
     });
 
@@ -514,25 +491,19 @@ function sendCurrentSettings() {
         if (cb) settings[id] = cb.checked;
     }
 
-    // Include style bindings
-    const styleBindings: Record<string, string> = {};
-    styleBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && select.value !== 'auto') {
-            styleBindings[key] = select.value;
-        }
-    });
-    settings.styleBindings = styleBindings;
-
-    // Include component bindings
-    const componentBindings: Record<string, string> = {};
-    componentBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && select.value !== '') {
-            componentBindings[key] = select.value;
-        }
-    });
-    settings.componentBindings = componentBindings;
+    // Collect style and component bindings
+    function collectBindings(selects: NodeListOf<HTMLSelectElement>, defaultValue: string): Record<string, string> {
+        const bindings: Record<string, string> = {};
+        selects.forEach(select => {
+            const key = select.dataset.binding;
+            if (key && select.value !== defaultValue) {
+                bindings[key] = select.value;
+            }
+        });
+        return bindings;
+    }
+    settings.styleBindings = collectBindings(styleBindingSelects, 'auto');
+    settings.componentBindings = collectBindings(componentBindingSelects, '');
 
     // Determine active theme
     const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
@@ -620,10 +591,10 @@ window.onmessage = event => {
             populateSettings(msg.settings);
             break;
         case 'local-styles':
-            populateStyleDropdowns(msg.textStyles ?? []);
+            populateDropdowns(styleBindingSelects, msg.textStyles ?? []);
             break;
         case 'local-components':
-            populateComponentDropdowns(msg.components ?? []);
+            populateDropdowns(componentBindingSelects, msg.components ?? []);
             break;
         case 'history':
             renderHistory(msg.entries ?? []);

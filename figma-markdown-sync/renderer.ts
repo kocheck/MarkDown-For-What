@@ -18,7 +18,7 @@
  */
 
 import type { Block } from './parser';
-import type { PluginSettings, StyleBindings } from './settings';
+import type { PluginSettings, StyleBindings, ComponentBindings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateTextStyle, getOrCreateTextStyleWithBinding, applyInlineStyles, initializeStyles } from './styles';
 
@@ -304,9 +304,22 @@ export async function renderBlocks(
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
  * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
  */
+/** Maps block types to their Component Output Mode binding key and title extractor. */
+const COMPONENT_BINDING_MAP: Partial<Record<Block['type'], { key: keyof ComponentBindings; title?: (b: Block) => string | undefined }>> = {
+    quote:   { key: 'blockquote' },
+    code:    { key: 'codeBlock', title: b => b.language || undefined },
+    table:   { key: 'table' },
+    image:   { key: 'image', title: b => b.imageAlt || undefined },
+    callout: { key: 'callout', title: b => b.calloutType ?? 'note' },
+};
+
 async function renderBlock(block: Block, settings: PluginSettings): Promise<SceneNode | null> {
     // Try Component Output Mode for supported block types
-    const cb = settings.componentBindings;
+    const mapping = COMPONENT_BINDING_MAP[block.type];
+    if (mapping) {
+        const compNode = await tryRenderWithComponent(block, mapping.key, settings.componentBindings, mapping.title?.(block));
+        if (compNode) return compNode;
+    }
 
     switch (block.type) {
         case 'heading': {
@@ -326,18 +339,12 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         case 'quote': {
-            const compNode = await tryRenderWithComponent(block, 'blockquote', cb);
-            if (compNode) return compNode;
-
             const node = figma.createText();
             await applyTextStyle(node, block, STYLE_NAMES.QUOTE, settings.styleBindings);
             return node;
         }
 
         case 'code': {
-            const compNode = await tryRenderWithComponent(block, 'codeBlock', cb, block.language || undefined);
-            if (compNode) return compNode;
-
             const codeFrame = figma.createFrame();
             codeFrame.layoutMode = 'VERTICAL';
             codeFrame.primaryAxisSizingMode = 'AUTO';
@@ -370,23 +377,14 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         case 'table': {
-            const compNode = await tryRenderWithComponent(block, 'table', cb);
-            if (compNode) return compNode;
-
             return await createTableFrame(block, settings);
         }
 
         case 'image': {
-            const compNode = await tryRenderWithComponent(block, 'image', cb, block.imageAlt || undefined);
-            if (compNode) return compNode;
-
             return await createImageNode(block, settings);
         }
 
         case 'callout': {
-            const compNode = await tryRenderWithComponent(block, 'callout', cb, block.calloutType ?? 'note');
-            if (compNode) return compNode;
-
             return await renderCalloutBlock(block);
         }
 
