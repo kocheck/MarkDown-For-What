@@ -89,13 +89,16 @@ export function extractImagesFromTokens(tokens: marked.Token[]): {
     return { textTokens, images };
 }
 
-/** Inherited formatting state passed through recursive token flattening. */
+/**
+ * Inherited formatting state passed through recursive token flattening.
+ * All fields are explicit — string fields use `undefined` to indicate absence.
+ */
 export interface FlattenContext {
     bold: boolean;
     italic: boolean;
     code: boolean;
-    strikethrough?: boolean;
-    link?: string;
+    strikethrough: boolean;
+    link: string | undefined;
 }
 
 /**
@@ -108,7 +111,9 @@ export interface FlattenContext {
  * @returns Flat array of styled text segments
  *
  * @example
- * const segments = flattenTokens(heading.tokens, { bold: false, italic: false, code: false });
+ * const segments = flattenTokens(heading.tokens, {
+ *     bold: false, italic: false, code: false, strikethrough: false, link: undefined,
+ * });
  * // → [{ text: 'Hello ', bold: false }, { text: 'World', bold: true }]
  */
 export function flattenTokens(
@@ -169,6 +174,9 @@ export function flattenTokens(
 
 // ─── List Helpers ──────────────────────────────────────────────────────────────
 
+/** Maximum recursion depth for nested lists to prevent stack overflow from pathological input. */
+const MAX_LIST_DEPTH = 10;
+
 /**
  * Recursively flattens nested list items into a flat array of Blocks with depth annotations.
  * marked represents nesting via child list tokens inside ListItem.tokens arrays.
@@ -185,6 +193,17 @@ function flattenListItems(
     ordered: boolean,
     startNum: number
 ): Block[] {
+    if (depth > MAX_LIST_DEPTH) {
+        console.warn(`[MarkDown For What] List nesting depth ${depth} exceeds maximum (${MAX_LIST_DEPTH}) — flattening remaining items`);
+        return items.map((item, idx) => ({
+            type: (ordered ? 'orderedListItem' : 'list') as Block['type'],
+            content: item.text?.trim() ?? '',
+            tokens: (item.tokens ?? []).filter(t => t.type !== 'list'),
+            depth: 3,
+            ...(ordered ? { index: startNum + idx } : {}),
+        }));
+    }
+
     const clampedDepth = Math.min(depth, 3);
     const result: Block[] = [];
 
@@ -202,7 +221,7 @@ function flattenListItems(
                 type: 'taskListItem',
                 content: ownText,
                 tokens: ownTokens,
-                depth: 0, // Task lists are always flat per spec
+                depth: 0, // Plugin renders task lists flat (nesting not yet supported)
                 checked: item.checked ?? false,
             });
         } else if (ordered) {

@@ -202,7 +202,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Strong
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('bold');
@@ -219,7 +219,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Em
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('italic');
@@ -235,7 +235,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Codespan
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('code');
@@ -260,7 +260,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Strong
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(2);
         expect(segments[0].text).toBe('bold with ');
@@ -277,7 +277,7 @@ describe('flattenTokens', () => {
             { type: 'text', raw: 'plain text', text: 'plain text' } as marked.Tokens.Text
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('plain text');
@@ -287,7 +287,7 @@ describe('flattenTokens', () => {
     });
 
     test('should handle empty tokens array', () => {
-        const segments = flattenTokens([], { bold: false, italic: false, code: false });
+        const segments = flattenTokens([], { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(0);
     });
@@ -297,7 +297,7 @@ describe('flattenTokens', () => {
             { type: 'space', raw: '\n' } as any,
             { type: 'unknown-type', raw: 'raw', text: 'fallback text' } as any,
         ];
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
         // 'space' has no 'text' property, so produces no segment
         // 'unknown-type' has 'text', so produces one segment
         expect(segments).toHaveLength(1);
@@ -315,7 +315,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Link
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('link');
@@ -334,7 +334,7 @@ describe('flattenTokens — strikethrough', () => {
             } as marked.Tokens.Del
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('struck');
@@ -358,7 +358,7 @@ describe('flattenTokens — strikethrough', () => {
             } as marked.Tokens.Strong
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].bold).toBe(true);
@@ -378,7 +378,7 @@ describe('flattenTokens — inline links', () => {
             } as marked.Tokens.Link
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('Example');
@@ -403,7 +403,7 @@ describe('flattenTokens — inline links', () => {
             } as marked.Tokens.Link
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('Bold Link');
@@ -424,7 +424,7 @@ describe('flattenTokens — inline links', () => {
             { type: 'text', raw: ' for more', text: ' for more' } as marked.Tokens.Text,
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
 
         expect(segments).toHaveLength(3);
         expect(segments[0].link).toBeUndefined();

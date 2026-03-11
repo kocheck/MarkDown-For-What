@@ -6,7 +6,7 @@
  * Responsibilities:
  *   - Defining default typography config for each Markdown element type
  *   - Creating local Figma text styles on first import
- *   - Applying inline bold/italic/code formatting to TextNode character ranges
+ *   - Applying inline bold/italic/code/strikethrough/link formatting to TextNode character ranges
  *
  * IMPORTANT: Existing text styles (e.g. Markdown/H1) are NEVER overwritten.
  * Designers can customize styles in Figma and those changes survive re-imports.
@@ -180,8 +180,9 @@ export async function initializeStyles(): Promise<void> {
 // ─── Inline Style Rendering ───────────────────────────────────────────────────
 
 /**
- * Applies inline bold/italic/code formatting to a TextNode by setting font
- * overrides on individual character ranges.
+ * Applies inline bold/italic/code/strikethrough/link formatting to a TextNode
+ * by setting font overrides, text decorations, hyperlinks, and fill colors
+ * on individual character ranges.
  *
  * Call AFTER setting node.textStyleId. This function sets node.characters
  * and overrides font names at specific character ranges.
@@ -189,7 +190,7 @@ export async function initializeStyles(): Promise<void> {
  *
  * @param node          - The Figma TextNode to format
  * @param tokens        - Inline marked tokens describing the rich text, or undefined to no-op.
- *                        Recognized token types: strong, em, codespan, text, link.
+ *                        Recognized token types: strong, em, del, codespan, text, link.
  * @param baseStyleName - Which STYLE_NAMES key applies (affects bold inheritance for headings)
  */
 export async function applyInlineStyles(
@@ -199,7 +200,7 @@ export async function applyInlineStyles(
 ): Promise<void> {
     if (!tokens || tokens.length === 0) return;
 
-    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
     const fullText = segments.map(s => s.text).join('');
     node.characters = fullText;
 
@@ -220,29 +221,40 @@ export async function applyInlineStyles(
         const end = currentIndex + segment.text.length;
 
         if (end > start) {
-            let font: FontName;
-            if (segment.code) {
-                font = codeFont;
-            } else {
-                const effectiveBold = segment.bold || isBaseBold;
-                const effectiveItalic = segment.italic;
-                if (effectiveBold && effectiveItalic) font = boldItalicFont;
-                else if (effectiveBold) font = boldFont;
-                else if (effectiveItalic) font = italicFont;
-                else font = regularFont;
-            }
-            node.setRangeFontName(start, end, font);
-
-            if (segment.strikethrough) {
-                node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
-            }
-
-            if (segment.link) {
-                node.setRangeHyperlink(start, end, { type: 'URL', value: segment.link });
-                if (!segment.strikethrough) {
-                    node.setRangeTextDecoration(start, end, 'UNDERLINE');
+            try {
+                let font: FontName;
+                if (segment.code) {
+                    font = codeFont;
+                } else {
+                    const effectiveBold = segment.bold || isBaseBold;
+                    const effectiveItalic = segment.italic;
+                    if (effectiveBold && effectiveItalic) font = boldItalicFont;
+                    else if (effectiveBold) font = boldFont;
+                    else if (effectiveItalic) font = italicFont;
+                    else font = regularFont;
                 }
-                node.setRangeFills(start, end, [{ type: 'SOLID', color: LINK_COLOR }]);
+                node.setRangeFontName(start, end, font);
+
+                if (segment.strikethrough) {
+                    node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
+                }
+
+                if (segment.link) {
+                    const trimmedLink = segment.link.trim();
+                    if (trimmedLink.length > 0 && /^https?:\/\//i.test(trimmedLink)) {
+                        node.setRangeHyperlink(start, end, { type: 'URL', value: trimmedLink });
+                        // Figma supports one text decoration per range. When a link is also
+                        // struck through, keep STRIKETHROUGH rather than overwriting with UNDERLINE.
+                        if (!segment.strikethrough) {
+                            node.setRangeTextDecoration(start, end, 'UNDERLINE');
+                        }
+                        node.setRangeFills(start, end, [{ type: 'SOLID', color: LINK_COLOR }]);
+                    }
+                }
+            } catch (err) {
+                console.error(
+                    `[MarkDown For What] Failed to apply inline style to range [${start}, ${end}]: ${errorMessage(err)}`
+                );
             }
         }
         currentIndex = end;

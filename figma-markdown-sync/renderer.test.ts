@@ -423,6 +423,41 @@ describe('renderBlocks', () => {
             // Text node should be second child
             expect(uncheckedFrame.children[1].type).toBe('TEXT');
         });
+
+        it('applies correct checkbox colors for checked and unchecked states', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            const uncheckedCheckbox = listGroup.children[0].children[0] as any;
+            const checkedCheckbox = listGroup.children[1].children[0] as any;
+
+            // Checked: green fill
+            expect(checkedCheckbox.fills).toEqual([{ type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } }]);
+            // Unchecked: light gray fill + gray stroke
+            expect(uncheckedCheckbox.fills).toEqual([{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }]);
+            expect(uncheckedCheckbox.strokes).toEqual([{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }]);
+        });
+
+        it('dims text for checked task items', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            const uncheckedText = listGroup.children[0].children[1] as any;
+            const checkedText = listGroup.children[1].children[1] as any;
+
+            expect(uncheckedText.opacity).toBe(1);
+            expect(checkedText.opacity).toBe(0.6);
+        });
     });
 
     describe('Integration — mixed block types', () => {

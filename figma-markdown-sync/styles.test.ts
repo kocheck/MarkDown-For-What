@@ -347,4 +347,119 @@ describe('applyInlineStyles — links', () => {
 
         expect(node.setRangeHyperlink).not.toHaveBeenCalled();
     });
+
+    it('skips hyperlink for non-http URLs', async () => {
+        const tokens: any[] = [
+            {
+                type: 'link',
+                raw: '[text](./relative)',
+                text: 'text',
+                href: './relative',
+                tokens: [{ type: 'text', raw: 'text', text: 'text' }]
+            },
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.setRangeHyperlink).not.toHaveBeenCalled();
+        expect(node.setRangeFills).not.toHaveBeenCalled();
+    });
+
+    it('skips hyperlink for empty URL', async () => {
+        const tokens: any[] = [
+            {
+                type: 'link',
+                raw: '[text]()',
+                text: 'text',
+                href: '',
+                tokens: [{ type: 'text', raw: 'text', text: 'text' }]
+            },
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.setRangeHyperlink).not.toHaveBeenCalled();
+    });
+});
+
+describe('applyInlineStyles — strikethrough + link combined', () => {
+    let node: any;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        node = {
+            characters: '',
+            textStyleId: '',
+            setRangeFontName: jest.fn(),
+            setRangeTextDecoration: jest.fn(),
+            setRangeHyperlink: jest.fn(),
+            setRangeFills: jest.fn(),
+        };
+        (figma.createText as jest.Mock).mockReturnValue(node);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+    });
+
+    it('applies STRIKETHROUGH but not UNDERLINE when both strikethrough and link', async () => {
+        const tokens: any[] = [
+            {
+                type: 'del',
+                raw: '~~[link](https://example.com)~~',
+                text: 'link',
+                tokens: [{
+                    type: 'link',
+                    raw: '[link](https://example.com)',
+                    text: 'link',
+                    href: 'https://example.com',
+                    tokens: [{ type: 'text', raw: 'link', text: 'link' }]
+                }]
+            }
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        expect(node.setRangeTextDecoration).toHaveBeenCalledWith(0, 4, 'STRIKETHROUGH');
+        expect(node.setRangeTextDecoration).not.toHaveBeenCalledWith(0, 4, 'UNDERLINE');
+        expect(node.setRangeHyperlink).toHaveBeenCalledWith(0, 4, { type: 'URL', value: 'https://example.com' });
+        expect(node.setRangeFills).toHaveBeenCalled();
+    });
+});
+
+describe('applyInlineStyles — error resilience', () => {
+    let node: any;
+
+    beforeEach(() => {
+        jest.clearAllMocks();
+        node = {
+            characters: '',
+            textStyleId: '',
+            setRangeFontName: jest.fn(),
+            setRangeTextDecoration: jest.fn(),
+            setRangeHyperlink: jest.fn(),
+            setRangeFills: jest.fn(),
+        };
+        (figma.createText as jest.Mock).mockReturnValue(node);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'style-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+    });
+
+    it('continues formatting remaining segments when one segment throws', async () => {
+        node.setRangeFontName
+            .mockImplementationOnce(() => { throw new Error('Simulated Figma error'); })
+            .mockImplementation(() => {});
+
+        const tokens: any[] = [
+            { type: 'text', raw: 'fail', text: 'fail' },
+            { type: 'text', raw: 'ok', text: 'ok' },
+        ];
+
+        await applyInlineStyles(node, tokens, 'Markdown/Body');
+
+        // Second segment should still be formatted despite first failing
+        expect(node.setRangeFontName).toHaveBeenCalledTimes(2);
+    });
 });

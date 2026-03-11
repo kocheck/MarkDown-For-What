@@ -15,9 +15,15 @@
 
 import type { Block } from './parser';
 import type { PluginSettings } from './settings';
+import type { marked } from 'marked';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 import { createTableFrame } from './tables';
 import { hexToRgb, errorMessage } from './utils';
+
+/** Creates a typed synthetic text token for use as a prefix in list items. */
+function syntheticTextToken(text: string): marked.Tokens.Text {
+    return { type: 'text', raw: text, text } as marked.Tokens.Text;
+}
 
 /** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
 export interface RenderResult {
@@ -294,6 +300,8 @@ export async function renderBlocks(
 
 /**
  * Renders a single non-list block into a SceneNode.
+ * List-like blocks (list, orderedListItem, taskListItem) are handled by the
+ * list grouping loop in renderBlocks and dispatched to dedicated render functions.
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
  * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
  */
@@ -360,6 +368,14 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
             return await createImageNode(block, settings);
         }
 
+        case 'list':
+        case 'orderedListItem':
+        case 'taskListItem':
+            // These are handled by the list grouping loop in renderBlocks — reaching
+            // here indicates a routing bug.
+            console.error(`[MarkDown For What] Block type "${block.type}" reached renderBlock — should be handled by list grouping`);
+            return null;
+
         default:
             console.warn(`[MarkDown For What] Unknown block type: "${(block as { type: string }).type}" — skipping`);
             return null;
@@ -377,8 +393,7 @@ async function renderPrefixedListItem(block: Block, prefix: string, listStyle: T
     node.layoutAlign = 'STRETCH';
 
     if (block.tokens && block.tokens.length > 0) {
-        const prefixToken = { type: 'text', raw: prefix, text: prefix } as any;
-        await applyInlineStyles(node, [prefixToken, ...block.tokens], STYLE_NAMES.LIST);
+        await applyInlineStyles(node, [syntheticTextToken(prefix), ...block.tokens], STYLE_NAMES.LIST);
     } else {
         node.characters = block.content ? `${prefix}${block.content}` : prefix.trimEnd();
     }
