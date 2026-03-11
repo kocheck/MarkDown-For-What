@@ -125,6 +125,7 @@ export async function renderBlocks(
     frame.paddingLeft = settings.framePadding;
     frame.paddingRight = settings.framePadding;
     frame.itemSpacing = settings.blockSpacing;
+    frame.fills = [{ type: 'SOLID', color: hexToRgb(settings.frameFillColor ?? '#FFFFFF') }];
     const effectiveWidth = resolvedFrameWidth(settings);
     frame.resize(effectiveWidth, frame.height);
 

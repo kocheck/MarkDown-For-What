@@ -21,6 +21,9 @@ import { isValidHex } from './utils';
 /** Width mode preset for the root content frame. */
 export type WidthMode = 'narrow' | 'medium' | 'wide' | 'custom';
 
+/** Visual theme preset. */
+export type Theme = 'minimal-light' | 'dark-mode' | 'documentation' | 'custom';
+
 /**
  * All configurable plugin settings.
  * Numeric values are in pixels. Color values are CSS hex strings (e.g. '#F2F2F2').
@@ -46,6 +49,10 @@ export interface PluginSettings {
     separatorColor: string;
     /** Whether to auto-generate a table of contents from headings */
     generateToc: boolean;
+    /** Visual theme preset */
+    theme: Theme;
+    /** Fill color for the root content frame. CSS hex string. */
+    frameFillColor: string;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────────────────────
@@ -64,9 +71,59 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     tableHeaderBackground: '#F2F2F7',
     separatorColor: '#CCCCCC',
     generateToc: false,
+    theme: 'minimal-light',
+    frameFillColor: '#FFFFFF',
 };
 
 const STORAGE_KEY = 'pluginSettings';
+
+// ─── Theme Presets ──────────────────────────────────────────────────────────────
+
+/** Partial settings overrides for each built-in theme. */
+export const THEME_PRESETS: Record<Exclude<Theme, 'custom'>, Partial<PluginSettings>> = {
+    'minimal-light': {
+        frameFillColor: '#FFFFFF',
+        codeBackground: '#F2F2F2',
+        tableHeaderBackground: '#F2F2F7',
+        separatorColor: '#CCCCCC',
+        blockSpacing: 16,
+        listSpacing: 6,
+        framePadding: 40,
+    },
+    'dark-mode': {
+        frameFillColor: '#1E1E1E',
+        codeBackground: '#2D2D2D',
+        tableHeaderBackground: '#2D2D2D',
+        separatorColor: '#404040',
+        blockSpacing: 16,
+        listSpacing: 6,
+        framePadding: 40,
+    },
+    'documentation': {
+        frameFillColor: '#FFFFFF',
+        codeBackground: '#F6F8FA',
+        tableHeaderBackground: '#F6F8FA',
+        separatorColor: '#D0D7DE',
+        blockSpacing: 8,
+        listSpacing: 4,
+        framePadding: 24,
+    },
+};
+
+const VALID_THEMES: readonly string[] = ['minimal-light', 'dark-mode', 'documentation', 'custom'];
+
+function isValidTheme(value: unknown): value is Theme {
+    return typeof value === 'string' && VALID_THEMES.includes(value);
+}
+
+/**
+ * Returns the settings overrides for the given theme.
+ * Returns an empty object for 'custom' theme (user keeps their own settings).
+ */
+export function resolveThemeSettings(theme: Theme): Partial<PluginSettings> {
+    if (theme === 'custom') return {};
+    return { ...THEME_PRESETS[theme] };
+}
 
 // ─── Width Mode ────────────────────────────────────────────────────────────────
 
@@ -126,7 +183,9 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
         isValidHex(s.codeBackground) &&
         isValidHex(s.tableHeaderBackground) &&
         isValidHex(s.separatorColor) &&
-        typeof s.generateToc === 'boolean'
+        typeof s.generateToc === 'boolean' &&
+        isValidTheme(s.theme) &&
+        isValidHex(s.frameFillColor)
     );
 }
 
@@ -175,6 +234,8 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
         tableHeaderBackground: isValidHex(p.tableHeaderBackground)    ? (p.tableHeaderBackground as string) : DEFAULT_SETTINGS.tableHeaderBackground,
         separatorColor:        isValidHex(p.separatorColor)           ? (p.separatorColor as string)        : DEFAULT_SETTINGS.separatorColor,
         generateToc:           typeof p.generateToc === 'boolean'     ? p.generateToc                       : DEFAULT_SETTINGS.generateToc,
+        theme:                 isValidTheme(p.theme)                  ? p.theme                              : DEFAULT_SETTINGS.theme,
+        frameFillColor:        isValidHex(p.frameFillColor)           ? (p.frameFillColor as string)        : DEFAULT_SETTINGS.frameFillColor,
     };
     // Keep frameWidth in sync with resolved width for backwards compat
     merged.frameWidth = resolvedFrameWidth(merged);

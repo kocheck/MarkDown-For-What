@@ -46,8 +46,30 @@ const pasteImportBtn = document.getElementById('paste-import-btn') as HTMLButton
 // Settings inputs
 const settingInputIds = [
     'blockSpacing', 'listSpacing', 'framePadding', 'widthMode', 'customWidth',
-    'codeBackground', 'tableHeaderBackground', 'separatorColor',
+    'codeBackground', 'tableHeaderBackground', 'separatorColor', 'frameFillColor',
 ] as const;
+
+// Theme buttons
+const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
+
+// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
+const THEME_PRESETS: Record<string, Record<string, unknown>> = {
+    'minimal-light': {
+        frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
+        tableHeaderBackground: '#F2F2F7', separatorColor: '#CCCCCC',
+        blockSpacing: 16, listSpacing: 6, framePadding: 40,
+    },
+    'dark-mode': {
+        frameFillColor: '#1E1E1E', codeBackground: '#2D2D2D',
+        tableHeaderBackground: '#2D2D2D', separatorColor: '#404040',
+        blockSpacing: 16, listSpacing: 6, framePadding: 40,
+    },
+    'documentation': {
+        frameFillColor: '#FFFFFF', codeBackground: '#F6F8FA',
+        tableHeaderBackground: '#F6F8FA', separatorColor: '#D0D7DE',
+        blockSpacing: 8, listSpacing: 4, framePadding: 24,
+    },
+};
 
 // ── State ───────────────────────────────────────────────────────────────────
 
@@ -231,6 +253,12 @@ function populateSettings(settings: Record<string, unknown>) {
         tocCheckbox.checked = !!settings.generateToc;
     }
 
+    // Handle theme button active state
+    const theme = settings.theme as string ?? 'minimal-light';
+    themeBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.theme === theme);
+    });
+
     // Handle width mode visibility
     updateCustomWidthVisibility();
 }
@@ -250,6 +278,8 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             if (id === 'widthMode') updateCustomWidthVisibility();
+            // Manual change → deactivate theme preset buttons
+            themeBtns.forEach(b => b.classList.remove('active'));
             sendCurrentSettings();
             if (swatch && input instanceof HTMLInputElement && isValidHex(input.value)) {
                 swatch.value = input.value;
@@ -259,6 +289,7 @@ function setupSettingListeners() {
         swatch?.addEventListener('input', () => {
             if (input && input instanceof HTMLInputElement) {
                 input.value = swatch.value;
+                themeBtns.forEach(b => b.classList.remove('active'));
                 sendCurrentSettings();
             }
         });
@@ -268,6 +299,30 @@ function setupSettingListeners() {
     const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
     tocCheckbox?.addEventListener('change', () => {
         sendCurrentSettings();
+    });
+
+    // Theme buttons
+    themeBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const theme = btn.dataset.theme;
+            if (!theme || !THEME_PRESETS[theme]) return;
+
+            // Activate this button
+            themeBtns.forEach(b => b.classList.toggle('active', b === btn));
+
+            // Apply preset values to settings inputs
+            const preset = THEME_PRESETS[theme];
+            for (const [key, value] of Object.entries(preset)) {
+                const input = document.getElementById(key) as HTMLInputElement | null;
+                if (input) {
+                    input.value = String(value);
+                    const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
+                    if (swatch && typeof value === 'string') swatch.value = value;
+                }
+            }
+            updateCustomWidthVisibility();
+            sendCurrentSettings();
+        });
     });
 
     document.getElementById('reset-btn')?.addEventListener('click', () => {
@@ -292,6 +347,10 @@ function sendCurrentSettings() {
     if (tocCheckbox) {
         settings.generateToc = tocCheckbox.checked;
     }
+
+    // Determine active theme
+    const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
+    settings.theme = activeThemeBtn?.dataset.theme ?? 'custom';
 
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,

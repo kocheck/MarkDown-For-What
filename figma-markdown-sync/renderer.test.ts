@@ -248,6 +248,27 @@ describe('renderBlocks', () => {
 
             expect(result.frame.x).toBe(0);
         });
+
+        it('applies frameFillColor to root frame', async () => {
+            const settings = { ...DEFAULT_SETTINGS, frameFillColor: '#1E1E1E' };
+            const result = await renderBlocks('Test', [], settings);
+            expect((result.frame as any).fills).toEqual([{
+                type: 'SOLID',
+                color: {
+                    r: expect.closeTo(0.118, 2),
+                    g: expect.closeTo(0.118, 2),
+                    b: expect.closeTo(0.118, 2),
+                },
+            }]);
+        });
+
+        it('applies white fill by default', async () => {
+            const result = await renderBlocks('Test', [], DEFAULT_SETTINGS);
+            expect((result.frame as any).fills).toEqual([{
+                type: 'SOLID',
+                color: { r: 1, g: 1, b: 1 },
+            }]);
+        });
     });
 
     describe('image handling', () => {

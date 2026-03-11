@@ -62,6 +62,15 @@
     <div id="tab-settings" class="tab-panel hidden">
 
         <div class="settings-section">
+            <h3 class="settings-section-title">Theme</h3>
+            <div class="theme-selector">
+                <button class="theme-btn active" data-theme="minimal-light">Light</button>
+                <button class="theme-btn" data-theme="dark-mode">Dark</button>
+                <button class="theme-btn" data-theme="documentation">Docs</button>
+            </div>
+        </div>
+
+        <div class="settings-section">
             <h3 class="settings-section-title">Spacing</h3>
             <label class="settings-row">
                 <span class="settings-label">Block spacing</span>
@@ -106,6 +115,10 @@
 
         <div class="settings-section">
             <h3 class="settings-section-title">Colors</h3>
+            <label class="settings-row">
+                <span class="settings-label">Frame fill</span>
+                <div class="settings-input-wrap"><input type="text" id="frameFillColor" maxlength="7" placeholder="#FFFFFF"><input type="color" class="color-swatch" id="frameFillColor-swatch"></div>
+            </label>
             <label class="settings-row">
                 <span class="settings-label">Code background</span>
                 <div class="settings-input-wrap"><input type="text" id="codeBackground" maxlength="7" placeholder="#F2F2F2"><input type="color" class="color-swatch" id="codeBackground-swatch"></div>
