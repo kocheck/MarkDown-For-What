@@ -4,7 +4,7 @@
  * error placeholder fallback, and image failure tracking.
  */
 
-import { renderBlocks, computeNewFrameX } from './renderer';
+import { renderBlocks, computeNewFrameX, componentName } from './renderer';
 import { DEFAULT_SETTINGS } from './settings';
 import { countAsyncStyleCalls } from './test-setup';
 import type { Block } from './parser';
@@ -788,6 +788,165 @@ describe('renderBlocks', () => {
             const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
             const pill = (result.frame.children[0] as any).children[0];
             expect(pill.cornerRadius).toBe(12);
+        });
+    });
+
+    describe('mermaid block rendering', () => {
+        it('should render a mermaid block as a frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'mermaid',
+                content: 'graph TD\n  A-->B',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            expect(result.frame.children).toHaveLength(1);
+            const mermaidFrame = result.frame.children[0] as any;
+            expect(mermaidFrame.name).toBe('Mermaid Diagram');
+        });
+
+        it('should render mermaid label and source children', async () => {
+            const blocks: Block[] = [{
+                type: 'mermaid',
+                content: 'sequenceDiagram\n  A->>B: Hello',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mermaidFrame = result.frame.children[0] as any;
+            expect(mermaidFrame.children).toHaveLength(2);
+            expect(mermaidFrame.children[0].characters).toBe('Mermaid Diagram');
+            expect(mermaidFrame.children[1].characters).toBe('sequenceDiagram\n  A->>B: Hello');
+        });
+
+        it('should render mermaid with dashed border', async () => {
+            const blocks: Block[] = [{
+                type: 'mermaid',
+                content: 'pie\n  "A" : 30',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mermaidFrame = result.frame.children[0] as any;
+            expect(mermaidFrame.dashPattern).toEqual([4, 4]);
+        });
+
+        it('should handle empty mermaid content', async () => {
+            const blocks: Block[] = [{
+                type: 'mermaid',
+                content: '',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mermaidFrame = result.frame.children[0] as any;
+            expect(mermaidFrame.children[1].characters).toBe('');
+        });
+    });
+
+    describe('math block rendering', () => {
+        it('should render a math block as a frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'math',
+                content: 'E = mc^2',
+                displayMode: true,
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            expect(result.frame.children).toHaveLength(1);
+            const mathFrame = result.frame.children[0] as any;
+            expect(mathFrame.name).toBe('Math Block');
+        });
+
+        it('should render math content centered', async () => {
+            const blocks: Block[] = [{
+                type: 'math',
+                content: '\\sum_{i=0}^{n} x_i',
+                displayMode: true,
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mathFrame = result.frame.children[0] as any;
+            const textNode = mathFrame.children[0] as any;
+            expect(textNode.characters).toBe('\\sum_{i=0}^{n} x_i');
+            expect(textNode.textAlignHorizontal).toBe('CENTER');
+        });
+
+        it('should render math block with warm background', async () => {
+            const blocks: Block[] = [{
+                type: 'math',
+                content: 'f(x)',
+                displayMode: true,
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mathFrame = result.frame.children[0] as any;
+            expect(mathFrame.fills).toBeDefined();
+            expect(mathFrame.fills[0].type).toBe('SOLID');
+        });
+
+        it('should handle empty math content', async () => {
+            const blocks: Block[] = [{
+                type: 'math',
+                content: '',
+                displayMode: true,
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const mathFrame = result.frame.children[0] as any;
+            expect(mathFrame.children[0].characters).toBe('');
+        });
+    });
+
+    describe('component naming', () => {
+        it('should return correct names for all block types', () => {
+            expect(componentName({ type: 'heading', level: 1, content: 'Title' })).toBe('Heading/H1 — Title');
+            expect(componentName({ type: 'heading', level: 2 })).toBe('Heading/H2');
+            expect(componentName({ type: 'paragraph', content: 'Hello' })).toBe('Body/Paragraph — Hello');
+            expect(componentName({ type: 'code', language: 'typescript' })).toBe('Code/typescript');
+            expect(componentName({ type: 'code' })).toBe('Code/plain');
+            expect(componentName({ type: 'quote', content: 'wisdom' })).toBe('Body/Blockquote — wisdom');
+            expect(componentName({ type: 'separator' })).toBe('Divider/HR');
+            expect(componentName({ type: 'table' })).toBe('Data/Table');
+            expect(componentName({ type: 'image', imageAlt: 'photo' })).toBe('Media/Image — photo');
+            expect(componentName({ type: 'list', content: 'item' })).toBe('List/Unordered — item');
+            expect(componentName({ type: 'orderedListItem', content: 'step' })).toBe('List/Ordered — step');
+            expect(componentName({ type: 'taskListItem', checked: true, content: 'done' })).toBe('List/Task ✓ — done');
+            expect(componentName({ type: 'taskListItem', checked: false })).toBe('List/Task');
+            expect(componentName({ type: 'callout', calloutType: 'warning' })).toBe('Callout/warning');
+            expect(componentName({ type: 'toc' })).toBe('Navigation/TOC');
+            expect(componentName({ type: 'definitionList' })).toBe('Body/Definition List');
+            expect(componentName({ type: 'footnoteSection' })).toBe('Body/Footnotes');
+            expect(componentName({ type: 'badgeRow' })).toBe('Badge/Row');
+            expect(componentName({ type: 'mermaid' })).toBe('Diagram/Mermaid');
+            expect(componentName({ type: 'math' })).toBe('Math/Display');
+        });
+
+        it('should truncate long content in names', () => {
+            const longContent = 'A'.repeat(100);
+            const name = componentName({ type: 'paragraph', content: longContent });
+            expect(name.length).toBeLessThan(60);
+            expect(name).toContain('…');
+        });
+
+        it('should apply component names when setting is enabled', async () => {
+            const blocks: Block[] = [
+                { type: 'heading', level: 1, content: 'Title' },
+                { type: 'paragraph', content: 'Body text' },
+            ];
+            const settingsWithNames = { ...DEFAULT_SETTINGS, componentNames: true };
+            const result = await renderBlocks('test', blocks, settingsWithNames);
+            expect(result.frame.children[0].name).toBe('Heading/H1 — Title');
+            expect(result.frame.children[1].name).toBe('Body/Paragraph — Body text');
+        });
+
+        it('should not apply component names when setting is disabled', async () => {
+            const blocks: Block[] = [
+                { type: 'separator' },
+            ];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            // Default name comes from the rectangle (figma mock)
+            expect(result.frame.children[0].name).not.toBe('Divider/HR');
+        });
+
+        it('should apply component names to list items when enabled', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Item 1', depth: 0 },
+                { type: 'list', content: 'Item 2', depth: 0 },
+            ];
+            const settingsWithNames = { ...DEFAULT_SETTINGS, componentNames: true };
+            const result = await renderBlocks('test', blocks, settingsWithNames);
+            const listGroup = result.frame.children[0] as any;
+            expect(listGroup.children[0].name).toBe('List/Unordered — Item 1');
+            expect(listGroup.children[1].name).toBe('List/Unordered — Item 2');
         });
     });
 });

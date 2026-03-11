@@ -125,6 +125,7 @@ describe('mergeWithDefaults', () => {
             theme: 'custom',
             frameFillColor: '#F0F0F0',
             styleBindings: { h1: 'S:abc123' },
+            componentNames: false,
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);

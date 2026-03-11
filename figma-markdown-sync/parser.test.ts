@@ -927,3 +927,98 @@ describe('flattenTokens — inline badge tokens', () => {
         expect(segments[0].badge!.color).toBe('green');
     });
 });
+
+// ─── Mermaid Diagram Parsing ─────────────────────────────────────────────────
+
+describe('mermaid block parsing', () => {
+    it('should parse ```mermaid code blocks as mermaid type', () => {
+        const md = '```mermaid\ngraph TD\n  A-->B\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('mermaid');
+        expect(blocks[0].content).toBe('graph TD\n  A-->B');
+    });
+
+    it('should not treat non-mermaid code blocks as mermaid', () => {
+        const md = '```javascript\nconsole.log("hi")\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('code');
+        expect(blocks[0].language).toBe('javascript');
+    });
+
+    it('should parse mermaid alongside other blocks', () => {
+        const md = '# Title\n\n```mermaid\nsequenceDiagram\n  A->>B: Hello\n```\n\nSome text';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('heading');
+        const mermaidBlock = blocks.find(b => b.type === 'mermaid');
+        expect(mermaidBlock).toBeDefined();
+        expect(mermaidBlock!.content).toContain('sequenceDiagram');
+    });
+
+    it('should handle empty mermaid blocks', () => {
+        const md = '```mermaid\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('mermaid');
+        expect(blocks[0].content).toBe('');
+    });
+});
+
+// ─── Math/LaTeX Parsing ──────────────────────────────────────────────────────
+
+describe('math block parsing', () => {
+    it('should parse display math ($$...$$) as math type', () => {
+        const md = '$$\nE = mc^2\n$$';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        expect(mathBlock!.content).toBe('E = mc^2');
+        expect(mathBlock!.displayMode).toBe(true);
+    });
+
+    it('should parse inline display math on single line', () => {
+        const md = '$$x^2 + y^2 = z^2$$';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        expect(mathBlock!.content).toBe('x^2 + y^2 = z^2');
+    });
+
+    it('should parse math alongside other content', () => {
+        const md = '# Formula\n\n$$\n\\int_0^1 f(x) dx\n$$\n\nEnd.';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('heading');
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        const endBlock = blocks.find(b => b.type === 'paragraph' && b.content?.includes('End'));
+        expect(endBlock).toBeDefined();
+    });
+});
+
+describe('inline math parsing', () => {
+    it('should parse $...$ as inline math in flattenTokens', () => {
+        const tokens = [
+            { type: 'mathInline', raw: '$x^2$', text: 'x^2' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('x^2');
+        expect(segments[0].italic).toBe(true);
+        expect(segments[0].code).toBe(true);
+    });
+
+    it('should handle inline math mixed with text tokens', () => {
+        const tokens = [
+            { type: 'text', raw: 'where ', text: 'where ' } as any,
+            { type: 'mathInline', raw: '$n > 0$', text: 'n > 0' } as any,
+        ];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(2);
+        expect(segments[0].text).toBe('where ');
+        expect(segments[0].italic).toBe(false);
+        expect(segments[1].text).toBe('n > 0');
+        expect(segments[1].italic).toBe(true);
+        expect(segments[1].code).toBe(true);
+    });
+});

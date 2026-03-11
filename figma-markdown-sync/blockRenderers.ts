@@ -366,6 +366,97 @@ export async function renderBadgeRowBlock(block: Block): Promise<FrameNode> {
     return rowFrame;
 }
 
+// ─── Mermaid Diagram Rendering ───────────────────────────────────────────────
+
+/** Color constants for mermaid placeholder */
+const MERMAID_BG = { r: 0.96, g: 0.97, b: 1 }; // #F5F8FF
+const MERMAID_BORDER = { r: 0.6, g: 0.7, b: 0.9 }; // #99B3E6
+const MERMAID_TEXT = { r: 0.3, g: 0.4, b: 0.6 }; // #4D6699
+
+/**
+ * Renders a mermaid diagram block as a styled placeholder frame
+ * containing the diagram source. Figma plugins can't render SVG natively,
+ * so we show the source in a clearly labeled frame.
+ */
+export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
+    const mermaidFrame = figma.createFrame();
+    mermaidFrame.name = 'Mermaid Diagram';
+    mermaidFrame.layoutMode = 'VERTICAL';
+    mermaidFrame.primaryAxisSizingMode = 'AUTO';
+    mermaidFrame.counterAxisSizingMode = 'FIXED';
+    mermaidFrame.layoutAlign = 'STRETCH';
+    mermaidFrame.itemSpacing = 8;
+    mermaidFrame.paddingTop = 16;
+    mermaidFrame.paddingBottom = 16;
+    mermaidFrame.paddingLeft = 16;
+    mermaidFrame.paddingRight = 16;
+    mermaidFrame.cornerRadius = 8;
+    mermaidFrame.fills = [{ type: 'SOLID', color: MERMAID_BG }];
+    mermaidFrame.strokes = [{ type: 'SOLID', color: MERMAID_BORDER }];
+    mermaidFrame.strokeWeight = 1;
+    mermaidFrame.dashPattern = [4, 4];
+
+    // Label
+    const labelNode = figma.createText();
+    const boldFont = await loadFont('Inter', 'Bold');
+    labelNode.fontName = boldFont;
+    labelNode.fontSize = 13;
+    labelNode.characters = 'Mermaid Diagram';
+    labelNode.fills = [{ type: 'SOLID', color: MERMAID_TEXT }];
+    labelNode.layoutAlign = 'STRETCH';
+
+    // Source code
+    const sourceNode = figma.createText();
+    const codeStyle = await getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]);
+    await sourceNode.setTextStyleIdAsync(codeStyle.id);
+    sourceNode.characters = block.content ?? '';
+    sourceNode.layoutAlign = 'STRETCH';
+
+    mermaidFrame.appendChild(labelNode);
+    mermaidFrame.appendChild(sourceNode);
+    return mermaidFrame;
+}
+
+// ─── Math Block Rendering ────────────────────────────────────────────────────
+
+/** Color constants for math blocks */
+const MATH_BG = { r: 1, g: 0.98, b: 0.95 }; // #FFF9F2
+const MATH_BORDER = { r: 0.85, g: 0.75, b: 0.55 }; // #D9BF8C
+
+/**
+ * Renders a display math block ($$...$$) as a styled frame with the LaTeX source.
+ * Uses italic monospace to visually distinguish from regular code blocks.
+ */
+export async function renderMathBlock(block: Block): Promise<FrameNode> {
+    const mathFrame = figma.createFrame();
+    mathFrame.name = 'Math Block';
+    mathFrame.layoutMode = 'VERTICAL';
+    mathFrame.primaryAxisSizingMode = 'AUTO';
+    mathFrame.counterAxisSizingMode = 'FIXED';
+    mathFrame.layoutAlign = 'STRETCH';
+    mathFrame.itemSpacing = 4;
+    mathFrame.paddingTop = 16;
+    mathFrame.paddingBottom = 16;
+    mathFrame.paddingLeft = 16;
+    mathFrame.paddingRight = 16;
+    mathFrame.cornerRadius = 8;
+    mathFrame.fills = [{ type: 'SOLID', color: MATH_BG }];
+    mathFrame.strokes = [{ type: 'SOLID', color: MATH_BORDER }];
+    mathFrame.strokeWeight = 1;
+
+    // Render the LaTeX source in italic monospace
+    const mathText = figma.createText();
+    const monoItalicFont = await loadFont('Roboto Mono', 'Regular');
+    mathText.fontName = monoItalicFont;
+    mathText.fontSize = 15;
+    mathText.characters = block.content ?? '';
+    mathText.layoutAlign = 'STRETCH';
+    mathText.textAlignHorizontal = 'CENTER';
+
+    mathFrame.appendChild(mathText);
+    return mathFrame;
+}
+
 // ─── Image Rendering ────────────────────────────────────────────────────────
 
 /**
@@ -486,6 +577,8 @@ if (typeof module !== 'undefined' && module.exports) {
         renderDefinitionListBlock,
         renderFootnoteSectionBlock,
         renderBadgeRowBlock,
+        renderMermaidBlock,
+        renderMathBlock,
         createImageNode,
         createErrorPlaceholder,
     };

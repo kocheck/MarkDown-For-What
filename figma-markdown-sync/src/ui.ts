@@ -340,10 +340,14 @@ function populateSettings(settings: Record<string, unknown>) {
         }
     }
 
-    // Handle checkbox
+    // Handle checkboxes
     const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
     if (tocCheckbox && 'generateToc' in settings) {
         tocCheckbox.checked = !!settings.generateToc;
+    }
+    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
+    if (compNamesCheckbox && 'componentNames' in settings) {
+        compNamesCheckbox.checked = !!settings.componentNames;
     }
 
     // Handle theme button active state
@@ -421,6 +425,12 @@ function setupSettingListeners() {
         sendCurrentSettings();
     });
 
+    // Component names checkbox
+    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
+    compNamesCheckbox?.addEventListener('change', () => {
+        sendCurrentSettings();
+    });
+
     // Theme buttons
     themeBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -473,6 +483,10 @@ function sendCurrentSettings() {
     const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
     if (tocCheckbox) {
         settings.generateToc = tocCheckbox.checked;
+    }
+    const compNamesCheckbox = document.getElementById('componentNames') as HTMLInputElement | null;
+    if (compNamesCheckbox) {
+        settings.componentNames = compNamesCheckbox.checked;
     }
 
     // Include style bindings

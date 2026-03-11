@@ -55,6 +55,8 @@ export interface PluginSettings {
     frameFillColor: string;
     /** Mappings from block element types to existing Figma text/paint style IDs. */
     styleBindings: StyleBindings;
+    /** When true, use semantic component-ready layer names (e.g. "Heading/H1", "Body/Paragraph"). */
+    componentNames: boolean;
 }
 
 /** Maps block element types to Figma style IDs. 'auto' or absent = use default Markdown/* styles. */
@@ -89,6 +91,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     theme: 'minimal-light',
     frameFillColor: '#FFFFFF',
     styleBindings: {},
+    componentNames: false,
 };
 
 const STORAGE_KEY = 'pluginSettings';
@@ -272,7 +275,8 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
         typeof s.generateToc === 'boolean' &&
         isValidTheme(s.theme) &&
         isValidHex(s.frameFillColor) &&
-        isValidStyleBindings(s.styleBindings)
+        isValidStyleBindings(s.styleBindings) &&
+        typeof s.componentNames === 'boolean'
     );
 }
 
@@ -324,6 +328,7 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
         theme:                 isValidTheme(p.theme)                  ? p.theme                              : DEFAULT_SETTINGS.theme,
         frameFillColor:        isValidHex(p.frameFillColor)           ? (p.frameFillColor as string)        : DEFAULT_SETTINGS.frameFillColor,
         styleBindings:         isValidStyleBindings(p.styleBindings)  ? (p.styleBindings as StyleBindings)  : { ...DEFAULT_SETTINGS.styleBindings },
+        componentNames:        typeof p.componentNames === 'boolean'   ? p.componentNames                     : DEFAULT_SETTINGS.componentNames,
     };
     // Keep frameWidth in sync with resolved width for backwards compat
     merged.frameWidth = resolvedFrameWidth(merged);

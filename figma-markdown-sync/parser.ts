@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc' | 'definitionList' | 'footnoteSection' | 'badgeRow';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc' | 'definitionList' | 'footnoteSection' | 'badgeRow' | 'mermaid' | 'math';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -52,6 +52,8 @@ export interface Block {
     footnotes?: Array<{ id: string; index: number; text: string }>;
     // Badge row-specific
     badges?: Array<{ label: string; color?: string }>;
+    // Math-specific
+    displayMode?: boolean;
 }
 
 /**
@@ -196,6 +198,14 @@ export function flattenTokens(
                         text: `[${customToken.id}]`,
                         ...context,
                         footnoteRef: { id: customToken.id, index: 0 },
+                    });
+                } else if (customToken.type === 'mathInline') {
+                    // Inline math — render as italic code-styled text
+                    segments.push({
+                        text: customToken.text,
+                        ...context,
+                        italic: true,
+                        code: true,
                     });
                 } else if (customToken.type === 'badge') {
                     segments.push({
@@ -414,6 +424,54 @@ const badgeInlineExtension = {
     renderer() { return ''; },
 };
 
+// ─── Math Block Extension ───────────────────────────────────────────────────────
+
+/**
+ * Custom marked block extension for display math.
+ * Matches $$ ... $$ on its own lines.
+ */
+const mathBlockExtension = {
+    name: 'mathBlock',
+    level: 'block' as const,
+    start(src: string) {
+        return src.match(/^\$\$/)?.index;
+    },
+    tokenizer(src: string) {
+        const rule = /^\$\$([\s\S]+?)\$\$/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+        return {
+            type: 'mathBlock',
+            raw: match[0],
+            text: match[1].trim(),
+        };
+    },
+    renderer() { return ''; },
+};
+
+/**
+ * Custom marked inline extension for inline math ($...$).
+ */
+const mathInlineExtension = {
+    name: 'mathInline',
+    level: 'inline' as const,
+    start(src: string) {
+        return src.match(/\$/)?.index;
+    },
+    tokenizer(src: string) {
+        // Match $...$ but not $$ (display math) and not escaped \$
+        const rule = /^\$([^\$\n]+?)\$/;
+        const match = rule.exec(src);
+        if (!match) return undefined;
+        return {
+            type: 'mathInline',
+            raw: match[0],
+            text: match[1].trim(),
+        };
+    },
+    renderer() { return ''; },
+};
+
 // ─── Definition List Extension ──────────────────────────────────────────────────
 
 /**
@@ -472,7 +530,7 @@ const definitionListExtension = {
 };
 
 // Register all custom extensions
-marked.use({ extensions: [definitionListExtension, footnoteDefExtension, footnoteRefExtension, badgeInlineExtension] });
+marked.use({ extensions: [mathBlockExtension, mathInlineExtension, definitionListExtension, footnoteDefExtension, footnoteRefExtension, badgeInlineExtension] });
 
 // ─── Parse Options ──────────────────────────────────────────────────────────────
 
@@ -575,7 +633,11 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
             }
             case 'code': {
                 const cToken = token as marked.Tokens.Code;
-                blocks.push({ type: 'code', content: cToken.text, language: cToken.lang });
+                if (cToken.lang === 'mermaid') {
+                    blocks.push({ type: 'mermaid', content: cToken.text });
+                } else {
+                    blocks.push({ type: 'code', content: cToken.text, language: cToken.lang });
+                }
                 break;
             }
             case 'blockquote': {
@@ -621,7 +683,9 @@ export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions):
             default: {
                 // Handle custom extension tokens (not in marked's token type union)
                 const customToken = token as any;
-                if (customToken.type === 'definitionList' && customToken.items) {
+                if (customToken.type === 'mathBlock') {
+                    blocks.push({ type: 'math', content: customToken.text, displayMode: true });
+                } else if (customToken.type === 'definitionList' && customToken.items) {
                     blocks.push({
                         type: 'definitionList',
                         definitions: customToken.items,
