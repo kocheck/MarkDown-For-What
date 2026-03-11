@@ -56,6 +56,20 @@ figma.showUI(__html__, { width: 400, height: 500 });
             return;
         }
 
+        if (msg.type === 'get-local-styles') {
+            try {
+                const textStyles = await figma.getLocalTextStylesAsync();
+                figma.ui.postMessage({
+                    type: 'local-styles',
+                    textStyles: textStyles.map((s: any) => ({ id: s.id, name: s.name })),
+                });
+            } catch (err) {
+                console.error('[MarkDown For What] Failed to fetch local styles:', err);
+                figma.ui.postMessage({ type: 'local-styles', textStyles: [] });
+            }
+            return;
+        }
+
         if (msg.type === 'import-markdown-batch') {
             const files = msg.files;
 

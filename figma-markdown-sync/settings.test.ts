@@ -120,6 +120,7 @@ describe('mergeWithDefaults', () => {
             generateToc: false,
             theme: 'custom',
             frameFillColor: '#F0F0F0',
+            styleBindings: { h1: 'S:abc123' },
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);
@@ -291,6 +292,39 @@ describe('theme settings', () => {
     test('mergeWithDefaults uses default for invalid frameFillColor', () => {
         const result = mergeWithDefaults({ frameFillColor: 'bad' });
         expect(result.frameFillColor).toBe('#FFFFFF');
+    });
+});
+
+describe('style binding settings', () => {
+    test('has empty default styleBindings', () => {
+        expect(DEFAULT_SETTINGS.styleBindings).toEqual({});
+    });
+
+    test('validates styleBindings with known element keys', () => {
+        const valid = { ...DEFAULT_SETTINGS, styleBindings: { h1: 'S:abc123', body: 'auto' } };
+        expect(validateSettings(valid)).toBe(true);
+    });
+
+    test('rejects styleBindings with unknown keys', () => {
+        const invalid = { ...DEFAULT_SETTINGS, styleBindings: { invalid: 'S:abc' } };
+        expect(validateSettings(invalid)).toBe(false);
+    });
+
+    test('rejects styleBindings with non-string values', () => {
+        const invalid = { ...DEFAULT_SETTINGS, styleBindings: { h1: 42 } };
+        expect(validateSettings(invalid)).toBe(false);
+    });
+
+    test('mergeWithDefaults preserves existing styleBindings', () => {
+        const stored = { styleBindings: { h1: 'S:abc123' } };
+        const merged = mergeWithDefaults(stored);
+        expect(merged.styleBindings.h1).toBe('S:abc123');
+    });
+
+    test('mergeWithDefaults uses default for invalid styleBindings', () => {
+        const stored = { styleBindings: 'not-an-object' };
+        const merged = mergeWithDefaults(stored);
+        expect(merged.styleBindings).toEqual({});
     });
 });
 

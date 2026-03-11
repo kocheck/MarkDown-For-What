@@ -161,6 +161,25 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
 }
 
 /**
+ * Returns an existing Figma text style by ID (from a style binding), or falls
+ * back to getOrCreateTextStyle if the binding is 'auto', absent, or the bound
+ * style no longer exists.
+ */
+export async function getOrCreateTextStyleWithBinding(
+    name: string, config: StyleConfig, bindingId?: string
+): Promise<TextStyle> {
+    if (bindingId && bindingId !== 'auto') {
+        try {
+            const existing = await figma.getStyleByIdAsync(bindingId);
+            if (existing) return existing as TextStyle;
+        } catch (err) {
+            console.warn(`[MarkDown For What] Style binding lookup failed for "${bindingId}": ${errorMessage(err)}`);
+        }
+    }
+    return getOrCreateTextStyle(name, config);
+}
+
+/**
  * Ensures all Markdown/* text styles exist in the document.
  * Clears the in-memory style cache before re-resolving, so deleted or
  * renamed styles are picked up fresh on each import run.
@@ -292,6 +311,7 @@ if (typeof module !== 'undefined' && module.exports) {
         DEFAULT_STYLES,
         loadFont,
         getOrCreateTextStyle,
+        getOrCreateTextStyleWithBinding,
         initializeStyles,
         applyInlineStyles,
         _resetCaches,

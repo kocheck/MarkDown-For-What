@@ -3,7 +3,7 @@
  * Key invariant: existing Figma text styles are NEVER overwritten on re-import.
  */
 
-import { getOrCreateTextStyle, STYLE_NAMES, DEFAULT_STYLES, loadFont, initializeStyles, applyInlineStyles, _resetCaches } from './styles';
+import { getOrCreateTextStyle, getOrCreateTextStyleWithBinding, STYLE_NAMES, DEFAULT_STYLES, loadFont, initializeStyles, applyInlineStyles, _resetCaches } from './styles';
 
 // Clear module-level caches between tests so mocked font/style behavior is isolated
 beforeEach(() => {
@@ -466,5 +466,53 @@ describe('applyInlineStyles — error resilience', () => {
 
         // Second segment should still be formatted despite first failing
         expect(node.setRangeFontName).toHaveBeenCalledTimes(2);
+    });
+});
+
+describe('getOrCreateTextStyleWithBinding', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    it('uses existing style when binding is set and style exists', async () => {
+        const mockBoundStyle = { id: 'S:123', name: 'My H1', fontName: {}, fontSize: 32 };
+        (figma as any).getStyleByIdAsync = jest.fn().mockResolvedValue(mockBoundStyle);
+
+        const style = await getOrCreateTextStyleWithBinding(STYLE_NAMES.H1, DEFAULT_STYLES[STYLE_NAMES.H1], 'S:123');
+        expect(figma.getStyleByIdAsync).toHaveBeenCalledWith('S:123');
+        expect(style).toBe(mockBoundStyle);
+    });
+
+    it('falls back to getOrCreateTextStyle when binding is auto', async () => {
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'mock-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const style = await getOrCreateTextStyleWithBinding(STYLE_NAMES.H1, DEFAULT_STYLES[STYLE_NAMES.H1], 'auto');
+        expect(figma.getStyleByIdAsync).not.toHaveBeenCalled();
+        expect(mockStyle.name).toBe(STYLE_NAMES.H1);
+    });
+
+    it('falls back to getOrCreateTextStyle when binding is undefined', async () => {
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'mock-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const style = await getOrCreateTextStyleWithBinding(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+        expect(figma.getStyleByIdAsync).not.toHaveBeenCalled();
+    });
+
+    it('falls back when bound style no longer exists', async () => {
+        (figma as any).getStyleByIdAsync = jest.fn().mockResolvedValue(null);
+        (figma.getLocalTextStylesAsync as jest.Mock).mockResolvedValue([]);
+        const mockStyle: any = { id: 'mock-id', name: '', fontName: {}, fontSize: 0, lineHeight: {} };
+        (figma.createTextStyle as jest.Mock).mockReturnValue(mockStyle);
+        (figma.loadFontAsync as jest.Mock).mockResolvedValue(undefined);
+
+        const style = await getOrCreateTextStyleWithBinding(STYLE_NAMES.H1, DEFAULT_STYLES[STYLE_NAMES.H1], 'S:deleted');
+        expect(figma.getStyleByIdAsync).toHaveBeenCalledWith('S:deleted');
+        expect(mockStyle.name).toBe(STYLE_NAMES.H1);
     });
 });

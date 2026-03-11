@@ -499,6 +499,14 @@ button {
     color: #fff;
 }
 
+/* ── Settings hints ──────────────────────────────────────── */
+.settings-hint {
+    font-size: 10px;
+    color: #888;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
 .settings-footer {
     padding: 16px;
     display: flex;

@@ -52,6 +52,9 @@ const settingInputIds = [
 // Theme buttons
 const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 
+// Style binding selects
+const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
+
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
@@ -90,6 +93,7 @@ tabs.forEach(tab => {
 
         if (tab.dataset.tab === 'settings') {
             parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
+            parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
         }
     });
 });
@@ -259,8 +263,35 @@ function populateSettings(settings: Record<string, unknown>) {
         btn.classList.toggle('active', btn.dataset.theme === theme);
     });
 
+    // Handle style bindings
+    const bindings = (settings.styleBindings ?? {}) as Record<string, string>;
+    styleBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && bindings[key]) select.value = bindings[key];
+        else select.value = 'auto';
+    });
+
     // Handle width mode visibility
     updateCustomWidthVisibility();
+}
+
+function populateStyleDropdowns(textStyles: Array<{ id: string; name: string }>) {
+    styleBindingSelects.forEach(select => {
+        const currentValue = select.value;
+        // Clear all options except "Auto"
+        while (select.options.length > 1) select.remove(1);
+        // Add each local text style as an option
+        for (const style of textStyles) {
+            const opt = document.createElement('option');
+            opt.value = style.id;
+            opt.textContent = style.name;
+            select.appendChild(opt);
+        }
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
 }
 
 function updateCustomWidthVisibility() {
@@ -325,6 +356,13 @@ function setupSettingListeners() {
         });
     });
 
+    // Style binding selects
+    styleBindingSelects.forEach(select => {
+        select.addEventListener('change', () => {
+            sendCurrentSettings();
+        });
+    });
+
     document.getElementById('reset-btn')?.addEventListener('click', () => {
         parent.postMessage({ pluginMessage: { type: 'reset-settings' } }, '*');
     });
@@ -347,6 +385,16 @@ function sendCurrentSettings() {
     if (tocCheckbox) {
         settings.generateToc = tocCheckbox.checked;
     }
+
+    // Include style bindings
+    const styleBindings: Record<string, string> = {};
+    styleBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && select.value !== 'auto') {
+            styleBindings[key] = select.value;
+        }
+    });
+    settings.styleBindings = styleBindings;
 
     // Determine active theme
     const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
@@ -394,6 +442,9 @@ window.onmessage = event => {
             break;
         case 'settings':
             populateSettings(msg.settings);
+            break;
+        case 'local-styles':
+            populateStyleDropdowns(msg.textStyles ?? []);
             break;
         default:
             break;

@@ -53,6 +53,21 @@ export interface PluginSettings {
     theme: Theme;
     /** Fill color for the root content frame. CSS hex string. */
     frameFillColor: string;
+    /** Mappings from block element types to existing Figma text/paint style IDs. */
+    styleBindings: StyleBindings;
+}
+
+/** Maps block element types to Figma style IDs. 'auto' or absent = use default Markdown/* styles. */
+export interface StyleBindings {
+    h1?: string;
+    h2?: string;
+    h3?: string;
+    body?: string;
+    code?: string;
+    list?: string;
+    quote?: string;
+    codeBg?: string;
+    tableBg?: string;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────────────────────
@@ -73,6 +88,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     generateToc: false,
     theme: 'minimal-light',
     frameFillColor: '#FFFFFF',
+    styleBindings: {},
 };
 
 const STORAGE_KEY = 'pluginSettings';
@@ -160,6 +176,20 @@ function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
 }
 
+const VALID_BINDING_KEYS = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
+
+/** Returns true if value is a valid StyleBindings object (plain object with string values). */
+function isValidStyleBindings(value: unknown): boolean {
+    if (value === undefined || value === null) return false;
+    if (typeof value !== 'object' || Array.isArray(value)) return false;
+    const obj = value as Record<string, unknown>;
+    for (const key of Object.keys(obj)) {
+        if (!VALID_BINDING_KEYS.includes(key)) return false;
+        if (typeof obj[key] !== 'string') return false;
+    }
+    return true;
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -185,7 +215,8 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
         isValidHex(s.separatorColor) &&
         typeof s.generateToc === 'boolean' &&
         isValidTheme(s.theme) &&
-        isValidHex(s.frameFillColor)
+        isValidHex(s.frameFillColor) &&
+        isValidStyleBindings(s.styleBindings)
     );
 }
 
@@ -236,6 +267,7 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
         generateToc:           typeof p.generateToc === 'boolean'     ? p.generateToc                       : DEFAULT_SETTINGS.generateToc,
         theme:                 isValidTheme(p.theme)                  ? p.theme                              : DEFAULT_SETTINGS.theme,
         frameFillColor:        isValidHex(p.frameFillColor)           ? (p.frameFillColor as string)        : DEFAULT_SETTINGS.frameFillColor,
+        styleBindings:         isValidStyleBindings(p.styleBindings)  ? (p.styleBindings as StyleBindings)  : { ...DEFAULT_SETTINGS.styleBindings },
     };
     // Keep frameWidth in sync with resolved width for backwards compat
     merged.frameWidth = resolvedFrameWidth(merged);
