@@ -47,6 +47,48 @@ export const CHECKBOX_CHECKED: SolidPaint = { type: 'SOLID', color: { r: 0.2, g:
 export const CHECKBOX_UNCHECKED_FILL: SolidPaint = { type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } };
 export const CHECKBOX_UNCHECKED_STROKE: SolidPaint = { type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } };
 
+// ─── Badge Constants ─────────────────────────────────────────────────────────
+
+/** Named color palette for badge pills */
+export const BADGE_NAMED_COLORS: Record<string, string> = {
+    red: '#CF222E',
+    orange: '#BC4C00',
+    yellow: '#9A6700',
+    green: '#1A7F37',
+    blue: '#0969DA',
+    purple: '#8250DF',
+    gray: '#656D76',
+};
+
+/** Curated default palette for deterministic hash-based badge coloring */
+export const BADGE_DEFAULT_PALETTE = [
+    '#0969DA', '#1A7F37', '#8250DF', '#CF222E',
+    '#BC4C00', '#9A6700', '#656D76', '#0550AE',
+] as const;
+
+/**
+ * Simple deterministic hash function for badge label → palette index.
+ * Returns a consistent color for the same label text.
+ */
+export function badgeColorForLabel(label: string): string {
+    let hash = 0;
+    for (let i = 0; i < label.length; i++) {
+        hash = ((hash << 5) - hash + label.charCodeAt(i)) | 0;
+    }
+    return BADGE_DEFAULT_PALETTE[Math.abs(hash) % BADGE_DEFAULT_PALETTE.length];
+}
+
+// ─── Mermaid Placeholder Colors ──────────────────────────────────────────────
+
+export const MERMAID_BG: RGB = { r: 0.96, g: 0.97, b: 1 };
+export const MERMAID_BORDER: RGB = { r: 0.6, g: 0.7, b: 0.9 };
+export const MERMAID_TEXT: RGB = { r: 0.3, g: 0.4, b: 0.6 };
+
+// ─── Math Block Colors ──────────────────────────────────────────────────────
+
+export const MATH_BG: RGB = { r: 1, g: 0.98, b: 0.95 };
+export const MATH_BORDER: RGB = { r: 0.85, g: 0.75, b: 0.55 };
+
 // ─── Error Placeholder Colors ───────────────────────────────────────────────
 
 export const ERROR_BORDER_COLOR: RGB = { r: 0.8, g: 0.2, b: 0.2 };
@@ -62,6 +104,14 @@ if (typeof module !== 'undefined' && module.exports) {
         CHECKBOX_CHECKED,
         CHECKBOX_UNCHECKED_FILL,
         CHECKBOX_UNCHECKED_STROKE,
+        BADGE_NAMED_COLORS,
+        BADGE_DEFAULT_PALETTE,
+        badgeColorForLabel,
+        MERMAID_BG,
+        MERMAID_BORDER,
+        MERMAID_TEXT,
+        MATH_BG,
+        MATH_BORDER,
         ERROR_BORDER_COLOR,
         ERROR_TEXT_COLOR,
     };

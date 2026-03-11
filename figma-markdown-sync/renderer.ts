@@ -41,6 +41,10 @@ import {
     renderOrderedListBlock,
     renderTaskListBlock,
     renderDefinitionListBlock,
+    renderFootnoteSectionBlock,
+    renderBadgeRowBlock,
+    renderMermaidBlock,
+    renderMathBlock,
     createImageNode,
     createErrorPlaceholder,
 } from './blockRenderers';
@@ -84,6 +88,60 @@ export function computeNewFrameX(gap: number): number {
  */
 function isListType(block: Block): boolean {
     return block.type === 'list' || block.type === 'orderedListItem' || block.type === 'taskListItem';
+}
+
+// ─── Component Naming ─────────────────────────────────────────────────────────
+
+/**
+ * Returns a semantic, component-ready layer name for a block.
+ * Used when componentNames setting is enabled.
+ *
+ * @example
+ * componentName({ type: 'heading', level: 1, content: 'Intro' })
+ * // → 'Heading/H1 — Intro'
+ */
+export function componentName(block: Block): string {
+    const truncate = (s: string, max: number) => s.length > max ? s.slice(0, max) + '…' : s;
+    const label = block.content ? ` — ${truncate(block.content, 40)}` : '';
+
+    switch (block.type) {
+        case 'heading':
+            return `Heading/H${block.level ?? 1}${label}`;
+        case 'paragraph':
+            return `Body/Paragraph${label}`;
+        case 'code':
+            return `Code/${block.language || 'plain'}`;
+        case 'quote':
+            return `Body/Blockquote${label}`;
+        case 'separator':
+            return 'Divider/HR';
+        case 'table':
+            return 'Data/Table';
+        case 'image':
+            return `Media/Image — ${block.imageAlt || 'untitled'}`;
+        case 'list':
+            return `List/Unordered${label}`;
+        case 'orderedListItem':
+            return `List/Ordered${label}`;
+        case 'taskListItem':
+            return `List/Task${block.checked ? ' ✓' : ''}${label}`;
+        case 'callout':
+            return `Callout/${block.calloutType ?? 'note'}`;
+        case 'toc':
+            return 'Navigation/TOC';
+        case 'definitionList':
+            return 'Body/Definition List';
+        case 'footnoteSection':
+            return 'Body/Footnotes';
+        case 'badgeRow':
+            return 'Badge/Row';
+        case 'mermaid':
+            return 'Diagram/Mermaid';
+        case 'math':
+            return 'Math/Display';
+        default:
+            return `Block/${(block as { type: string }).type}`;
+    }
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -173,6 +231,9 @@ export async function renderBlocks(
                     } else {
                         listNode = await renderListBlock(listBlock, listStyle);
                     }
+                    if (settings.componentNames) {
+                        listNode.name = componentName(listBlock);
+                    }
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
                     console.error(`[MarkDown For What] Failed to render list block: ${errorMessage(err)}`, err);
@@ -194,6 +255,9 @@ export async function renderBlocks(
         try {
             const node = await renderBlock(block, settings);
             if (node) {
+                if (settings.componentNames) {
+                    node.name = componentName(block);
+                }
                 frame.appendChild(node);
                 // createImageNode returns FrameNode on failure (placeholder), RectangleNode on success
                 if (block.type === 'image' && node.type === 'FRAME') {
@@ -313,6 +377,22 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 
         case 'definitionList': {
             return await renderDefinitionListBlock(block);
+        }
+
+        case 'footnoteSection': {
+            return await renderFootnoteSectionBlock(block);
+        }
+
+        case 'badgeRow': {
+            return await renderBadgeRowBlock(block);
+        }
+
+        case 'mermaid': {
+            return await renderMermaidBlock(block);
+        }
+
+        case 'math': {
+            return await renderMathBlock(block);
         }
 
         case 'list':

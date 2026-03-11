@@ -27,9 +27,17 @@ import {
     CHECKBOX_CHECKED,
     CHECKBOX_UNCHECKED_FILL,
     CHECKBOX_UNCHECKED_STROKE,
+    BADGE_NAMED_COLORS,
+    badgeColorForLabel,
+    MERMAID_BG,
+    MERMAID_BORDER,
+    MERMAID_TEXT,
+    MATH_BG,
+    MATH_BORDER,
     ERROR_BORDER_COLOR,
     ERROR_TEXT_COLOR,
 } from './constants';
+import { hexToRgb } from './utils';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -280,6 +288,175 @@ export async function renderDefinitionListBlock(block: Block): Promise<FrameNode
     return dlFrame;
 }
 
+// ─── Footnote Section Rendering ──────────────────────────────────────────────
+
+/**
+ * Renders a footnote section as a vertical frame with numbered footnote entries.
+ * Typically placed after a separator at the end of the document.
+ */
+export async function renderFootnoteSectionBlock(block: Block): Promise<FrameNode> {
+    const fnFrame = figma.createFrame();
+    fnFrame.name = 'Footnotes';
+    fnFrame.layoutMode = 'VERTICAL';
+    fnFrame.primaryAxisSizingMode = 'AUTO';
+    fnFrame.counterAxisSizingMode = 'FIXED';
+    fnFrame.layoutAlign = 'STRETCH';
+    fnFrame.itemSpacing = 4;
+    fnFrame.fills = [];
+
+    const bodyStyle = await getOrCreateTextStyle(STYLE_NAMES.BODY, DEFAULT_STYLES[STYLE_NAMES.BODY]);
+    const regularFont = await loadFont('Inter', 'Regular');
+
+    for (const fn of (block.footnotes ?? [])) {
+        const entryNode = figma.createText();
+        await entryNode.setTextStyleIdAsync(bodyStyle.id);
+        entryNode.fontName = regularFont;
+        entryNode.fontSize = 13;
+        entryNode.characters = `${fn.index}. ${fn.text}`;
+        entryNode.layoutAlign = 'STRETCH';
+        fnFrame.appendChild(entryNode);
+    }
+
+    return fnFrame;
+}
+
+// ─── Badge Row Rendering ────────────────────────────────────────────────────
+
+/**
+ * Renders a row of badge pills as a horizontal auto-layout frame with wrapping.
+ */
+export async function renderBadgeRowBlock(block: Block): Promise<FrameNode> {
+    const rowFrame = figma.createFrame();
+    rowFrame.name = 'Badge Row';
+    rowFrame.layoutMode = 'HORIZONTAL';
+    rowFrame.primaryAxisSizingMode = 'AUTO';
+    rowFrame.counterAxisSizingMode = 'AUTO';
+    rowFrame.layoutAlign = 'STRETCH';
+    rowFrame.itemSpacing = 8;
+    rowFrame.layoutWrap = 'WRAP';
+    rowFrame.fills = [];
+
+    const regularFont = await loadFont('Inter', 'Regular');
+
+    for (const badge of (block.badges ?? [])) {
+        const pillFrame = figma.createFrame();
+        pillFrame.name = `Badge: ${badge.label}`;
+        pillFrame.layoutMode = 'HORIZONTAL';
+        pillFrame.primaryAxisSizingMode = 'AUTO';
+        pillFrame.counterAxisSizingMode = 'AUTO';
+        pillFrame.paddingTop = 4;
+        pillFrame.paddingBottom = 4;
+        pillFrame.paddingLeft = 10;
+        pillFrame.paddingRight = 10;
+        pillFrame.cornerRadius = 12;
+
+        // Determine color
+        const colorHex = badge.color
+            ? (BADGE_NAMED_COLORS[badge.color.toLowerCase()] ?? badge.color)
+            : badgeColorForLabel(badge.label);
+        const bgColor = hexToRgb(colorHex);
+        pillFrame.fills = [{ type: 'SOLID', color: bgColor }];
+
+        // Text (white for good contrast on colored background)
+        const textNode = figma.createText();
+        textNode.fontName = regularFont;
+        textNode.fontSize = 12;
+        textNode.characters = badge.label;
+        textNode.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+
+        pillFrame.appendChild(textNode);
+        rowFrame.appendChild(pillFrame);
+    }
+
+    return rowFrame;
+}
+
+// ─── Mermaid Diagram Rendering ───────────────────────────────────────────────
+
+/**
+ * Renders a mermaid diagram block as a styled placeholder frame
+ * containing the diagram source. Figma plugins can't render SVG natively,
+ * so we show the source in a clearly labeled frame.
+ */
+export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
+    const mermaidFrame = figma.createFrame();
+    mermaidFrame.name = 'Mermaid Diagram';
+    mermaidFrame.layoutMode = 'VERTICAL';
+    mermaidFrame.primaryAxisSizingMode = 'AUTO';
+    mermaidFrame.counterAxisSizingMode = 'FIXED';
+    mermaidFrame.layoutAlign = 'STRETCH';
+    mermaidFrame.itemSpacing = 8;
+    mermaidFrame.paddingTop = 16;
+    mermaidFrame.paddingBottom = 16;
+    mermaidFrame.paddingLeft = 16;
+    mermaidFrame.paddingRight = 16;
+    mermaidFrame.cornerRadius = 8;
+    mermaidFrame.fills = [{ type: 'SOLID', color: MERMAID_BG }];
+    mermaidFrame.strokes = [{ type: 'SOLID', color: MERMAID_BORDER }];
+    mermaidFrame.strokeWeight = 1;
+    mermaidFrame.dashPattern = [4, 4];
+
+    // Pre-load font and style concurrently
+    const [boldFont, codeStyle] = await Promise.all([
+        loadFont('Inter', 'Bold'),
+        getOrCreateTextStyle(STYLE_NAMES.CODE, DEFAULT_STYLES[STYLE_NAMES.CODE]),
+    ]);
+
+    // Label
+    const labelNode = figma.createText();
+    labelNode.fontName = boldFont;
+    labelNode.fontSize = 13;
+    labelNode.characters = 'Mermaid Diagram';
+    labelNode.fills = [{ type: 'SOLID', color: MERMAID_TEXT }];
+    labelNode.layoutAlign = 'STRETCH';
+
+    // Source code
+    const sourceNode = figma.createText();
+    await sourceNode.setTextStyleIdAsync(codeStyle.id);
+    sourceNode.characters = block.content ?? '';
+    sourceNode.layoutAlign = 'STRETCH';
+
+    mermaidFrame.appendChild(labelNode);
+    mermaidFrame.appendChild(sourceNode);
+    return mermaidFrame;
+}
+
+// ─── Math Block Rendering ────────────────────────────────────────────────────
+
+/**
+ * Renders a display math block ($$...$$) as a styled frame with the LaTeX source.
+ * Uses monospace font to visually distinguish from regular code blocks.
+ */
+export async function renderMathBlock(block: Block): Promise<FrameNode> {
+    const mathFrame = figma.createFrame();
+    mathFrame.name = 'Math Block';
+    mathFrame.layoutMode = 'VERTICAL';
+    mathFrame.primaryAxisSizingMode = 'AUTO';
+    mathFrame.counterAxisSizingMode = 'FIXED';
+    mathFrame.layoutAlign = 'STRETCH';
+    mathFrame.itemSpacing = 4;
+    mathFrame.paddingTop = 16;
+    mathFrame.paddingBottom = 16;
+    mathFrame.paddingLeft = 16;
+    mathFrame.paddingRight = 16;
+    mathFrame.cornerRadius = 8;
+    mathFrame.fills = [{ type: 'SOLID', color: MATH_BG }];
+    mathFrame.strokes = [{ type: 'SOLID', color: MATH_BORDER }];
+    mathFrame.strokeWeight = 1;
+
+    // Render the LaTeX source in monospace
+    const mathText = figma.createText();
+    const monoFont = await loadFont('Roboto Mono', 'Regular');
+    mathText.fontName = monoFont;
+    mathText.fontSize = 15;
+    mathText.characters = block.content ?? '';
+    mathText.layoutAlign = 'STRETCH';
+    mathText.textAlignHorizontal = 'CENTER';
+
+    mathFrame.appendChild(mathText);
+    return mathFrame;
+}
+
 // ─── Image Rendering ────────────────────────────────────────────────────────
 
 /**
@@ -398,6 +575,10 @@ if (typeof module !== 'undefined' && module.exports) {
         renderOrderedListBlock,
         renderTaskListBlock,
         renderDefinitionListBlock,
+        renderFootnoteSectionBlock,
+        renderBadgeRowBlock,
+        renderMermaidBlock,
+        renderMathBlock,
         createImageNode,
         createErrorPlaceholder,
     };

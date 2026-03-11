@@ -286,6 +286,13 @@ export async function applyInlineStyles(
                     node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
                 }
 
+                if (segment.footnoteRef) {
+                    // Render footnote references as smaller text (visual superscript approximation)
+                    const baseFontSize = baseConfig.size;
+                    node.setRangeFontSize(start, end, Math.round(baseFontSize * 0.75));
+                    node.setRangeFills(start, end, [{ type: 'SOLID', color: LINK_COLOR }]);
+                }
+
                 if (segment.link) {
                     const trimmedLink = segment.link.trim();
                     if (trimmedLink.length > 0 && HTTP_URL_RE.test(trimmedLink)) {

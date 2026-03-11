@@ -51,6 +51,8 @@ const settingInputIds = [
     'codeBackground', 'tableHeaderBackground', 'separatorColor', 'frameFillColor',
 ] as const;
 
+const checkboxSettingIds = ['generateToc', 'componentNames'] as const;
+
 // Theme buttons
 const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 
@@ -96,6 +98,9 @@ tabs.forEach(tab => {
         if (tab.dataset.tab === 'settings') {
             parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
             parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
+        }
+        if (tab.dataset.tab === 'history') {
+            parent.postMessage({ pluginMessage: { type: 'get-history' } }, '*');
         }
     });
 });
@@ -337,10 +342,10 @@ function populateSettings(settings: Record<string, unknown>) {
         }
     }
 
-    // Handle checkbox
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    if (tocCheckbox && 'generateToc' in settings) {
-        tocCheckbox.checked = !!settings.generateToc;
+    // Handle checkboxes
+    for (const id of checkboxSettingIds) {
+        const cb = document.getElementById(id) as HTMLInputElement | null;
+        if (cb && id in settings) cb.checked = !!settings[id];
     }
 
     // Handle theme button active state
@@ -412,11 +417,10 @@ function setupSettingListeners() {
         });
     }
 
-    // TOC checkbox
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    tocCheckbox?.addEventListener('change', () => {
-        sendCurrentSettings();
-    });
+    // Checkbox listeners
+    for (const id of checkboxSettingIds) {
+        document.getElementById(id)?.addEventListener('change', () => sendCurrentSettings());
+    }
 
     // Theme buttons
     themeBtns.forEach(btn => {
@@ -467,9 +471,9 @@ function sendCurrentSettings() {
     }
 
     // Include checkbox values
-    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
-    if (tocCheckbox) {
-        settings.generateToc = tocCheckbox.checked;
+    for (const id of checkboxSettingIds) {
+        const cb = document.getElementById(id) as HTMLInputElement | null;
+        if (cb) settings[id] = cb.checked;
     }
 
     // Include style bindings
@@ -497,6 +501,44 @@ function sendCurrentSettings() {
 }
 
 setupSettingListeners();
+
+// ── History ─────────────────────────────────────────────────────────────────
+
+const historyList = document.getElementById('history-list') as HTMLUListElement;
+const historyEmpty = document.getElementById('history-empty') as HTMLElement;
+const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement;
+
+function renderHistory(entries: Array<{ filename: string; timestamp: number; blockCount: number }>) {
+    historyList.textContent = '';
+    if (entries.length === 0) {
+        historyEmpty.style.display = '';
+        return;
+    }
+    historyEmpty.style.display = 'none';
+    for (const entry of entries) {
+        const li = document.createElement('li');
+        li.className = 'history-entry';
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'history-filename';
+        nameSpan.textContent = entry.filename;
+
+        const meta = document.createElement('span');
+        meta.className = 'history-meta';
+        const date = new Date(entry.timestamp);
+        const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        meta.textContent = `${dateStr} ${timeStr} · ${entry.blockCount} block${entry.blockCount === 1 ? '' : 's'}`;
+
+        li.appendChild(nameSpan);
+        li.appendChild(meta);
+        historyList.appendChild(li);
+    }
+}
+
+clearHistoryBtn.addEventListener('click', () => {
+    parent.postMessage({ pluginMessage: { type: 'clear-history' } }, '*');
+});
 
 // ── Status helper ───────────────────────────────────────────────────────────
 
@@ -531,6 +573,9 @@ window.onmessage = event => {
             break;
         case 'local-styles':
             populateStyleDropdowns(msg.textStyles ?? []);
+            break;
+        case 'history':
+            renderHistory(msg.entries ?? []);
             break;
         default:
             break;

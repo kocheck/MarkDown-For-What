@@ -812,3 +812,213 @@ describe('definition list parsing', () => {
         expect(blocks.some((b: Block) => b.type === 'list')).toBe(true);
     });
 });
+
+// ─── Footnotes ──────────────────────────────────────────────────────────────
+
+describe('parseMarkdownToBlocks — footnotes', () => {
+    it('should parse footnote definitions and create a footnoteSection block', () => {
+        const md = 'Some text with a reference[^1].\n\n[^1]: This is the footnote text.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        // Should have: paragraph, separator, footnoteSection
+        expect(blocks.some((b: Block) => b.type === 'footnoteSection')).toBe(true);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection')!;
+        expect(fnBlock.footnotes).toHaveLength(1);
+        expect(fnBlock.footnotes![0].id).toBe('1');
+        expect(fnBlock.footnotes![0].text).toBe('This is the footnote text.');
+        expect(fnBlock.footnotes![0].index).toBe(1);
+    });
+
+    it('should add a separator before the footnote section', () => {
+        const md = 'Text[^a].\n\n[^a]: Footnote A.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnIdx = blocks.findIndex((b: Block) => b.type === 'footnoteSection');
+        expect(fnIdx).toBeGreaterThan(0);
+        expect(blocks[fnIdx - 1].type).toBe('separator');
+    });
+
+    it('should handle multiple footnotes ordered by first reference', () => {
+        const md = 'First[^2] then second[^1].\n\n[^1]: Footnote one.\n[^2]: Footnote two.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection')!;
+        expect(fnBlock.footnotes).toHaveLength(2);
+        // [^2] is referenced first, so it gets index 1
+        expect(fnBlock.footnotes![0].id).toBe('2');
+        expect(fnBlock.footnotes![0].index).toBe(1);
+        expect(fnBlock.footnotes![1].id).toBe('1');
+        expect(fnBlock.footnotes![1].index).toBe(2);
+    });
+
+    it('should not create a footnoteSection when there are no footnote definitions', () => {
+        const md = '# Just a heading\n\nRegular paragraph.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.some((b: Block) => b.type === 'footnoteSection')).toBe(false);
+    });
+
+    it('should include unreferenced footnote definitions', () => {
+        const md = '[^unused]: An unreferenced footnote.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const fnBlock = blocks.find((b: Block) => b.type === 'footnoteSection');
+        expect(fnBlock).toBeDefined();
+        expect(fnBlock!.footnotes![0].id).toBe('unused');
+    });
+});
+
+describe('flattenTokens — footnote references', () => {
+    it('should produce a segment with footnoteRef for [^id] tokens', () => {
+        // Simulate a footnoteRef inline token as emitted by the custom extension
+        const tokens = [
+            { type: 'text', raw: 'Hello ', text: 'Hello ' },
+            { type: 'footnoteRef', raw: '[^1]', id: '1' },
+            { type: 'text', raw: ' world', text: ' world' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(3);
+        expect(segments[1].footnoteRef).toBeDefined();
+        expect(segments[1].footnoteRef.id).toBe('1');
+        expect(segments[1].text).toBe('[1]');
+    });
+});
+
+// ─── Badge Pills ────────────────────────────────────────────────────────────
+
+describe('parseMarkdownToBlocks — badge pills', () => {
+    it('should extract frontmatter tags as a badgeRow block', () => {
+        const md = '---\ntags: [design, v2, draft]\n---\n# Title\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const badgeBlock = blocks.find((b: Block) => b.type === 'badgeRow');
+        expect(badgeBlock).toBeDefined();
+        expect(badgeBlock!.badges).toHaveLength(3);
+        expect(badgeBlock!.badges![0].label).toBe('design');
+        expect(badgeBlock!.badges![1].label).toBe('v2');
+        expect(badgeBlock!.badges![2].label).toBe('draft');
+    });
+
+    it('should place frontmatter badge row at the top of blocks', () => {
+        const md = '---\ntags: [alpha]\n---\n# Title\n\nParagraph.\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('badgeRow');
+    });
+
+    it('should not create badgeRow when frontmatter has no tags', () => {
+        const md = '---\ntitle: Hello\n---\n# Title\n';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks.some((b: Block) => b.type === 'badgeRow')).toBe(false);
+    });
+});
+
+describe('flattenTokens — inline badge tokens', () => {
+    it('should produce a segment with badge for [badge:Label] tokens', () => {
+        const tokens = [
+            { type: 'text', raw: 'Status: ', text: 'Status: ' },
+            { type: 'badge', raw: '[badge:Approved]', label: 'Approved', color: undefined },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(2);
+        expect(segments[1].badge).toBeDefined();
+        expect(segments[1].badge.label).toBe('Approved');
+        expect(segments[1].text).toBe('Approved');
+    });
+
+    it('should pass color through for [badge:Label:color] tokens', () => {
+        const tokens = [
+            { type: 'badge', raw: '[badge:NEW:green]', label: 'NEW', color: 'green' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments[0].badge!.color).toBe('green');
+    });
+});
+
+// ─── Mermaid Diagram Parsing ─────────────────────────────────────────────────
+
+describe('mermaid block parsing', () => {
+    it('should parse ```mermaid code blocks as mermaid type', () => {
+        const md = '```mermaid\ngraph TD\n  A-->B\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('mermaid');
+        expect(blocks[0].content).toBe('graph TD\n  A-->B');
+    });
+
+    it('should not treat non-mermaid code blocks as mermaid', () => {
+        const md = '```javascript\nconsole.log("hi")\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('code');
+        expect(blocks[0].language).toBe('javascript');
+    });
+
+    it('should parse mermaid alongside other blocks', () => {
+        const md = '# Title\n\n```mermaid\nsequenceDiagram\n  A->>B: Hello\n```\n\nSome text';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('heading');
+        const mermaidBlock = blocks.find(b => b.type === 'mermaid');
+        expect(mermaidBlock).toBeDefined();
+        expect(mermaidBlock!.content).toContain('sequenceDiagram');
+    });
+
+    it('should handle empty mermaid blocks', () => {
+        const md = '```mermaid\n```';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('mermaid');
+        expect(blocks[0].content).toBe('');
+    });
+});
+
+// ─── Math/LaTeX Parsing ──────────────────────────────────────────────────────
+
+describe('math block parsing', () => {
+    it('should parse display math ($$...$$) as math type', () => {
+        const md = '$$\nE = mc^2\n$$';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        expect(mathBlock!.content).toBe('E = mc^2');
+        expect(mathBlock!.displayMode).toBe(true);
+    });
+
+    it('should parse inline display math on single line', () => {
+        const md = '$$x^2 + y^2 = z^2$$';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        expect(mathBlock!.content).toBe('x^2 + y^2 = z^2');
+    });
+
+    it('should parse math alongside other content', () => {
+        const md = '# Formula\n\n$$\n\\int_0^1 f(x) dx\n$$\n\nEnd.';
+        const blocks: Block[] = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).toBe('heading');
+        const mathBlock = blocks.find(b => b.type === 'math');
+        expect(mathBlock).toBeDefined();
+        const endBlock = blocks.find(b => b.type === 'paragraph' && b.content?.includes('End'));
+        expect(endBlock).toBeDefined();
+    });
+});
+
+describe('inline math parsing', () => {
+    it('should parse $...$ as inline math in flattenTokens', () => {
+        const tokens = [
+            { type: 'mathInline', raw: '$x^2$', text: 'x^2' },
+        ] as any[];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('x^2');
+        expect(segments[0].italic).toBe(true);
+        expect(segments[0].code).toBe(true);
+    });
+
+    it('should handle inline math mixed with text tokens', () => {
+        const tokens = [
+            { type: 'text', raw: 'where ', text: 'where ' } as any,
+            { type: 'mathInline', raw: '$n > 0$', text: 'n > 0' } as any,
+        ];
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+        expect(segments).toHaveLength(2);
+        expect(segments[0].text).toBe('where ');
+        expect(segments[0].italic).toBe(false);
+        expect(segments[1].text).toBe('n > 0');
+        expect(segments[1].italic).toBe(true);
+        expect(segments[1].code).toBe(true);
+    });
+});
