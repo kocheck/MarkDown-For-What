@@ -250,10 +250,15 @@ export async function renderDefinitionListBlock(block: Block): Promise<FrameNode
     dlFrame.itemSpacing = 8;
     dlFrame.fills = [];
 
+    // Pre-load fonts once before iterating
+    const [boldFont, regularFont] = await Promise.all([
+        loadFont('Inter', 'Bold'),
+        loadFont('Inter', 'Regular'),
+    ]);
+
     for (const item of (block.definitions ?? [])) {
         // Term: bold text node
         const termNode = figma.createText();
-        const boldFont = await loadFont('Inter', 'Bold');
         termNode.fontName = boldFont;
         termNode.fontSize = 16;
         termNode.characters = item.term;
@@ -263,11 +268,10 @@ export async function renderDefinitionListBlock(block: Block): Promise<FrameNode
         // Definitions: indented body text
         for (const def of item.definitions) {
             const defNode = figma.createText();
-            const regularFont = await loadFont('Inter', 'Regular');
             defNode.fontName = regularFont;
             defNode.fontSize = 16;
             defNode.characters = def;
-            defNode.paragraphIndent = 20;
+            defNode.paragraphIndent = INDENT_PER_DEPTH;
             defNode.layoutAlign = 'STRETCH';
             dlFrame.appendChild(defNode);
         }

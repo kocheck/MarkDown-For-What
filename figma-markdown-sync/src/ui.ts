@@ -302,19 +302,15 @@ importBtn.addEventListener('click', () => {
     }, '*');
 });
 
-selectAllBtn.addEventListener('click', () => {
+function setAllCheckboxes(checked: boolean) {
     previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
-        cb.checked = true;
-        cb.closest('.preview-block-row')?.classList.remove('unchecked');
+        cb.checked = checked;
+        cb.closest('.preview-block-row')?.classList.toggle('unchecked', !checked);
     });
-});
+}
 
-deselectAllBtn.addEventListener('click', () => {
-    previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
-        cb.checked = false;
-        cb.closest('.preview-block-row')?.classList.add('unchecked');
-    });
-});
+selectAllBtn.addEventListener('click', () => setAllCheckboxes(true));
+deselectAllBtn.addEventListener('click', () => setAllCheckboxes(false));
 
 previewCancelBtn.addEventListener('click', () => {
     hidePreview();

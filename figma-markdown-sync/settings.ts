@@ -138,7 +138,7 @@ function isValidTheme(value: unknown): value is Theme {
  */
 export function resolveThemeSettings(theme: Theme): Partial<PluginSettings> {
     if (theme === 'custom') return {};
-    return { ...THEME_PRESETS[theme] };
+    return THEME_PRESETS[theme];
 }
 
 // ─── Width Mode ────────────────────────────────────────────────────────────────
