@@ -101,6 +101,15 @@ export interface FlattenContext {
     link: string | undefined;
 }
 
+/** Default FlattenContext with no formatting applied. */
+export const DEFAULT_FLATTEN_CONTEXT: FlattenContext = {
+    bold: false,
+    italic: false,
+    code: false,
+    strikethrough: false,
+    link: undefined,
+};
+
 /**
  * Recursively flattens a tree of inline marked tokens into a flat array of
  * StyledSegments. Each segment carries the accumulated formatting from its
@@ -380,6 +389,6 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens };
+    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT };
 }
 

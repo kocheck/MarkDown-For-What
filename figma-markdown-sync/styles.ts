@@ -21,7 +21,7 @@
  */
 
 import type { marked } from 'marked';
-import { flattenTokens } from './parser';
+import { flattenTokens, DEFAULT_FLATTEN_CONTEXT } from './parser';
 import { errorMessage, hexToRgb } from './utils';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
@@ -68,6 +68,9 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
 
 /** Link color (#0969DA) — GitHub-style blue for inline hyperlinks */
 const LINK_COLOR: RGB = hexToRgb('#0969DA');
+
+/** Only absolute http(s) URLs are rendered as clickable hyperlinks in Figma. */
+const HTTP_URL_RE = /^https?:\/\//i;
 
 // ─── Font Loading ──────────────────────────────────────────────────────────────
 
@@ -200,7 +203,7 @@ export async function applyInlineStyles(
 ): Promise<void> {
     if (!tokens || tokens.length === 0) return;
 
-    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false, strikethrough: false, link: undefined });
+    const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
     const fullText = segments.map(s => s.text).join('');
     node.characters = fullText;
 
@@ -241,7 +244,7 @@ export async function applyInlineStyles(
 
                 if (segment.link) {
                     const trimmedLink = segment.link.trim();
-                    if (trimmedLink.length > 0 && /^https?:\/\//i.test(trimmedLink)) {
+                    if (trimmedLink.length > 0 && HTTP_URL_RE.test(trimmedLink)) {
                         node.setRangeHyperlink(start, end, { type: 'URL', value: trimmedLink });
                         // Figma supports one text decoration per range. When a link is also
                         // struck through, keep STRIKETHROUGH rather than overwriting with UNDERLINE.
