@@ -386,6 +386,45 @@ describe('renderBlocks', () => {
         });
     });
 
+    describe('task list rendering', () => {
+        it('renders taskListItem with checkbox visual', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Do the thing', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Done thing', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // Task items should be grouped in a list group
+            expect(result.frame.children).toHaveLength(1);
+            const listGroup = result.frame.children[0] as any;
+            expect(listGroup.children).toHaveLength(2);
+
+            // Each task item should be a frame (horizontal auto layout: checkbox + text)
+            expect(listGroup.children[0].type).toBe('FRAME');
+            expect(listGroup.children[0].layoutMode).toBe('HORIZONTAL');
+        });
+
+        it('uses checkbox prefix characters', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Find text nodes inside the task frames
+            const uncheckedFrame = listGroup.children[0] as any;
+            const checkedFrame = listGroup.children[1] as any;
+
+            // The checkbox rectangle should exist as first child
+            expect(uncheckedFrame.children[0].type).toBe('RECTANGLE');
+            // Text node should be second child
+            expect(uncheckedFrame.children[1].type).toBe('TEXT');
+        });
+    });
+
     describe('async API usage', () => {
         it('calls setTextStyleIdAsync on heading blocks', async () => {
             const blocks: Block[] = [

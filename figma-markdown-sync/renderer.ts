@@ -424,12 +424,57 @@ async function renderOrderedListBlock(block: Block): Promise<TextNode> {
 }
 
 /**
- * Renders a task list item. Placeholder that delegates to renderListBlock
- * until Task 11 implements proper checkbox rendering.
+ * Renders a task list item as a horizontal frame containing a checkbox rectangle and text node.
  */
-async function renderTaskListBlock(block: Block): Promise<SceneNode> {
-    // TODO: Task 11 will implement proper checkbox rendering
-    return renderListBlock(block);
+async function renderTaskListBlock(block: Block): Promise<FrameNode> {
+    const taskFrame = figma.createFrame();
+    taskFrame.name = block.checked ? 'Task (done)' : 'Task';
+    taskFrame.layoutMode = 'HORIZONTAL';
+    taskFrame.itemSpacing = 8;
+    taskFrame.primaryAxisSizingMode = 'FIXED';
+    taskFrame.counterAxisSizingMode = 'AUTO';
+    taskFrame.layoutAlign = 'STRETCH';
+    taskFrame.fills = [];
+
+    const depth = block.depth ?? 0;
+    if (depth > 0) {
+        taskFrame.paddingLeft = depth * INDENT_PER_DEPTH;
+    }
+
+    // Checkbox rectangle
+    const checkbox = figma.createRectangle();
+    checkbox.name = block.checked ? 'Checked' : 'Unchecked';
+    checkbox.resize(16, 16);
+    checkbox.cornerRadius = 3;
+    if (block.checked) {
+        checkbox.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } }];
+    } else {
+        checkbox.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
+        checkbox.strokes = [{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }];
+        checkbox.strokeWeight = 1;
+    }
+
+    // Text node
+    const textNode = figma.createText();
+    const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
+    await textNode.setTextStyleIdAsync(style.id);
+    textNode.layoutAlign = 'STRETCH';
+    textNode.layoutGrow = 1;
+
+    if (block.tokens && block.tokens.length > 0) {
+        await applyInlineStyles(textNode, block.tokens, STYLE_NAMES.LIST);
+    } else {
+        textNode.characters = block.content ?? '';
+    }
+
+    // Dim checked items
+    if (block.checked) {
+        textNode.opacity = 0.6;
+    }
+
+    taskFrame.appendChild(checkbox);
+    taskFrame.appendChild(textNode);
+    return taskFrame;
 }
 
 /**

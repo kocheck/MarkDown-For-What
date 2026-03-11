@@ -514,6 +514,38 @@ describe('parseMarkdownToBlocks — nested lists', () => {
     });
 });
 
+describe('parseMarkdownToBlocks — task lists', () => {
+    test('should parse task list items as taskListItem blocks', () => {
+        const markdown = '- [ ] Unchecked\n- [x] Checked\n- [ ] Another';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        expect(taskBlocks).toHaveLength(3);
+        expect(taskBlocks[0].checked).toBe(false);
+        expect(taskBlocks[0].content).toContain('Unchecked');
+        expect(taskBlocks[1].checked).toBe(true);
+        expect(taskBlocks[1].content).toContain('Checked');
+    });
+
+    test('task list items always have depth 0 (flat per spec)', () => {
+        const markdown = '- [ ] Unchecked\n- [x] Checked';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        taskBlocks.forEach((b: Block) => expect(b.depth).toBe(0));
+    });
+
+    test('should handle mixed regular and task list items', () => {
+        const markdown = '- Regular item\n- [ ] Task item\n- Another regular';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(taskBlocks).toHaveLength(1);
+        expect(listBlocks).toHaveLength(2);
+    });
+});
+
 describe('Regression Tests', () => {
     test('should handle image with title attribute', () => {
         const markdown = '![Alt text](https://example.com/img.png "Image Title")';
