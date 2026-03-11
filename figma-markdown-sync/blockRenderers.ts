@@ -15,7 +15,7 @@
  */
 
 import type { Block, CalloutType } from './parser';
-import type { PluginSettings } from './settings';
+import type { PluginSettings, ComponentBindings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import type { marked } from 'marked';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles } from './styles';
@@ -566,6 +566,88 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
     return errFrame;
 }
 
+// ─── Component Output Mode ───────────────────────────────────────────────────
+
+/**
+ * Recursively searches a node tree for a text layer whose name matches one
+ * of the given names (e.g. '#content', '#body'). Returns the first match.
+ */
+function findTextLayerByName(node: SceneNode, names: string[]): TextNode | null {
+    if (node.type === 'TEXT' && names.includes(node.name)) {
+        return node as TextNode;
+    }
+    if ('children' in node && Array.isArray((node as any).children)) {
+        for (const child of (node as FrameNode).children) {
+            const found = findTextLayerByName(child, names);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+/**
+ * Attempts to render a block using a component instance from Component Output Mode.
+ * Returns the populated instance node if successful, or null if the component
+ * binding doesn't exist, the component can't be found, or no #content layer exists.
+ *
+ * @param block - The block to render
+ * @param bindingKey - The key in ComponentBindings to look up
+ * @param bindings - The component bindings from settings
+ * @param titleText - Optional text for the #title/#label layer
+ */
+export async function tryRenderWithComponent(
+    block: Block,
+    bindingKey: keyof ComponentBindings,
+    bindings: ComponentBindings | undefined,
+    titleText?: string,
+): Promise<SceneNode | null> {
+    if (!bindings) return null;
+    const componentId = bindings[bindingKey];
+    if (!componentId) return null;
+
+    try {
+        const component = await figma.getNodeByIdAsync(componentId);
+        if (!component || component.type !== 'COMPONENT') {
+            console.warn(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
+            return null;
+        }
+
+        const instance = (component as ComponentNode).createInstance();
+        instance.layoutAlign = 'STRETCH';
+
+        // Find and populate #content / #body text layer
+        const contentLayer = findTextLayerByName(instance, ['#content', '#body']);
+        if (!contentLayer) {
+            console.warn(`[MarkDown For What] Component "${component.name}" has no #content or #body text layer — falling back to default rendering`);
+            instance.remove();
+            return null;
+        }
+
+        // Load font used by the content layer before setting characters
+        await figma.loadFontAsync(contentLayer.fontName as FontName);
+
+        if (block.tokens && block.tokens.length > 0) {
+            await applyInlineStyles(contentLayer, block.tokens, STYLE_NAMES.BODY);
+        } else {
+            contentLayer.characters = block.content ?? '';
+        }
+
+        // Populate optional #title / #label layer
+        if (titleText) {
+            const titleLayer = findTextLayerByName(instance, ['#title', '#label']);
+            if (titleLayer) {
+                await figma.loadFontAsync(titleLayer.fontName as FontName);
+                titleLayer.characters = titleText;
+            }
+        }
+
+        return instance;
+    } catch (err) {
+        console.warn(`[MarkDown For What] Component output failed for "${bindingKey}":`, err);
+        return null;
+    }
+}
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -581,5 +663,6 @@ if (typeof module !== 'undefined' && module.exports) {
         renderMathBlock,
         createImageNode,
         createErrorPlaceholder,
+        tryRenderWithComponent,
     };
 }

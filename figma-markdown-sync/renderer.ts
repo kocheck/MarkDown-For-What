@@ -47,6 +47,7 @@ import {
     renderMathBlock,
     createImageNode,
     createErrorPlaceholder,
+    tryRenderWithComponent,
 } from './blockRenderers';
 
 /** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
@@ -304,6 +305,9 @@ export async function renderBlocks(
  * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
  */
 async function renderBlock(block: Block, settings: PluginSettings): Promise<SceneNode | null> {
+    // Try Component Output Mode for supported block types
+    const cb = settings.componentBindings;
+
     switch (block.type) {
         case 'heading': {
             const node = figma.createText();
@@ -322,12 +326,18 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         case 'quote': {
+            const compNode = await tryRenderWithComponent(block, 'blockquote', cb);
+            if (compNode) return compNode;
+
             const node = figma.createText();
             await applyTextStyle(node, block, STYLE_NAMES.QUOTE, settings.styleBindings);
             return node;
         }
 
         case 'code': {
+            const compNode = await tryRenderWithComponent(block, 'codeBlock', cb, block.language || undefined);
+            if (compNode) return compNode;
+
             const codeFrame = figma.createFrame();
             codeFrame.layoutMode = 'VERTICAL';
             codeFrame.primaryAxisSizingMode = 'AUTO';
@@ -360,14 +370,23 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         }
 
         case 'table': {
+            const compNode = await tryRenderWithComponent(block, 'table', cb);
+            if (compNode) return compNode;
+
             return await createTableFrame(block, settings);
         }
 
         case 'image': {
+            const compNode = await tryRenderWithComponent(block, 'image', cb, block.imageAlt || undefined);
+            if (compNode) return compNode;
+
             return await createImageNode(block, settings);
         }
 
         case 'callout': {
+            const compNode = await tryRenderWithComponent(block, 'callout', cb, block.calloutType ?? 'note');
+            if (compNode) return compNode;
+
             return await renderCalloutBlock(block);
         }
 

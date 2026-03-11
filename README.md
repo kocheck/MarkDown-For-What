@@ -20,39 +20,58 @@
 
 No copy-paste. No style hunting. No duplicates.
 
-Currently available as a **Figma plugin**. Sketch support coming.
+Currently available as a **Figma plugin**.
 
 ![Plugin Preview](./assets/preview.png)
 
 ## Features
 
-- **Structured Auto Layout**: Imports markdown as a vertical Auto Layout frame with separate layers for each element.
-  - **Headings** (H1, H2, H3)
-  - **Paragraphs**
-  - **Lists** (Bulleted)
-  - **Code Blocks** (Wrapped in styled frames)
-  - **Tables** (GFM-style with alignment support)
-  - **Images** (Fetched from URLs and embedded)
-- **Automatic Styling**:
-  - Generates local Text Styles (`Markdown/H1`, `Markdown/Body`, etc.) automatically.
-  - Supports inline **Bold** (`**text**`), *Italic* (`*text*`), and `Code` spans.
-- **Table Support**:
-  - Renders GitHub Flavored Markdown tables as Auto Layout frames
-  - Header row with distinct background styling
-  - Supports left, center, and right text alignment (`:---`, `:---:`, `---:`)
-  - Visual cell borders for clear separation
-- **Image Support**:
-  - Automatically fetches and embeds images from URLs
-  - Scales images to fit frame width while maintaining aspect ratio
-  - Error handling with placeholder for failed image loads
-  - Supports standard markdown syntax: `![Alt Text](https://example.com/image.png)`
-- **Smart Font Management**:
-  - Uses `Inter` for UI text and `Roboto Mono` for code.
-  - Handles font loading and fallbacks.
-- **Batch Operations**:
-  - **Drag & Drop**: Simply drag multiple markdown files into the plugin window.
-  - **Auto-Mapping**: Matches file names to existing Frame or Layer names to replace content, or creates new Frames if no match is found.
-- **Content Cleaning**: Automatically strips YAML front matter (`--- ... ---`) to keep your designs clean.
+### Content Types
+
+- **Headings** (H1, H2, H3) with auto-generated text styles
+- **Paragraphs** with full inline formatting
+- **Bullet Lists** with nested sub-bullets (up to 4 depth levels with distinct bullet styles)
+- **Ordered Lists** with automatic numbering and nesting support
+- **Task Lists / Checklists** — `- [ ]` and `- [x]` render as styled checkbox rows
+- **Code Blocks** with language labels, styled background frames
+- **Tables** — GFM-style with left/center/right alignment, header styling, cell borders
+- **Images** — fetched from URLs, scaled to fit frame width with aspect ratio preserved
+- **Blockquotes** with left border styling
+- **Horizontal Rules** as visual separators
+- **Callout / Admonition Blocks** — `> [!NOTE]`, `> [!TIP]`, `> [!WARNING]`, `> [!IMPORTANT]`, `> [!CAUTION]` with colored borders, backgrounds, and labels
+- **Definition Lists** — `Term` / `: Definition` syntax with bold terms and indented definitions
+- **Footnotes** — `[^1]` inline references with a collected footnote section at the bottom
+- **Badge / Tag Pills** — `[badge:Label]` or `[badge:Label:color]` rendered as colored pill shapes; also extracts YAML frontmatter `tags`
+- **Mermaid Diagrams** — ` ```mermaid ` code blocks rendered as styled placeholder frames with source
+- **Math / LaTeX Blocks** — `$$ ... $$` rendered as styled frames with the LaTeX source
+- **Table of Contents** — auto-generated from headings (opt-in via settings)
+
+### Inline Formatting
+
+- **Bold** (`**text**`), **Italic** (`*text*`), **Inline Code** (`` `code` ``)
+- **Strikethrough** (`~~text~~`)
+- **Inline Links** (`[text](url)`) with underline decoration and clickable hyperlinks
+
+### Styling & Themes
+
+- **Theme Presets** — Minimal Light, Dark Mode, Documentation, or Custom
+- **Style Binding** — map Markdown elements (H1, Body, Code, etc.) to your existing local Figma text styles instead of generating new ones
+- **Responsive Width Modes** — Narrow (480px), Medium (800px), Wide (960px), or Custom pixel width
+- **Configurable Spacing** — block spacing, list spacing, frame padding
+- **Custom Colors** — code block background, table header background, separator color, frame fill color
+- **Component-Ready Naming** — optional layer naming mode for design system workflows
+- **Component Output Mode** — map block types (code, blockquote, callout, table, image) to your own Figma components; the plugin instantiates them and populates `#content`/`#title` text layers automatically
+
+### Plugin UX
+
+- **Drag & Drop** — drop multiple `.md`, `.markdown`, or `.txt` files at once
+- **Paste Markdown** — paste raw Markdown text directly with an optional custom frame name
+- **Live Preview** — see a styled HTML preview of parsed content before importing to canvas
+- **Selective Block Import** — toggle individual blocks on/off with per-block checkboxes before importing
+- **Import History** — timestamped log of past imports with block counts
+- **In-Place Updates** — matches file names to existing frames and replaces content, preserving position
+- **Batch Operations** — import multiple files simultaneously
+- **Content Cleaning** — automatically strips YAML front matter (`--- ... ---`)
 
 ## Installation
 
@@ -95,14 +114,16 @@ Currently available as a **Figma plugin**. Sketch support coming.
    - If a layer with the same name already exists, it will be **replaced/updated** with the new content, preserving its position.
 
 ### Styles
-The plugin automatically creates the following local styles if they don't exist:
+The plugin automatically creates local text styles if they don't exist:
 - `Markdown/H1`, `Markdown/H2`, `Markdown/H3`
 - `Markdown/Body`
 - `Markdown/Quote`
 - `Markdown/Code`
 - `Markdown/List`
 
-You can edit these styles in Figma to globally update the look of your imported documents!
+You can edit these styles in Figma to globally update the look of your imported documents.
+
+Alternatively, use **Style Binding** in the Settings tab to map each element to your own existing text styles — no `Markdown/*` styles created.
 
 ## Development
 

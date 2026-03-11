@@ -949,4 +949,110 @@ describe('renderBlocks', () => {
             expect(listGroup.children[1].name).toBe('List/Unordered — Item 2');
         });
     });
+
+    describe('component output mode', () => {
+        it('should fall back to default rendering when component binding points to non-existent node', async () => {
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(null);
+            const blocks: Block[] = [
+                { type: 'code', content: 'console.log("hi")', language: 'js' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { codeBlock: 'nonexistent-id' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            expect(result.frame.children.length).toBe(1);
+            // Should render as normal code frame, not crash
+            expect(result.frame.children[0].type).toBe('FRAME');
+        });
+
+        it('should fall back when component has no #content layer', async () => {
+            // Mock a component node whose instance has no #content layer
+            const mockInstance = {
+                type: 'INSTANCE',
+                layoutAlign: 'MIN',
+                children: [
+                    { type: 'RECTANGLE', name: 'background', children: undefined },
+                ],
+                remove: jest.fn(),
+            };
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'My Code Block',
+                createInstance: jest.fn(() => mockInstance),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+
+            const blocks: Block[] = [
+                { type: 'code', content: 'hello', language: 'py' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { codeBlock: 'comp-123' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            // Should fall back and render as normal code frame
+            expect(mockInstance.remove).toHaveBeenCalled();
+            expect(result.frame.children[0].type).toBe('FRAME');
+        });
+
+        it('should use component instance when #content layer exists', async () => {
+            const contentLayer = {
+                type: 'TEXT',
+                name: '#content',
+                characters: '',
+                fontName: { family: 'Inter', style: 'Regular' },
+                fontSize: 16,
+                fills: [],
+                layoutAlign: 'MIN',
+                layoutGrow: 0,
+                textAlignHorizontal: 'LEFT',
+                paragraphIndent: 0,
+                opacity: 1,
+                parent: null,
+                setRangeFontName: jest.fn(),
+                setRangeTextDecoration: jest.fn(),
+                setRangeHyperlink: jest.fn(),
+                setRangeFills: jest.fn(),
+                insertCharacters: jest.fn(),
+                remove: jest.fn(),
+                setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
+            };
+            const mockInstance = {
+                type: 'INSTANCE',
+                name: 'My Code Block',
+                layoutAlign: 'MIN',
+                children: [contentLayer],
+                remove: jest.fn(),
+            };
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'My Code Block',
+                createInstance: jest.fn(() => mockInstance),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+
+            const blocks: Block[] = [
+                { type: 'quote', content: 'A wise saying' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { blockquote: 'comp-456' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            // Should use the component instance
+            expect(mockComponent.createInstance).toHaveBeenCalled();
+            expect(contentLayer.characters).toBe('A wise saying');
+            expect(result.frame.children[0]).toBe(mockInstance);
+        });
+
+        it('should render normally when componentBindings is empty', async () => {
+            const blocks: Block[] = [
+                { type: 'quote', content: 'Normal quote' },
+            ];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            expect(result.frame.children.length).toBe(1);
+            expect(result.frame.children[0].type).toBe('TEXT');
+        });
+    });
 });

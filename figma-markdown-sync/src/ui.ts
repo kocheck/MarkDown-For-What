@@ -59,6 +59,9 @@ const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 // Style binding selects
 const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
 
+// Component binding selects
+const componentBindingSelects = document.querySelectorAll<HTMLSelectElement>('.component-binding-select');
+
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
@@ -98,6 +101,7 @@ tabs.forEach(tab => {
         if (tab.dataset.tab === 'settings') {
             parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
             parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
+            parent.postMessage({ pluginMessage: { type: 'get-local-components' } }, '*');
         }
         if (tab.dataset.tab === 'history') {
             parent.postMessage({ pluginMessage: { type: 'get-history' } }, '*');
@@ -362,6 +366,14 @@ function populateSettings(settings: Record<string, unknown>) {
         else select.value = 'auto';
     });
 
+    // Handle component bindings
+    const compBindings = (settings.componentBindings ?? {}) as Record<string, string>;
+    componentBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && compBindings[key]) select.value = compBindings[key];
+        else select.value = '';
+    });
+
     // Handle width mode visibility
     updateCustomWidthVisibility();
 }
@@ -376,6 +388,25 @@ function populateStyleDropdowns(textStyles: Array<{ id: string; name: string }>)
             const opt = document.createElement('option');
             opt.value = style.id;
             opt.textContent = style.name;
+            select.appendChild(opt);
+        }
+        // Restore previous selection if it still exists
+        if (currentValue && Array.from(select.options).some(o => o.value === currentValue)) {
+            select.value = currentValue;
+        }
+    });
+}
+
+function populateComponentDropdowns(components: Array<{ id: string; name: string }>) {
+    componentBindingSelects.forEach(select => {
+        const currentValue = select.value;
+        // Clear all options except "None"
+        while (select.options.length > 1) select.remove(1);
+        // Add each local component as an option
+        for (const comp of components) {
+            const opt = document.createElement('option');
+            opt.value = comp.id;
+            opt.textContent = comp.name;
             select.appendChild(opt);
         }
         // Restore previous selection if it still exists
@@ -453,6 +484,13 @@ function setupSettingListeners() {
         });
     });
 
+    // Component binding selects
+    componentBindingSelects.forEach(select => {
+        select.addEventListener('change', () => {
+            sendCurrentSettings();
+        });
+    });
+
     document.getElementById('reset-btn')?.addEventListener('click', () => {
         parent.postMessage({ pluginMessage: { type: 'reset-settings' } }, '*');
     });
@@ -485,6 +523,16 @@ function sendCurrentSettings() {
         }
     });
     settings.styleBindings = styleBindings;
+
+    // Include component bindings
+    const componentBindings: Record<string, string> = {};
+    componentBindingSelects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && select.value !== '') {
+            componentBindings[key] = select.value;
+        }
+    });
+    settings.componentBindings = componentBindings;
 
     // Determine active theme
     const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
@@ -573,6 +621,9 @@ window.onmessage = event => {
             break;
         case 'local-styles':
             populateStyleDropdowns(msg.textStyles ?? []);
+            break;
+        case 'local-components':
+            populateComponentDropdowns(msg.components ?? []);
             break;
         case 'history':
             renderHistory(msg.entries ?? []);

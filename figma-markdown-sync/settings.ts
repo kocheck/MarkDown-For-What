@@ -57,6 +57,8 @@ export interface PluginSettings {
     styleBindings: StyleBindings;
     /** When true, use semantic component-ready layer names (e.g. "Heading/H1", "Body/Paragraph"). */
     componentNames: boolean;
+    /** Mappings from block types to Figma component IDs for Component Output Mode. */
+    componentBindings: ComponentBindings;
 }
 
 /** Maps block element types to Figma style IDs. 'auto' or absent = use default Markdown/* styles. */
@@ -70,6 +72,19 @@ export interface StyleBindings {
     quote?: string;
     codeBg?: string;
     tableBg?: string;
+}
+
+/**
+ * Maps block types to Figma component IDs for Component Output Mode.
+ * When a binding is set, the renderer creates an instance of the component
+ * and populates #content/#title text layers instead of building from scratch.
+ */
+export interface ComponentBindings {
+    codeBlock?: string;
+    blockquote?: string;
+    callout?: string;
+    table?: string;
+    image?: string;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────────────────────
@@ -92,6 +107,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     frameFillColor: '#FFFFFF',
     styleBindings: {},
     componentNames: false,
+    componentBindings: {},
 };
 
 const STORAGE_KEY = 'pluginSettings';
@@ -249,6 +265,20 @@ function isValidStyleBindings(value: unknown): boolean {
     return true;
 }
 
+const VALID_COMPONENT_BINDING_KEYS = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
+
+/** Returns true if value is a valid ComponentBindings object (plain object with string values). */
+function isValidComponentBindings(value: unknown): boolean {
+    if (value === undefined || value === null) return false;
+    if (typeof value !== 'object' || Array.isArray(value)) return false;
+    const obj = value as Record<string, unknown>;
+    for (const key of Object.keys(obj)) {
+        if (!VALID_COMPONENT_BINDING_KEYS.includes(key)) return false;
+        if (typeof obj[key] !== 'string') return false;
+    }
+    return true;
+}
+
 // ─── Public API ────────────────────────────────────────────────────────────────
 
 /**
@@ -276,7 +306,8 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
         isValidTheme(s.theme) &&
         isValidHex(s.frameFillColor) &&
         isValidStyleBindings(s.styleBindings) &&
-        typeof s.componentNames === 'boolean'
+        typeof s.componentNames === 'boolean' &&
+        isValidComponentBindings(s.componentBindings)
     );
 }
 
@@ -329,6 +360,7 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
         frameFillColor:        isValidHex(p.frameFillColor)           ? (p.frameFillColor as string)        : DEFAULT_SETTINGS.frameFillColor,
         styleBindings:         isValidStyleBindings(p.styleBindings)  ? (p.styleBindings as StyleBindings)  : { ...DEFAULT_SETTINGS.styleBindings },
         componentNames:        typeof p.componentNames === 'boolean'   ? p.componentNames                     : DEFAULT_SETTINGS.componentNames,
+        componentBindings:     isValidComponentBindings(p.componentBindings) ? (p.componentBindings as ComponentBindings) : { ...DEFAULT_SETTINGS.componentBindings },
     };
     // Keep frameWidth in sync with resolved width for backwards compat
     merged.frameWidth = resolvedFrameWidth(merged);

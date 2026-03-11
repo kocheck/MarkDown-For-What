@@ -125,6 +125,7 @@ function makeMockRectangle(): any {
     })),
     getLocalTextStylesAsync: jest.fn().mockResolvedValue([]),
     getStyleByIdAsync: jest.fn().mockResolvedValue(null),
+    getNodeByIdAsync: jest.fn().mockResolvedValue(null),
     createImageAsync: jest.fn().mockResolvedValue({
         hash: 'mock-hash',
         getSizeAsync: jest.fn().mockResolvedValue({ width: 800, height: 600 }),
