@@ -24,7 +24,7 @@ import { errorMessage } from './utils';
  * Each block maps to one visual element in the Figma frame.
  */
 export interface Block {
-    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image';
+    type: 'heading' | 'paragraph' | 'list' | 'code' | 'quote' | 'separator' | 'table' | 'image' | 'orderedListItem' | 'taskListItem' | 'callout' | 'toc';
     content?: string;     // Plain text content for text-based blocks
     level?: number;       // Heading depth: 1, 2, or 3
     language?: string;    // Code language hint (e.g. 'javascript')
@@ -36,6 +36,16 @@ export interface Block {
     // Image-specific
     imageUrl?: string;
     imageAlt?: string;
+    // List-specific
+    depth?: number;
+    // Ordered list-specific
+    index?: number;
+    // Task list-specific
+    checked?: boolean;
+    // Callout-specific
+    calloutType?: CalloutType;
+    // TOC-specific
+    tocEntries?: Array<{ text: string; level: number }>;
 }
 
 /**
@@ -47,6 +57,8 @@ export interface StyledSegment {
     bold?: boolean;
     italic?: boolean;
     code?: boolean;
+    strikethrough?: boolean;
+    link?: string;
 }
 
 // ─── Helpers (exported for testability) ────────────────────────────────────────
@@ -82,36 +94,64 @@ export function extractImagesFromTokens(tokens: marked.Token[]): {
 }
 
 /**
+ * Inherited formatting state passed through recursive token flattening.
+ * All fields are explicit — string fields use `undefined` to indicate absence.
+ */
+export interface FlattenContext {
+    bold: boolean;
+    italic: boolean;
+    code: boolean;
+    strikethrough: boolean;
+    link: string | undefined;
+}
+
+/** Default FlattenContext with no formatting applied. */
+export const DEFAULT_FLATTEN_CONTEXT: FlattenContext = {
+    bold: false,
+    italic: false,
+    code: false,
+    strikethrough: false,
+    link: undefined,
+};
+
+/**
  * Recursively flattens a tree of inline marked tokens into a flat array of
  * StyledSegments. Each segment carries the accumulated formatting from its
- * ancestor tokens (bold, italic, code).
+ * ancestor tokens (bold, italic, code, strikethrough, link).
  *
  * @param tokens  - Inline token array (from a paragraph, heading, list item, etc.)
  * @param context - Inherited formatting state from parent tokens
  * @returns Flat array of styled text segments
  *
  * @example
- * const segments = flattenTokens(heading.tokens, { bold: false, italic: false, code: false });
+ * const segments = flattenTokens(heading.tokens, {
+ *     bold: false, italic: false, code: false, strikethrough: false, link: undefined,
+ * });
  * // → [{ text: 'Hello ', bold: false }, { text: 'World', bold: true }]
  */
 export function flattenTokens(
     tokens: marked.Token[],
-    context: { bold: boolean; italic: boolean; code: boolean }
+    context: FlattenContext
 ): StyledSegment[] {
-    let segments: StyledSegment[] = [];
+    const segments: StyledSegment[] = [];
 
     if (!tokens) return segments;
 
     for (const token of tokens) {
         switch (token.type) {
             case 'strong':
-                segments = segments.concat(
-                    flattenTokens((token as marked.Tokens.Strong).tokens, { ...context, bold: true })
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Strong).tokens, { ...context, bold: true })
                 );
                 break;
             case 'em':
-                segments = segments.concat(
-                    flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true })
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true })
+                );
+                break;
+            case 'del':
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Del).tokens, { ...context, strikethrough: true })
                 );
                 break;
             case 'codespan':
@@ -120,15 +160,20 @@ export function flattenTokens(
             case 'text':
                 const tToken = token as marked.Tokens.Text;
                 if (tToken.tokens) {
-                    segments = segments.concat(flattenTokens(tToken.tokens, context));
+                    segments.push(...flattenTokens(tToken.tokens, context));
                 } else {
                     segments.push({ text: tToken.text, ...context });
                 }
                 break;
             case 'link':
-                // Links render as plain text — URL is not shown in the Figma output
                 const lToken = token as marked.Tokens.Link;
-                segments.push({ text: lToken.text, ...context });
+                if (lToken.tokens) {
+                    segments.push(
+                        ...flattenTokens(lToken.tokens, { ...context, link: lToken.href })
+                    );
+                } else {
+                    segments.push({ text: lToken.text, ...context, link: lToken.href });
+                }
                 break;
             default:
                 if ('text' in token) {
@@ -138,6 +183,117 @@ export function flattenTokens(
         }
     }
     return segments;
+}
+
+// ─── List Helpers ──────────────────────────────────────────────────────────────
+
+/** Maximum recursion depth for nested lists to prevent stack overflow from pathological input. */
+const MAX_LIST_DEPTH = 10;
+
+/**
+ * Recursively flattens nested list items into a flat array of Blocks with depth annotations.
+ * marked represents nesting via child list tokens inside ListItem.tokens arrays.
+ *
+ * @param items    - Array of ListItem tokens from a marked List
+ * @param depth    - Current nesting depth (0 for top-level)
+ * @param ordered  - Whether this list level is ordered
+ * @param startNum - Starting number for ordered lists at this level
+ * @returns Flat array of Block objects with depth annotations
+ */
+function flattenListItems(
+    items: marked.Tokens.ListItem[],
+    depth: number,
+    ordered: boolean,
+    startNum: number
+): Block[] {
+    if (depth > MAX_LIST_DEPTH) {
+        console.warn(`[MarkDown For What] List nesting depth ${depth} exceeds maximum (${MAX_LIST_DEPTH}) — flattening remaining items`);
+        return items.map((item, idx) => ({
+            type: (ordered ? 'orderedListItem' : 'list') as Block['type'],
+            content: item.text?.trim() ?? '',
+            tokens: (item.tokens ?? []).filter(t => t.type !== 'list'),
+            depth: 3,
+            ...(ordered ? { index: startNum + idx } : {}),
+        }));
+    }
+
+    const clampedDepth = Math.min(depth, 3);
+    const result: Block[] = [];
+
+    items.forEach((item, idx) => {
+        // Extract only the non-list tokens for this item's content.
+        // IMPORTANT: item.text includes text from nested children, so we
+        // cannot use it directly. Instead, filter item.tokens to exclude
+        // nested list tokens, then reconstruct content from those.
+        const ownTokens = (item.tokens ?? []).filter(t => t.type !== 'list');
+        const ownText = ownTokens.map(t => 'text' in t ? (t as any).text : t.raw).join('').trim();
+
+        // Emit the item itself
+        if (item.task) {
+            result.push({
+                type: 'taskListItem',
+                content: ownText,
+                tokens: ownTokens,
+                depth: 0, // Plugin renders task lists flat (nesting not yet supported)
+                checked: item.checked ?? false,
+            });
+        } else if (ordered) {
+            result.push({
+                type: 'orderedListItem',
+                content: ownText,
+                tokens: ownTokens,
+                depth: clampedDepth,
+                index: startNum + idx,
+            });
+        } else {
+            result.push({
+                type: 'list',
+                content: ownText,
+                tokens: ownTokens,
+                depth: clampedDepth,
+            });
+        }
+
+        // Recurse into any nested lists inside this item's tokens
+        if (item.tokens) {
+            for (const subToken of item.tokens) {
+                if (subToken.type === 'list') {
+                    const subList = subToken as marked.Tokens.List;
+                    result.push(
+                        ...flattenListItems(
+                            subList.items,
+                            depth + 1,
+                            subList.ordered,
+                            typeof subList.start === 'number' ? subList.start : 1
+                        )
+                    );
+                }
+            }
+        }
+    });
+
+    return result;
+}
+
+// ─── Callout Detection ──────────────────────────────────────────────────────────
+
+const CALLOUT_REGEX = /^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*/i;
+const VALID_CALLOUT_TYPES = ['note', 'tip', 'important', 'warning', 'caution'] as const;
+export type CalloutType = typeof VALID_CALLOUT_TYPES[number];
+
+function parseCallout(text: string): { calloutType: CalloutType; body: string } | null {
+    const match = text.match(CALLOUT_REGEX);
+    if (!match) return null;
+    const type = match[1].toLowerCase();
+    if (!(VALID_CALLOUT_TYPES as readonly string[]).includes(type)) return null;
+    const body = text.slice(match[0].length).replace(/^\n+/, '').trim();
+    return { calloutType: type as CalloutType, body };
+}
+
+// ─── Parse Options ──────────────────────────────────────────────────────────────
+
+export interface ParseOptions {
+    generateToc?: boolean;
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -156,9 +312,19 @@ export function flattenTokens(
  * const blocks = parseMarkdownToBlocks('# Hello\n\nSome paragraph');
  * // → [{ type: 'heading', level: 1, content: 'Hello' }, { type: 'paragraph', ... }]
  */
-export function parseMarkdownToBlocks(markdown: string): Block[] {
+export function parseMarkdownToBlocks(markdown: string, options?: ParseOptions): Block[] {
     const frontMatterRegex = /^---[\s\S]*?---\r?\n/;
-    const cleanMarkdown = markdown.replace(frontMatterRegex, '');
+    const frontMatterMatch = markdown.match(frontMatterRegex);
+
+    // Check frontmatter for toc: true
+    let tocFromFrontmatter = false;
+    if (frontMatterMatch) {
+        tocFromFrontmatter = /^toc:\s*true\s*$/m.test(frontMatterMatch[0]);
+    }
+
+    const cleanMarkdown = frontMatterMatch
+        ? markdown.slice(frontMatterMatch[0].length)
+        : markdown;
 
     let tokens: marked.TokensList;
     try {
@@ -223,14 +389,29 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
             }
             case 'blockquote': {
                 const bToken = token as marked.Tokens.Blockquote;
-                blocks.push({ type: 'quote', content: bToken.text });
+                const calloutResult = parseCallout(bToken.text);
+                if (calloutResult) {
+                    blocks.push({
+                        type: 'callout',
+                        calloutType: calloutResult.calloutType,
+                        content: calloutResult.body,
+                        tokens: bToken.tokens,
+                    });
+                } else {
+                    blocks.push({ type: 'quote', content: bToken.text });
+                }
                 break;
             }
             case 'list': {
                 const listToken = token as marked.Tokens.List;
-                for (const item of listToken.items) {
-                    blocks.push({ type: 'list', content: item.text, tokens: item.tokens });
-                }
+                blocks.push(
+                    ...flattenListItems(
+                        listToken.items,
+                        0,
+                        listToken.ordered,
+                        typeof listToken.start === 'number' ? listToken.start : 1
+                    )
+                );
                 break;
             }
             case 'table': {
@@ -248,10 +429,25 @@ export function parseMarkdownToBlocks(markdown: string): Block[] {
                 break;
         }
     }
+
+    // Generate TOC if requested via option or frontmatter
+    const shouldGenerateToc = options?.generateToc || tocFromFrontmatter;
+    if (shouldGenerateToc) {
+        const headings = blocks.filter(b => b.type === 'heading');
+        if (headings.length > 0) {
+            const tocBlock: Block = {
+                type: 'toc',
+                tocEntries: headings.map(h => ({ text: h.content ?? '', level: h.level ?? 1 })),
+            };
+            blocks.unshift(tocBlock);
+        }
+    }
+
     return blocks;
 }
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens };
+    module.exports = { parseMarkdownToBlocks, extractImagesFromTokens, flattenTokens, DEFAULT_FLATTEN_CONTEXT, ParseOptions: {} };
 }
+

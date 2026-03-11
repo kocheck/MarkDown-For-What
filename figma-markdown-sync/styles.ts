@@ -6,7 +6,7 @@
  * Responsibilities:
  *   - Defining default typography config for each Markdown element type
  *   - Creating local Figma text styles on first import
- *   - Applying inline bold/italic/code formatting to TextNode character ranges
+ *   - Applying inline bold/italic/code/strikethrough/link formatting to TextNode character ranges
  *
  * IMPORTANT: Existing text styles (e.g. Markdown/H1) are NEVER overwritten.
  * Designers can customize styles in Figma and those changes survive re-imports.
@@ -21,8 +21,8 @@
  */
 
 import type { marked } from 'marked';
-import { flattenTokens } from './parser';
-import { errorMessage } from './utils';
+import { flattenTokens, DEFAULT_FLATTEN_CONTEXT } from './parser';
+import { errorMessage, hexToRgb } from './utils';
 
 // ─── Style Name Constants ──────────────────────────────────────────────────────
 
@@ -66,10 +66,21 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
     [STYLE_NAMES.QUOTE]: { family: 'Inter', style: 'Italic',  size: 16, lineHeight: 1.5 },
 };
 
+/** Link color (#0969DA) — GitHub-style blue for inline hyperlinks */
+const LINK_COLOR: RGB = hexToRgb('#0969DA');
+
+/** Only absolute http(s) URLs are rendered as clickable hyperlinks in Figma. */
+const HTTP_URL_RE = /^https?:\/\//i;
+
 // ─── Font Loading ──────────────────────────────────────────────────────────────
+
+// Cache font load promises to avoid redundant async IPC calls to figma.loadFontAsync.
+// Key format: "family\tstyle". Cleared by initializeStyles() alongside styleCache.
+const fontCache = new Map<string, Promise<FontName>>();
 
 /**
  * Loads a font by family and style, falling back to Inter Regular if not found.
+ * Results are cached so repeated calls with the same arguments reuse the same promise.
  * Figma requires fonts to be loaded before they can be set on text nodes.
  *
  * @param family - Font family name (e.g. 'Inter', 'Roboto Mono')
@@ -77,21 +88,30 @@ export const DEFAULT_STYLES: Record<string, StyleConfig> = {
  * @returns The loaded FontName — may differ from input if fallback was used
  */
 export async function loadFont(family: string, style: string): Promise<FontName> {
-    const font: FontName = { family, style };
-    try {
-        await figma.loadFontAsync(font);
-        return font;
-    } catch (err) {
-        console.warn(`[MarkDown For What] Font not found: ${family} ${style}, falling back to Inter Regular`, err);
-        const fallback: FontName = { family: 'Inter', style: 'Regular' };
+    const key = `${family}\t${style}`;
+    const cached = fontCache.get(key);
+    if (cached) return cached;
+
+    const promise = (async (): Promise<FontName> => {
+        const font: FontName = { family, style };
         try {
-            await figma.loadFontAsync(fallback);
-        } catch (fallbackErr) {
-            console.error('[MarkDown For What] Fallback font Inter Regular also failed to load:', fallbackErr);
-            throw fallbackErr;
+            await figma.loadFontAsync(font);
+            return font;
+        } catch (err) {
+            console.warn(`[MarkDown For What] Font not found: ${family} ${style}, falling back to Inter Regular`, err);
+            const fallback: FontName = { family: 'Inter', style: 'Regular' };
+            try {
+                await figma.loadFontAsync(fallback);
+            } catch (fallbackErr) {
+                console.error('[MarkDown For What] Fallback font Inter Regular also failed to load:', fallbackErr);
+                throw fallbackErr;
+            }
+            return fallback;
         }
-        return fallback;
-    }
+    })();
+
+    fontCache.set(key, promise);
+    return promise;
 }
 
 // ─── Style Management ──────────────────────────────────────────────────────────
@@ -149,6 +169,7 @@ export async function getOrCreateTextStyle(name: string, config: StyleConfig, ex
  */
 export async function initializeStyles(): Promise<void> {
     styleCache.clear();
+    fontCache.clear();
 
     let allStyles: TextStyle[];
     try {
@@ -177,8 +198,9 @@ export async function initializeStyles(): Promise<void> {
 // ─── Inline Style Rendering ───────────────────────────────────────────────────
 
 /**
- * Applies inline bold/italic/code formatting to a TextNode by setting font
- * overrides on individual character ranges.
+ * Applies inline bold/italic/code/strikethrough/link formatting to a TextNode
+ * by setting font overrides, text decorations, hyperlinks, and fill colors
+ * on individual character ranges.
  *
  * Call AFTER setting node.textStyleId. This function sets node.characters
  * and overrides font names at specific character ranges.
@@ -186,7 +208,7 @@ export async function initializeStyles(): Promise<void> {
  *
  * @param node          - The Figma TextNode to format
  * @param tokens        - Inline marked tokens describing the rich text, or undefined to no-op.
- *                        Recognized token types: strong, em, codespan, text, link.
+ *                        Recognized token types: strong, em, del, codespan, text, link.
  * @param baseStyleName - Which STYLE_NAMES key applies (affects bold inheritance for headings)
  */
 export async function applyInlineStyles(
@@ -196,7 +218,7 @@ export async function applyInlineStyles(
 ): Promise<void> {
     if (!tokens || tokens.length === 0) return;
 
-    const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+    const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
     const fullText = segments.map(s => s.text).join('');
     node.characters = fullText;
 
@@ -217,21 +239,50 @@ export async function applyInlineStyles(
         const end = currentIndex + segment.text.length;
 
         if (end > start) {
-            let font: FontName;
-            if (segment.code) {
-                font = codeFont;
-            } else {
-                const effectiveBold = segment.bold || isBaseBold;
-                const effectiveItalic = segment.italic;
-                if (effectiveBold && effectiveItalic) font = boldItalicFont;
-                else if (effectiveBold) font = boldFont;
-                else if (effectiveItalic) font = italicFont;
-                else font = regularFont;
+            try {
+                let font: FontName;
+                if (segment.code) {
+                    font = codeFont;
+                } else {
+                    const effectiveBold = segment.bold || isBaseBold;
+                    const effectiveItalic = segment.italic;
+                    if (effectiveBold && effectiveItalic) font = boldItalicFont;
+                    else if (effectiveBold) font = boldFont;
+                    else if (effectiveItalic) font = italicFont;
+                    else font = regularFont;
+                }
+                node.setRangeFontName(start, end, font);
+
+                if (segment.strikethrough) {
+                    node.setRangeTextDecoration(start, end, 'STRIKETHROUGH');
+                }
+
+                if (segment.link) {
+                    const trimmedLink = segment.link.trim();
+                    if (trimmedLink.length > 0 && HTTP_URL_RE.test(trimmedLink)) {
+                        node.setRangeHyperlink(start, end, { type: 'URL', value: trimmedLink });
+                        // Figma supports one text decoration per range. When a link is also
+                        // struck through, keep STRIKETHROUGH rather than overwriting with UNDERLINE.
+                        if (!segment.strikethrough) {
+                            node.setRangeTextDecoration(start, end, 'UNDERLINE');
+                        }
+                        node.setRangeFills(start, end, [{ type: 'SOLID', color: LINK_COLOR }]);
+                    }
+                }
+            } catch (err) {
+                console.error(
+                    `[MarkDown For What] Failed to apply inline style to range [${start}, ${end}]: ${errorMessage(err)}`
+                );
             }
-            node.setRangeFontName(start, end, font);
         }
         currentIndex = end;
     }
+}
+
+/** @internal Test-only: clears all module-level caches (font + style). */
+export function _resetCaches(): void {
+    fontCache.clear();
+    styleCache.clear();
 }
 
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
@@ -243,5 +294,6 @@ if (typeof module !== 'undefined' && module.exports) {
         getOrCreateTextStyle,
         initializeStyles,
         applyInlineStyles,
+        _resetCaches,
     };
 }

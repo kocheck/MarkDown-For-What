@@ -211,6 +211,8 @@ describe('renderBlocks', () => {
                 framePadding: 20,
                 blockSpacing: 12,
                 frameWidth: 600,
+                widthMode: 'custom' as const,
+                customWidth: 600,
             };
 
             const result = await renderBlocks('Test', [], settings);
@@ -265,7 +267,7 @@ describe('renderBlocks', () => {
                 getSizeAsync: jest.fn().mockResolvedValue({ width: 1200, height: 800 }),
             });
 
-            const settings = { ...DEFAULT_SETTINGS, frameWidth: 600 };
+            const settings = { ...DEFAULT_SETTINGS, frameWidth: 600, widthMode: 'custom' as const, customWidth: 600 };
             const blocks: Block[] = [
                 { type: 'image', imageUrl: 'https://example.com/wide.png', imageAlt: 'Wide' },
             ];
@@ -293,6 +295,191 @@ describe('renderBlocks', () => {
 
             expect(targetNode.remove).not.toHaveBeenCalled();
             expect(result.frame).toBeDefined();
+        });
+    });
+
+    describe('nested list rendering', () => {
+        it('applies left padding based on depth', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Top level', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'list', content: 'Deep nested', depth: 2, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Each item is a text node — check if wrapper frame has padding
+            // For depth > 0, we wrap in a frame with left padding
+            expect(listGroup.children).toHaveLength(3);
+        });
+
+        it('uses different bullet characters per depth', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Level 0', depth: 0, tokens: [] },
+                { type: 'list', content: 'Level 1', depth: 1, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Depth 0 uses '• ', depth 1 uses '◦ '
+            expect(listGroup.children[0].characters).toContain('•');
+            expect(listGroup.children[1].characters).toContain('◦');
+        });
+
+        it('applies paragraphIndent for nested unordered list items', async () => {
+            const blocks: Block[] = [
+                { type: 'list', content: 'Top level', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'list', content: 'Deep nested', depth: 2, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            expect(listGroup.children[0].paragraphIndent).toBe(0);
+            expect(listGroup.children[1].paragraphIndent).toBe(20);
+            expect(listGroup.children[2].paragraphIndent).toBe(40);
+        });
+
+        it('applies paragraphIndent for nested ordered list items', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'Top', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Nested', index: 1, depth: 1, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            expect(listGroup.children[0].paragraphIndent).toBe(0);
+            expect(listGroup.children[1].paragraphIndent).toBe(20);
+        });
+    });
+
+    describe('ordered list rendering', () => {
+        it('renders orderedListItem with number prefix', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'First item', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Second item', index: 2, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // Ordered list items should be grouped like regular list items
+            expect(result.frame.children).toHaveLength(1); // One list group
+            const listGroup = result.frame.children[0] as any;
+            expect(listGroup.children).toHaveLength(2);
+            // Check that text contains the number prefix
+            expect(listGroup.children[0].characters).toContain('1.');
+            expect(listGroup.children[1].characters).toContain('2.');
+        });
+
+        it('groups consecutive ordered list items together', async () => {
+            const blocks: Block[] = [
+                { type: 'orderedListItem', content: 'First', index: 1, depth: 0, tokens: [] },
+                { type: 'paragraph', content: 'Break', tokens: [] },
+                { type: 'orderedListItem', content: 'Second', index: 1, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            expect(result.frame.children).toHaveLength(3); // list group, paragraph, list group
+        });
+    });
+
+    describe('task list rendering', () => {
+        it('renders taskListItem with checkbox visual', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Do the thing', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Done thing', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+
+            // Task items should be grouped in a list group
+            expect(result.frame.children).toHaveLength(1);
+            const listGroup = result.frame.children[0] as any;
+            expect(listGroup.children).toHaveLength(2);
+
+            // Each task item should be a frame (horizontal auto layout: checkbox + text)
+            expect(listGroup.children[0].type).toBe('FRAME');
+            expect(listGroup.children[0].layoutMode).toBe('HORIZONTAL');
+        });
+
+        it('uses checkbox prefix characters', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            // Find text nodes inside the task frames
+            const uncheckedFrame = listGroup.children[0] as any;
+            const checkedFrame = listGroup.children[1] as any;
+
+            // The checkbox rectangle should exist as first child
+            expect(uncheckedFrame.children[0].type).toBe('RECTANGLE');
+            // Text node should be second child
+            expect(uncheckedFrame.children[1].type).toBe('TEXT');
+        });
+
+        it('applies correct checkbox colors for checked and unchecked states', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            const uncheckedCheckbox = listGroup.children[0].children[0] as any;
+            const checkedCheckbox = listGroup.children[1].children[0] as any;
+
+            // Checked: green fill
+            expect(checkedCheckbox.fills).toEqual([{ type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } }]);
+            // Unchecked: light gray fill + gray stroke
+            expect(uncheckedCheckbox.fills).toEqual([{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }]);
+            expect(uncheckedCheckbox.strokes).toEqual([{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }]);
+        });
+
+        it('dims text for checked task items', async () => {
+            const blocks: Block[] = [
+                { type: 'taskListItem', content: 'Unchecked', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Checked', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            const listGroup = result.frame.children[0] as any;
+
+            const uncheckedText = listGroup.children[0].children[1] as any;
+            const checkedText = listGroup.children[1].children[1] as any;
+
+            expect(uncheckedText.opacity).toBe(1);
+            expect(checkedText.opacity).toBe(0.6);
+        });
+    });
+
+    describe('Integration — mixed block types', () => {
+        it('renders a mix of list types without crashing', async () => {
+            const blocks: Block[] = [
+                { type: 'heading', content: 'Title', level: 1, tokens: [] },
+                { type: 'paragraph', content: 'Hello world', tokens: [] },
+                { type: 'orderedListItem', content: 'First', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Second', index: 2, depth: 0, tokens: [] },
+                { type: 'paragraph', content: 'Break', tokens: [] },
+                { type: 'list', content: 'Bullet', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'paragraph', content: 'Another break', tokens: [] },
+                { type: 'taskListItem', content: 'Todo', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Done', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            // heading, paragraph, list group, paragraph, list group, paragraph, list group
+            expect(result.frame.children.length).toBe(7);
         });
     });
 
@@ -337,6 +524,100 @@ describe('renderBlocks', () => {
             await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
 
             expect(countAsyncStyleCalls()).toBe(1);
+        });
+    });
+
+    describe('callout block rendering', () => {
+        it('should render a callout as a frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'note',
+                content: 'This is a note',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0];
+            expect(calloutFrame.type).toBe('FRAME');
+            expect(calloutFrame.name).toBe('Callout: Note');
+        });
+
+        it('should render callout with label and body children', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'warning',
+                content: 'Watch out!',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0] as any;
+            expect(calloutFrame.children.length).toBeGreaterThanOrEqual(2);
+        });
+
+        it('should render all five callout types without error', async () => {
+            const types = ['note', 'tip', 'important', 'warning', 'caution'] as const;
+            for (const t of types) {
+                const blocks: Block[] = [{ type: 'callout', calloutType: t, content: 'Body' }];
+                const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+                expect(result.frame.children.length).toBe(1);
+            }
+        });
+
+        it('should set left border on callout frame', async () => {
+            const blocks: Block[] = [{
+                type: 'callout',
+                calloutType: 'tip',
+                content: 'A tip',
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const calloutFrame = result.frame.children[0] as any;
+            expect(calloutFrame.strokeLeftWeight).toBe(4);
+            expect(calloutFrame.strokeTopWeight).toBe(0);
+        });
+    });
+
+    describe('TOC block rendering', () => {
+        it('should render a TOC frame with correct name', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'Title', level: 1 },
+                    { text: 'Section', level: 2 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0];
+            expect(tocFrame.type).toBe('FRAME');
+            expect(tocFrame.name).toBe('Table of Contents');
+        });
+
+        it('should render Contents label and entries', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'Heading 1', level: 1 },
+                    { text: 'Heading 2', level: 2 },
+                    { text: 'Heading 3', level: 3 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0] as any;
+            // Label + 3 entries = 4 children
+            expect(tocFrame.children.length).toBe(4);
+        });
+
+        it('should indent TOC entries by heading level', async () => {
+            const blocks: Block[] = [{
+                type: 'toc',
+                tocEntries: [
+                    { text: 'H1', level: 1 },
+                    { text: 'H2', level: 2 },
+                    { text: 'H3', level: 3 },
+                ],
+            }];
+            const result = await renderBlocks('test', blocks, DEFAULT_SETTINGS);
+            const tocFrame = result.frame.children[0] as any;
+            // H1 has no indent, H2 has 20px, H3 has 40px
+            expect(tocFrame.children[1].paragraphIndent).toBe(0);
+            expect(tocFrame.children[2].paragraphIndent).toBe(20);
+            expect(tocFrame.children[3].paragraphIndent).toBe(40);
         });
     });
 });

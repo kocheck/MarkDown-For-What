@@ -1,11 +1,28 @@
 import './styles.css';
+import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
+
+function escapeHtml(str: string): string {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+const FRONT_MATTER_REGEX = /^---[\s\S]*?---\r?\n/;
+
+// Sanitize marked output: escape raw HTML blocks and inline HTML to prevent XSS
+marked.use({
+    renderer: {
+        html(text: string): string {
+            return escapeHtml(text);
+        },
+    },
+});
 
 // ── DOM references ──────────────────────────────────────────────────────────
 
 const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
 const tabPanels = document.querySelectorAll<HTMLElement>('.tab-panel');
 
+const importSection = document.getElementById('import-section') as HTMLElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const fileList = document.getElementById('file-list') as HTMLUListElement;
@@ -13,15 +30,29 @@ const importBtn = document.getElementById('import-btn') as HTMLButtonElement;
 const statusMsg = document.getElementById('status-message') as HTMLParagraphElement;
 const loader = document.getElementById('loader') as HTMLElement;
 
+// Preview elements
+const previewPane = document.getElementById('preview-pane') as HTMLElement;
+const previewContent = document.getElementById('preview-content') as HTMLElement;
+const previewSummary = document.getElementById('preview-summary') as HTMLElement;
+const previewCancelBtn = document.getElementById('preview-cancel') as HTMLButtonElement;
+
+// Paste elements
+const pasteToggle = document.getElementById('paste-toggle') as HTMLButtonElement;
+const pasteAreaWrap = document.getElementById('paste-area-wrap') as HTMLElement;
+const pasteArea = document.getElementById('paste-area') as HTMLTextAreaElement;
+const pasteName = document.getElementById('paste-name') as HTMLInputElement;
+const pasteImportBtn = document.getElementById('paste-import-btn') as HTMLButtonElement;
+
 // Settings inputs
 const settingInputIds = [
-    'blockSpacing', 'listSpacing', 'framePadding', 'frameWidth',
+    'blockSpacing', 'listSpacing', 'framePadding', 'widthMode', 'customWidth',
     'codeBackground', 'tableHeaderBackground', 'separatorColor',
 ] as const;
 
 // ── State ───────────────────────────────────────────────────────────────────
 
 let currentFiles: { name: string; content: string }[] = [];
+let isPreviewVisible = false;
 
 // ── Tab switching ───────────────────────────────────────────────────────────
 
@@ -58,8 +89,6 @@ dropZone.addEventListener('drop', e => {
     if (e.dataTransfer?.files.length) handleFiles(e.dataTransfer.files);
 });
 
-// The file input sits over the drop zone (position: absolute, opacity: 0)
-// so clicking the drop zone area triggers the file picker naturally.
 fileInput.addEventListener('change', () => {
     if (fileInput.files?.length) handleFiles(fileInput.files);
 });
@@ -83,14 +112,10 @@ async function handleFiles(files: FileList) {
         const validFiles = Array.from(files).filter(f => hasSupportedExtension(f.name));
         currentFiles = await Promise.all(validFiles.map(readFile));
 
-        renderFileList(currentFiles);
-
         if (currentFiles.length === 0) {
             showStatus('No valid Markdown files found.', 'error');
         } else {
-            showStatus(`${currentFiles.length} file${currentFiles.length === 1 ? '' : 's'} ready`, 'success');
-            importBtn.disabled = false;
-            importBtn.textContent = currentFiles.length === 1 ? 'Import' : `Import ${currentFiles.length} Files`;
+            showPreview(currentFiles);
         }
     } catch (err) {
         console.error('[MarkDown For What] Error reading files:', err);
@@ -100,7 +125,7 @@ async function handleFiles(files: FileList) {
 }
 
 function renderFileList(files: { name: string; content: string }[]) {
-    fileList.textContent = ''; // Clear without innerHTML
+    fileList.textContent = '';
 
     for (const file of files) {
         const li = document.createElement('li');
@@ -108,6 +133,60 @@ function renderFileList(files: { name: string; content: string }[]) {
         fileList.appendChild(li);
     }
 }
+
+// ── Preview ─────────────────────────────────────────────────────────────────
+
+function showPreview(files: { name: string; content: string }[]) {
+    const allHtml: string[] = [];
+    for (const file of files) {
+        const clean = file.content.replace(FRONT_MATTER_REGEX, '');
+        const html = marked.parse(clean) as string;
+        allHtml.push(
+            `<div class="preview-file"><div class="preview-file-name">${escapeHtml(file.name)}</div><div class="preview-block">${html}</div></div>`
+        );
+    }
+
+    previewContent.innerHTML = allHtml.join('<hr class="preview-divider">');
+    previewSummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} ready`;
+
+    // Show preview, hide drop/paste
+    importSection.style.display = 'none';
+    fileList.style.display = 'none';
+    previewPane.classList.remove('hidden');
+    previewCancelBtn.classList.remove('hidden');
+    importBtn.disabled = false;
+    importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
+    isPreviewVisible = true;
+}
+
+function hidePreview() {
+    previewPane.classList.add('hidden');
+    previewCancelBtn.classList.add('hidden');
+    previewContent.innerHTML = '';
+    importSection.style.display = '';
+    fileList.style.display = '';
+    importBtn.textContent = 'Import';
+    isPreviewVisible = false;
+}
+
+// ── Paste ───────────────────────────────────────────────────────────────────
+
+pasteToggle.addEventListener('click', () => {
+    pasteAreaWrap.classList.toggle('hidden');
+});
+
+pasteArea.addEventListener('input', () => {
+    pasteImportBtn.disabled = pasteArea.value.trim().length === 0;
+});
+
+pasteImportBtn.addEventListener('click', () => {
+    const content = pasteArea.value.trim();
+    if (!content) return;
+
+    const name = pasteName.value.trim() || 'Pasted Markdown';
+    currentFiles = [{ name: `${name}.md`, content }];
+    showPreview(currentFiles);
+});
 
 // ── Import ──────────────────────────────────────────────────────────────────
 
@@ -121,12 +200,21 @@ importBtn.addEventListener('click', () => {
     }, '*');
 });
 
+previewCancelBtn.addEventListener('click', () => {
+    hidePreview();
+    currentFiles = [];
+    renderFileList([]);
+    showStatus('', 'success');
+    importBtn.disabled = true;
+});
+
 // ── Settings ────────────────────────────────────────────────────────────────
 
 function populateSettings(settings: Record<string, unknown>) {
     if (!settings || typeof settings !== 'object') return;
+
     for (const id of settingInputIds) {
-        const input = document.getElementById(id) as HTMLInputElement | null;
+        const input = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
         if (!input || !(id in settings)) continue;
         input.value = String(settings[id]);
 
@@ -136,27 +224,51 @@ function populateSettings(settings: Record<string, unknown>) {
             swatch.value = settings[id] as string;
         }
     }
+
+    // Handle checkbox
+    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
+    if (tocCheckbox && 'generateToc' in settings) {
+        tocCheckbox.checked = !!settings.generateToc;
+    }
+
+    // Handle width mode visibility
+    updateCustomWidthVisibility();
+}
+
+function updateCustomWidthVisibility() {
+    const widthMode = document.getElementById('widthMode') as HTMLSelectElement | null;
+    const customRow = document.getElementById('customWidthRow') as HTMLElement | null;
+    if (widthMode && customRow) {
+        customRow.style.display = widthMode.value === 'custom' ? '' : 'none';
+    }
 }
 
 function setupSettingListeners() {
     for (const id of settingInputIds) {
-        const input = document.getElementById(id) as HTMLInputElement | null;
+        const input = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
         const swatch = document.getElementById(`${id}-swatch`) as HTMLInputElement | null;
 
         input?.addEventListener('change', () => {
+            if (id === 'widthMode') updateCustomWidthVisibility();
             sendCurrentSettings();
-            if (swatch && isValidHex(input.value)) {
+            if (swatch && input instanceof HTMLInputElement && isValidHex(input.value)) {
                 swatch.value = input.value;
             }
         });
 
         swatch?.addEventListener('input', () => {
-            if (input) {
+            if (input && input instanceof HTMLInputElement) {
                 input.value = swatch.value;
                 sendCurrentSettings();
             }
         });
     }
+
+    // TOC checkbox
+    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
+    tocCheckbox?.addEventListener('change', () => {
+        sendCurrentSettings();
+    });
 
     document.getElementById('reset-btn')?.addEventListener('click', () => {
         parent.postMessage({ pluginMessage: { type: 'reset-settings' } }, '*');
@@ -166,11 +278,27 @@ function setupSettingListeners() {
 function sendCurrentSettings() {
     const settings: Record<string, unknown> = {};
     for (const id of settingInputIds) {
-        const input = document.getElementById(id) as HTMLInputElement | null;
+        const input = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
         if (!input) continue;
-        const val = input.type === 'number' ? Number(input.value) : input.value;
-        settings[id] = val;
+        if (input instanceof HTMLInputElement && input.type === 'number') {
+            settings[id] = Number(input.value);
+        } else {
+            settings[id] = input.value;
+        }
     }
+
+    // Include checkbox values
+    const tocCheckbox = document.getElementById('generateToc') as HTMLInputElement | null;
+    if (tocCheckbox) {
+        settings.generateToc = tocCheckbox.checked;
+    }
+
+    // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
+    // Keep in sync with WIDTH_PRESETS in settings.ts (separate build target prevents direct import).
+    const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
+    const mode = settings.widthMode as string;
+    settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;
+
     parent.postMessage({ pluginMessage: { type: 'save-settings', settings } }, '*');
 }
 
@@ -192,8 +320,17 @@ window.onmessage = event => {
     switch (msg.type) {
         case 'status':
             loader.classList.add('hidden');
+            if (isPreviewVisible) hidePreview();
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
+            // Clear paste area on successful import
+            if (!msg.error) {
+                pasteArea.value = '';
+                pasteName.value = '';
+                pasteImportBtn.disabled = true;
+                currentFiles = [];
+                renderFileList([]);
+            }
             break;
         case 'settings':
             populateSettings(msg.settings);

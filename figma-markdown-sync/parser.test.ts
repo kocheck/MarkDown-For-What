@@ -10,7 +10,8 @@ import type { Block } from './parser';
 const {
     extractImagesFromTokens,
     parseMarkdownToBlocks,
-    flattenTokens
+    flattenTokens,
+    DEFAULT_FLATTEN_CONTEXT
 } = require('./parser');
 
 describe('extractImagesFromTokens', () => {
@@ -178,6 +179,19 @@ code here
     });
 });
 
+describe('parseMarkdownToBlocks — strikethrough', () => {
+    test('should preserve strikethrough tokens in paragraph', () => {
+        const markdown = 'This is ~~deleted~~ text';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('paragraph');
+        // The tokens array should contain a 'del' token
+        const hasDel = blocks[0].tokens?.some((t: any) => t.type === 'del');
+        expect(hasDel).toBe(true);
+    });
+});
+
 describe('flattenTokens', () => {
     test('should handle bold text', () => {
         const tokens: marked.Token[] = [
@@ -189,7 +203,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Strong
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('bold');
@@ -206,7 +220,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Em
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('italic');
@@ -222,7 +236,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Codespan
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('code');
@@ -247,7 +261,7 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Strong
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(2);
         expect(segments[0].text).toBe('bold with ');
@@ -264,7 +278,7 @@ describe('flattenTokens', () => {
             { type: 'text', raw: 'plain text', text: 'plain text' } as marked.Tokens.Text
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('plain text');
@@ -274,7 +288,7 @@ describe('flattenTokens', () => {
     });
 
     test('should handle empty tokens array', () => {
-        const segments = flattenTokens([], { bold: false, italic: false, code: false });
+        const segments = flattenTokens([], DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(0);
     });
@@ -284,14 +298,14 @@ describe('flattenTokens', () => {
             { type: 'space', raw: '\n' } as any,
             { type: 'unknown-type', raw: 'raw', text: 'fallback text' } as any,
         ];
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
         // 'space' has no 'text' property, so produces no segment
         // 'unknown-type' has 'text', so produces one segment
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('fallback text');
     });
 
-    test('should treat links as text', () => {
+    test('should preserve link URL on segments', () => {
         const tokens: marked.Token[] = [
             {
                 type: 'link',
@@ -302,10 +316,261 @@ describe('flattenTokens', () => {
             } as marked.Tokens.Link
         ];
 
-        const segments = flattenTokens(tokens, { bold: false, italic: false, code: false });
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
 
         expect(segments).toHaveLength(1);
         expect(segments[0].text).toBe('link');
+        expect(segments[0].link).toBe('url');
+    });
+});
+
+describe('flattenTokens — strikethrough', () => {
+    test('should handle strikethrough (del) tokens', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'del',
+                raw: '~~struck~~',
+                text: 'struck',
+                tokens: [{ type: 'text', raw: 'struck', text: 'struck' } as marked.Tokens.Text]
+            } as marked.Tokens.Del
+        ];
+
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('struck');
+        expect(segments[0].strikethrough).toBe(true);
+    });
+
+    test('should combine strikethrough with bold', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'strong',
+                raw: '**~~bold struck~~**',
+                text: 'bold struck',
+                tokens: [
+                    {
+                        type: 'del',
+                        raw: '~~bold struck~~',
+                        text: 'bold struck',
+                        tokens: [{ type: 'text', raw: 'bold struck', text: 'bold struck' } as marked.Tokens.Text]
+                    } as marked.Tokens.Del
+                ]
+            } as marked.Tokens.Strong
+        ];
+
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].bold).toBe(true);
+        expect(segments[0].strikethrough).toBe(true);
+    });
+});
+
+describe('flattenTokens — inline links', () => {
+    test('should preserve link URL in segment', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'link',
+                raw: '[Example](https://example.com)',
+                text: 'Example',
+                href: 'https://example.com',
+                tokens: [{ type: 'text', raw: 'Example', text: 'Example' } as marked.Tokens.Text]
+            } as marked.Tokens.Link
+        ];
+
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('Example');
+        expect(segments[0].link).toBe('https://example.com');
+    });
+
+    test('should handle link with bold text inside', () => {
+        const tokens: marked.Token[] = [
+            {
+                type: 'link',
+                raw: '[**Bold Link**](https://example.com)',
+                text: 'Bold Link',
+                href: 'https://example.com',
+                tokens: [
+                    {
+                        type: 'strong',
+                        raw: '**Bold Link**',
+                        text: 'Bold Link',
+                        tokens: [{ type: 'text', raw: 'Bold Link', text: 'Bold Link' } as marked.Tokens.Text]
+                    } as marked.Tokens.Strong
+                ]
+            } as marked.Tokens.Link
+        ];
+
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+
+        expect(segments).toHaveLength(1);
+        expect(segments[0].text).toBe('Bold Link');
+        expect(segments[0].bold).toBe(true);
+        expect(segments[0].link).toBe('https://example.com');
+    });
+
+    test('should handle mixed text and links', () => {
+        const tokens: marked.Token[] = [
+            { type: 'text', raw: 'Visit ', text: 'Visit ' } as marked.Tokens.Text,
+            {
+                type: 'link',
+                raw: '[here](https://example.com)',
+                text: 'here',
+                href: 'https://example.com',
+                tokens: [{ type: 'text', raw: 'here', text: 'here' } as marked.Tokens.Text]
+            } as marked.Tokens.Link,
+            { type: 'text', raw: ' for more', text: ' for more' } as marked.Tokens.Text,
+        ];
+
+        const segments = flattenTokens(tokens, DEFAULT_FLATTEN_CONTEXT);
+
+        expect(segments).toHaveLength(3);
+        expect(segments[0].link).toBeUndefined();
+        expect(segments[1].link).toBe('https://example.com');
+        expect(segments[2].link).toBeUndefined();
+    });
+});
+
+describe('parseMarkdownToBlocks — ordered lists', () => {
+    test('should parse ordered list items as orderedListItem blocks', () => {
+        const markdown = '1. First\n2. Second\n3. Third';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(3);
+        expect(orderedBlocks[0].content).toBe('First');
+        expect(orderedBlocks[0].index).toBe(1);
+        expect(orderedBlocks[1].index).toBe(2);
+        expect(orderedBlocks[2].index).toBe(3);
+    });
+
+    test('should respect start number', () => {
+        const markdown = '5. Fifth\n6. Sixth';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(2);
+        expect(orderedBlocks[0].index).toBe(5);
+        expect(orderedBlocks[1].index).toBe(6);
+    });
+
+    test('ordered list items should have depth 0 by default', () => {
+        const markdown = '1. First\n2. Second';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks[0].depth).toBe(0);
+    });
+});
+
+describe('parseMarkdownToBlocks — nested lists', () => {
+    test('should parse nested unordered lists with depth', () => {
+        const markdown = '- Item 1\n  - Nested 1\n  - Nested 2\n- Item 2';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(listBlocks.length).toBeGreaterThanOrEqual(4);
+        expect(listBlocks[0].depth).toBe(0);
+        expect(listBlocks[0].content).toBe('Item 1');
+        // Nested items should have depth 1
+        const nestedBlocks = listBlocks.filter((b: Block) => b.depth === 1);
+        expect(nestedBlocks.length).toBe(2);
+    });
+
+    test('should parse deeply nested lists up to depth 3', () => {
+        const markdown = '- Level 0\n  - Level 1\n    - Level 2\n      - Level 3\n        - Level 4 (clamped)';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        const depths = listBlocks.map((b: Block) => b.depth);
+        // Depth should be 0, 1, 2, 3, 3 (clamped)
+        expect(depths).toContain(0);
+        expect(depths).toContain(1);
+        expect(depths).toContain(2);
+        expect(depths).toContain(3);
+        // No depth > 3
+        expect(depths.every((d: number) => d !== undefined && d <= 3)).toBe(true);
+    });
+
+    test('should parse nested ordered lists with depth', () => {
+        const markdown = '1. First\n   1. Nested First\n   2. Nested Second\n2. Second';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks.length).toBeGreaterThanOrEqual(4);
+        const nestedBlocks = orderedBlocks.filter((b: Block) => b.depth === 1);
+        expect(nestedBlocks.length).toBe(2);
+    });
+
+    test('flat lists still work with depth 0', () => {
+        const markdown = '- Item 1\n- Item 2\n- Item 3';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(listBlocks).toHaveLength(3);
+        listBlocks.forEach((b: Block) => expect(b.depth).toBe(0));
+    });
+});
+
+describe('parseMarkdownToBlocks — task lists', () => {
+    test('should parse task list items as taskListItem blocks', () => {
+        const markdown = '- [ ] Unchecked\n- [x] Checked\n- [ ] Another';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        expect(taskBlocks).toHaveLength(3);
+        expect(taskBlocks[0].checked).toBe(false);
+        expect(taskBlocks[0].content).toContain('Unchecked');
+        expect(taskBlocks[1].checked).toBe(true);
+        expect(taskBlocks[1].content).toContain('Checked');
+    });
+
+    test('task list items always have depth 0 (flat per spec)', () => {
+        const markdown = '- [ ] Unchecked\n- [x] Checked';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        taskBlocks.forEach((b: Block) => expect(b.depth).toBe(0));
+    });
+
+    test('should handle mixed regular and task list items', () => {
+        const markdown = '- Regular item\n- [ ] Task item\n- Another regular';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const taskBlocks = blocks.filter((b: Block) => b.type === 'taskListItem');
+        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
+        expect(taskBlocks).toHaveLength(1);
+        expect(listBlocks).toHaveLength(2);
+    });
+});
+
+describe('Integration — all P0 content types together', () => {
+    test('should parse a document with all new content types', () => {
+        const markdown = `# Title
+
+Some ~~struck~~ and [linked](https://example.com) text.
+
+1. First ordered
+2. Second ordered
+
+- Bullet 1
+  - Nested bullet
+- Bullet 2
+
+- [ ] Unchecked task
+- [x] Checked task
+`;
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const types = blocks.map((b: Block) => b.type);
+        expect(types).toContain('heading');
+        expect(types).toContain('paragraph');
+        expect(types).toContain('orderedListItem');
+        expect(types).toContain('list');
+        expect(types).toContain('taskListItem');
     });
 });
 
@@ -351,13 +616,13 @@ describe('Regression Tests', () => {
         expect(blocks[0].content).toBe('Actual Content');
     });
 
-    test('ordered list items are parsed as list blocks', () => {
+    test('ordered list items are parsed as orderedListItem blocks', () => {
         const markdown = '1. First\n2. Second\n3. Third';
         const blocks = parseMarkdownToBlocks(markdown);
-        const listBlocks = blocks.filter((b: Block) => b.type === 'list');
-        expect(listBlocks).toHaveLength(3);
-        expect(listBlocks[0].content).toBe('First');
-        expect(listBlocks[1].content).toBe('Second');
+        const orderedBlocks = blocks.filter((b: Block) => b.type === 'orderedListItem');
+        expect(orderedBlocks).toHaveLength(3);
+        expect(orderedBlocks[0].content).toBe('First');
+        expect(orderedBlocks[1].content).toBe('Second');
     });
 
     test('blockquote block includes the quoted content', () => {
@@ -380,5 +645,124 @@ describe('Regression Tests', () => {
         });
 
         expect(nonEmptyBlocks.length).toBe(blocks.length);
+    });
+});
+
+describe('callout / admonition parsing', () => {
+    it('should parse > [!NOTE] as a callout block', () => {
+        const blocks = parseMarkdownToBlocks('> [!NOTE]\n> This is a note');
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('note');
+        expect(blocks[0].content).toBe('This is a note');
+    });
+
+    it('should parse > [!WARNING] as a callout block', () => {
+        const blocks = parseMarkdownToBlocks('> [!WARNING]\n> Be careful here');
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('warning');
+        expect(blocks[0].content).toBe('Be careful here');
+    });
+
+    it('should parse all five callout types', () => {
+        const types = ['NOTE', 'TIP', 'IMPORTANT', 'WARNING', 'CAUTION'];
+        for (const t of types) {
+            const blocks = parseMarkdownToBlocks(`> [!${t}]\n> Body`);
+            expect(blocks[0].type).toBe('callout');
+            expect(blocks[0].calloutType).toBe(t.toLowerCase());
+        }
+    });
+
+    it('should be case-insensitive for callout type', () => {
+        const blocks = parseMarkdownToBlocks('> [!note]\n> lowercase');
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].calloutType).toBe('note');
+    });
+
+    it('should fall back to regular quote for unrecognized type', () => {
+        const blocks = parseMarkdownToBlocks('> [!UNKNOWN]\n> Some text');
+        expect(blocks[0].type).toBe('quote');
+    });
+
+    it('should fall back to regular quote for normal blockquotes', () => {
+        const blocks = parseMarkdownToBlocks('> Just a regular quote');
+        expect(blocks[0].type).toBe('quote');
+    });
+
+    it('should handle multiline callout body', () => {
+        const blocks = parseMarkdownToBlocks('> [!TIP]\n> Line one\n> Line two');
+        expect(blocks[0].type).toBe('callout');
+        expect(blocks[0].content).toContain('Line one');
+        expect(blocks[0].content).toContain('Line two');
+    });
+});
+
+describe('table of contents generation', () => {
+    it('should generate TOC from headings when enabled', () => {
+        const md = '# Title\n\n## Section A\n\n### Sub A\n\n## Section B';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[0].tocEntries).toEqual([
+            { text: 'Title', level: 1 },
+            { text: 'Section A', level: 2 },
+            { text: 'Sub A', level: 3 },
+            { text: 'Section B', level: 2 },
+        ]);
+    });
+
+    it('should not generate TOC when disabled', () => {
+        const md = '# Title\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md);
+        expect(blocks[0].type).not.toBe('toc');
+    });
+
+    it('should insert TOC before all other blocks', () => {
+        const md = '# Title\n\nSome text\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[1].type).toBe('heading');
+    });
+
+    it('should not generate TOC if no headings found', () => {
+        const md = 'Just a paragraph with no headings.';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+        expect(blocks[0].type).not.toBe('toc');
+    });
+
+    it('should handle TOC frontmatter flag', () => {
+        const md = '---\ntoc: true\n---\n# Title\n\n## Section';
+        const blocks = parseMarkdownToBlocks(md, { generateToc: false });
+        expect(blocks[0].type).toBe('toc');
+    });
+});
+
+describe('P1 integration', () => {
+    it('should parse document with TOC, callouts, and standard content', () => {
+        const md = [
+            '# Guide',
+            '',
+            '## Getting Started',
+            '',
+            '> [!NOTE]',
+            '> Read this first',
+            '',
+            '## Advanced',
+            '',
+            '> [!WARNING]',
+            '> This is dangerous',
+        ].join('\n');
+
+        const blocks = parseMarkdownToBlocks(md, { generateToc: true });
+
+        // TOC should be first
+        expect(blocks[0].type).toBe('toc');
+        expect(blocks[0].tocEntries).toHaveLength(3);
+
+        // Should have callout blocks
+        const callouts = blocks.filter((b: Block) => b.type === 'callout');
+        expect(callouts).toHaveLength(2);
+        expect(callouts[0].calloutType).toBe('note');
+        expect(callouts[1].calloutType).toBe('warning');
     });
 });

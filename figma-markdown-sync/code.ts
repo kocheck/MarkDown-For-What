@@ -93,7 +93,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 const target = allFrames.find(n => n.name === file.name || n.name === nameNoExt);
 
                 try {
-                    const blocks = parseMarkdownToBlocks(file.content);
+                    const blocks = parseMarkdownToBlocks(file.content, { generateToc: settings.generateToc });
                     const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
