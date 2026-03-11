@@ -15,6 +15,7 @@
 
 import type { Block } from './parser';
 import type { PluginSettings } from './settings';
+import { resolvedFrameWidth } from './settings';
 import type { marked } from 'marked';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles, initializeStyles } from './styles';
 import { createTableFrame } from './tables';
@@ -97,7 +98,7 @@ async function createImageNode(block: Block, settings: PluginSettings): Promise<
         const imageSize = await image.getSizeAsync();
 
         // Scale image to fit max width while maintaining aspect ratio
-        const maxWidth = settings.frameWidth;
+        const maxWidth = resolvedFrameWidth(settings);
         if (imageSize.width > maxWidth) {
             const scale = maxWidth / imageSize.width;
             imageRect.resize(maxWidth, imageSize.height * scale);
@@ -206,7 +207,8 @@ export async function renderBlocks(
     frame.paddingLeft = settings.framePadding;
     frame.paddingRight = settings.framePadding;
     frame.itemSpacing = settings.blockSpacing;
-    frame.resize(settings.frameWidth, frame.height);
+    const effectiveWidth = resolvedFrameWidth(settings);
+    frame.resize(effectiveWidth, frame.height);
 
     let imageFailures = 0;
 

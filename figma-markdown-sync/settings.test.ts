@@ -7,6 +7,7 @@ import {
     DEFAULT_SETTINGS,
     validateSettings,
     mergeWithDefaults,
+    resolvedFrameWidth,
     loadSettings,
     saveSettings,
     PluginSettings,
@@ -109,9 +110,12 @@ describe('mergeWithDefaults', () => {
             listSpacing: 8,
             framePadding: 32,
             frameWidth: 960,
+            widthMode: 'wide',
+            customWidth: 960,
             codeBackground: '#EEEEEE',
             tableHeaderBackground: '#E8F0FE',
             separatorColor: '#AAAAAA',
+            generateToc: false,
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);
@@ -130,9 +134,10 @@ describe('loadSettings', () => {
     });
 
     test('returns merged settings when storage has valid partial data', async () => {
-        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue({ frameWidth: 1200 });
+        (figma.clientStorage.getAsync as jest.Mock).mockResolvedValue({ widthMode: 'wide', customWidth: 960 });
         const result = await loadSettings();
-        expect(result.frameWidth).toBe(1200);
+        expect(result.frameWidth).toBe(960);
+        expect(result.widthMode).toBe('wide');
         expect(result.blockSpacing).toBe(DEFAULT_SETTINGS.blockSpacing);
     });
 
@@ -162,5 +167,86 @@ describe('saveSettings', () => {
     test('throws when clientStorage.setAsync rejects', async () => {
         (figma.clientStorage.setAsync as jest.Mock).mockRejectedValue(new Error('storage full'));
         await expect(saveSettings(DEFAULT_SETTINGS)).rejects.toThrow('storage full');
+    });
+});
+
+describe('width mode settings', () => {
+    test('has default widthMode of medium', () => {
+        expect(DEFAULT_SETTINGS.widthMode).toBe('medium');
+    });
+
+    test('has default customWidth of 800', () => {
+        expect(DEFAULT_SETTINGS.customWidth).toBe(800);
+    });
+
+    test('validates widthMode enum values', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, widthMode: 'narrow' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, widthMode: 'medium' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, widthMode: 'wide' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, widthMode: 'custom' })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, widthMode: 'invalid' })).toBe(false);
+    });
+
+    test('validates customWidth is positive', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, customWidth: 1200 })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, customWidth: 0 })).toBe(false);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, customWidth: -100 })).toBe(false);
+    });
+
+    test('validates generateToc is boolean', () => {
+        expect(validateSettings({ ...DEFAULT_SETTINGS, generateToc: true })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, generateToc: false })).toBe(true);
+        expect(validateSettings({ ...DEFAULT_SETTINGS, generateToc: 'yes' })).toBe(false);
+    });
+});
+
+describe('resolvedFrameWidth', () => {
+    test('returns 480 for narrow mode', () => {
+        expect(resolvedFrameWidth({ ...DEFAULT_SETTINGS, widthMode: 'narrow' })).toBe(480);
+    });
+
+    test('returns 800 for medium mode', () => {
+        expect(resolvedFrameWidth({ ...DEFAULT_SETTINGS, widthMode: 'medium' })).toBe(800);
+    });
+
+    test('returns 960 for wide mode', () => {
+        expect(resolvedFrameWidth({ ...DEFAULT_SETTINGS, widthMode: 'wide' })).toBe(960);
+    });
+
+    test('returns customWidth for custom mode', () => {
+        expect(resolvedFrameWidth({ ...DEFAULT_SETTINGS, widthMode: 'custom', customWidth: 1200 })).toBe(1200);
+    });
+});
+
+describe('mergeWithDefaults migration', () => {
+    test('migrates frameWidth 480 to widthMode narrow', () => {
+        const result = mergeWithDefaults({ frameWidth: 480 });
+        expect(result.widthMode).toBe('narrow');
+        expect(result.frameWidth).toBe(480);
+    });
+
+    test('migrates frameWidth 800 to widthMode medium', () => {
+        const result = mergeWithDefaults({ frameWidth: 800 });
+        expect(result.widthMode).toBe('medium');
+        expect(result.frameWidth).toBe(800);
+    });
+
+    test('migrates frameWidth 960 to widthMode wide', () => {
+        const result = mergeWithDefaults({ frameWidth: 960 });
+        expect(result.widthMode).toBe('wide');
+        expect(result.frameWidth).toBe(960);
+    });
+
+    test('migrates custom frameWidth to widthMode custom', () => {
+        const result = mergeWithDefaults({ frameWidth: 1100 });
+        expect(result.widthMode).toBe('custom');
+        expect(result.customWidth).toBe(1100);
+        expect(result.frameWidth).toBe(1100);
+    });
+
+    test('preserves widthMode when already present', () => {
+        const result = mergeWithDefaults({ widthMode: 'wide', customWidth: 500 });
+        expect(result.widthMode).toBe('wide');
+        expect(result.customWidth).toBe(500);
     });
 });

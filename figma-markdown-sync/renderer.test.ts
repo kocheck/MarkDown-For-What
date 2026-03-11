@@ -211,6 +211,8 @@ describe('renderBlocks', () => {
                 framePadding: 20,
                 blockSpacing: 12,
                 frameWidth: 600,
+                widthMode: 'custom' as const,
+                customWidth: 600,
             };
 
             const result = await renderBlocks('Test', [], settings);
@@ -265,7 +267,7 @@ describe('renderBlocks', () => {
                 getSizeAsync: jest.fn().mockResolvedValue({ width: 1200, height: 800 }),
             });
 
-            const settings = { ...DEFAULT_SETTINGS, frameWidth: 600 };
+            const settings = { ...DEFAULT_SETTINGS, frameWidth: 600, widthMode: 'custom' as const, customWidth: 600 };
             const blocks: Block[] = [
                 { type: 'image', imageUrl: 'https://example.com/wide.png', imageAlt: 'Wide' },
             ];
