@@ -158,6 +158,7 @@ function showPreview(files: { name: string; content: string }[]) {
 function hidePreview() {
     previewPane.classList.add('hidden');
     previewCancelBtn.classList.add('hidden');
+    previewContent.innerHTML = '';
     importSection.style.display = '';
     fileList.style.display = '';
     importBtn.textContent = 'Import';
