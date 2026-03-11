@@ -178,6 +178,19 @@ code here
     });
 });
 
+describe('parseMarkdownToBlocks — strikethrough', () => {
+    test('should preserve strikethrough tokens in paragraph', () => {
+        const markdown = 'This is ~~deleted~~ text';
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].type).toBe('paragraph');
+        // The tokens array should contain a 'del' token
+        const hasDel = blocks[0].tokens?.some((t: any) => t.type === 'del');
+        expect(hasDel).toBe(true);
+    });
+});
+
 describe('flattenTokens', () => {
     test('should handle bold text', () => {
         const tokens: marked.Token[] = [
