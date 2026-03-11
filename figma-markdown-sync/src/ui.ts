@@ -35,6 +35,8 @@ const previewPane = document.getElementById('preview-pane') as HTMLElement;
 const previewContent = document.getElementById('preview-content') as HTMLElement;
 const previewSummary = document.getElementById('preview-summary') as HTMLElement;
 const previewCancelBtn = document.getElementById('preview-cancel') as HTMLButtonElement;
+const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
+const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButtonElement;
 
 // Paste elements
 const pasteToggle = document.getElementById('paste-toggle') as HTMLButtonElement;
@@ -162,18 +164,76 @@ function renderFileList(files: { name: string; content: string }[]) {
 
 // ── Preview ─────────────────────────────────────────────────────────────────
 
+/** Returns a human-readable label for a block-level HTML element. */
+function blockLabel(el: Element): string {
+    const tag = el.tagName.toLowerCase();
+    const text = (el.textContent ?? '').trim().slice(0, 30);
+    const labels: Record<string, string> = {
+        h1: 'H1', h2: 'H2', h3: 'H3', h4: 'H4', h5: 'H5', h6: 'H6',
+        p: 'Para', ul: 'List', ol: 'List', pre: 'Code',
+        blockquote: 'Quote', table: 'Table', hr: 'Rule', img: 'Image',
+    };
+    const prefix = labels[tag] ?? tag;
+    return text ? `${prefix}: ${text}` : prefix;
+}
+
 function showPreview(files: { name: string; content: string }[]) {
-    const allHtml: string[] = [];
-    for (const file of files) {
+    previewContent.innerHTML = '';
+    let totalBlocks = 0;
+
+    for (let fi = 0; fi < files.length; fi++) {
+        const file = files[fi];
+        if (fi > 0) {
+            const divider = document.createElement('hr');
+            divider.className = 'preview-divider';
+            previewContent.appendChild(divider);
+        }
+
+        const fileHeader = document.createElement('div');
+        fileHeader.className = 'preview-file-name';
+        fileHeader.textContent = file.name;
+        previewContent.appendChild(fileHeader);
+
         const clean = file.content.replace(FRONT_MATTER_REGEX, '');
         const html = marked.parse(clean) as string;
-        allHtml.push(
-            `<div class="preview-file"><div class="preview-file-name">${escapeHtml(file.name)}</div><div class="preview-block">${html}</div></div>`
-        );
+
+        // Parse HTML into DOM elements for per-block checkboxes
+        const temp = document.createElement('div');
+        temp.innerHTML = html;
+
+        const children = Array.from(temp.children);
+        for (let i = 0; i < children.length; i++) {
+            const el = children[i];
+            const row = document.createElement('div');
+            row.className = 'preview-block-row';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = true;
+            checkbox.className = 'preview-block-checkbox';
+            checkbox.dataset.fileIndex = String(fi);
+            checkbox.dataset.blockIndex = String(i);
+            checkbox.addEventListener('change', () => {
+                row.classList.toggle('unchecked', !checkbox.checked);
+            });
+
+            const label = document.createElement('span');
+            label.className = 'preview-block-label';
+            label.textContent = blockLabel(el);
+
+            const content = document.createElement('div');
+            content.className = 'preview-block-content preview-block';
+            content.appendChild(el);
+
+            row.appendChild(checkbox);
+            row.appendChild(label);
+            row.appendChild(content);
+            previewContent.appendChild(row);
+            totalBlocks++;
+        }
     }
 
-    previewContent.innerHTML = allHtml.join('<hr class="preview-divider">');
-    previewSummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'} ready`;
+    previewSummary.textContent = `${files.length} file${files.length === 1 ? '' : 's'}, ${totalBlocks} block${totalBlocks === 1 ? '' : 's'}`;
 
     // Show preview, hide drop/paste
     importSection.style.display = 'none';
@@ -221,9 +281,39 @@ importBtn.addEventListener('click', () => {
     loader.classList.remove('hidden');
     importBtn.disabled = true;
 
+    // Collect unchecked block indices per file
+    const excludedBlocks: Record<number, number[]> = {};
+    const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
+    checkboxes.forEach(cb => {
+        if (!cb.checked) {
+            const fi = Number(cb.dataset.fileIndex ?? 0);
+            const bi = Number(cb.dataset.blockIndex ?? 0);
+            if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
+            excludedBlocks[fi].push(bi);
+        }
+    });
+
     parent.postMessage({
-        pluginMessage: { type: 'import-markdown-batch', files: currentFiles }
+        pluginMessage: {
+            type: 'import-markdown-batch',
+            files: currentFiles,
+            excludedBlocks,
+        }
     }, '*');
+});
+
+selectAllBtn.addEventListener('click', () => {
+    previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
+        cb.checked = true;
+        cb.closest('.preview-block-row')?.classList.remove('unchecked');
+    });
+});
+
+deselectAllBtn.addEventListener('click', () => {
+    previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.preview-block-row')?.classList.add('unchecked');
+    });
 });
 
 previewCancelBtn.addEventListener('click', () => {

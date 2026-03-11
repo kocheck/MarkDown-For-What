@@ -102,12 +102,23 @@ figma.showUI(__html__, { width: 400, height: 500 });
             let totalImageFailures = 0;
             const allFrames = figma.currentPage.findAll(n => n.type === 'FRAME');
 
-            for (const file of files) {
+            const excludedBlocks: Record<number, number[]> = msg.excludedBlocks ?? {};
+
+            for (let fi = 0; fi < files.length; fi++) {
+                const file = files[fi];
                 const nameNoExt = file.name.replace(/\.(md|markdown|txt)$/i, '');
                 const target = allFrames.find(n => n.name === file.name || n.name === nameNoExt);
 
                 try {
-                    const blocks = parseMarkdownToBlocks(file.content, { generateToc: settings.generateToc });
+                    let blocks = parseMarkdownToBlocks(file.content, { generateToc: settings.generateToc });
+
+                    // Filter out excluded blocks (selective import)
+                    const excluded = excludedBlocks[fi];
+                    if (excluded && excluded.length > 0) {
+                        const excludeSet = new Set(excluded);
+                        blocks = blocks.filter((_, idx) => !excludeSet.has(idx));
+                    }
+
                     const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
