@@ -425,6 +425,27 @@ describe('renderBlocks', () => {
         });
     });
 
+    describe('Integration — mixed block types', () => {
+        it('renders a mix of list types without crashing', async () => {
+            const blocks: Block[] = [
+                { type: 'heading', content: 'Title', level: 1, tokens: [] },
+                { type: 'paragraph', content: 'Hello world', tokens: [] },
+                { type: 'orderedListItem', content: 'First', index: 1, depth: 0, tokens: [] },
+                { type: 'orderedListItem', content: 'Second', index: 2, depth: 0, tokens: [] },
+                { type: 'paragraph', content: 'Break', tokens: [] },
+                { type: 'list', content: 'Bullet', depth: 0, tokens: [] },
+                { type: 'list', content: 'Nested', depth: 1, tokens: [] },
+                { type: 'paragraph', content: 'Another break', tokens: [] },
+                { type: 'taskListItem', content: 'Todo', checked: false, depth: 0, tokens: [] },
+                { type: 'taskListItem', content: 'Done', checked: true, depth: 0, tokens: [] },
+            ];
+
+            const result = await renderBlocks('Test', blocks, DEFAULT_SETTINGS);
+            // heading, paragraph, list group, paragraph, list group, paragraph, list group
+            expect(result.frame.children.length).toBe(7);
+        });
+    });
+
     describe('async API usage', () => {
         it('calls setTextStyleIdAsync on heading blocks', async () => {
             const blocks: Block[] = [

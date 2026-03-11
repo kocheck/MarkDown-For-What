@@ -546,6 +546,33 @@ describe('parseMarkdownToBlocks — task lists', () => {
     });
 });
 
+describe('Integration — all P0 content types together', () => {
+    test('should parse a document with all new content types', () => {
+        const markdown = `# Title
+
+Some ~~struck~~ and [linked](https://example.com) text.
+
+1. First ordered
+2. Second ordered
+
+- Bullet 1
+  - Nested bullet
+- Bullet 2
+
+- [ ] Unchecked task
+- [x] Checked task
+`;
+        const blocks = parseMarkdownToBlocks(markdown);
+
+        const types = blocks.map((b: Block) => b.type);
+        expect(types).toContain('heading');
+        expect(types).toContain('paragraph');
+        expect(types).toContain('orderedListItem');
+        expect(types).toContain('list');
+        expect(types).toContain('taskListItem');
+    });
+});
+
 describe('Regression Tests', () => {
     test('should handle image with title attribute', () => {
         const markdown = '![Alt text](https://example.com/img.png "Image Title")';
