@@ -115,25 +115,25 @@ export function flattenTokens(
     tokens: marked.Token[],
     context: FlattenContext
 ): StyledSegment[] {
-    let segments: StyledSegment[] = [];
+    const segments: StyledSegment[] = [];
 
     if (!tokens) return segments;
 
     for (const token of tokens) {
         switch (token.type) {
             case 'strong':
-                segments = segments.concat(
-                    flattenTokens((token as marked.Tokens.Strong).tokens, { ...context, bold: true })
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Strong).tokens, { ...context, bold: true })
                 );
                 break;
             case 'em':
-                segments = segments.concat(
-                    flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true })
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Em).tokens, { ...context, italic: true })
                 );
                 break;
             case 'del':
-                segments = segments.concat(
-                    flattenTokens((token as marked.Tokens.Del).tokens, { ...context, strikethrough: true })
+                segments.push(
+                    ...flattenTokens((token as marked.Tokens.Del).tokens, { ...context, strikethrough: true })
                 );
                 break;
             case 'codespan':
@@ -142,7 +142,7 @@ export function flattenTokens(
             case 'text':
                 const tToken = token as marked.Tokens.Text;
                 if (tToken.tokens) {
-                    segments = segments.concat(flattenTokens(tToken.tokens, context));
+                    segments.push(...flattenTokens(tToken.tokens, context));
                 } else {
                     segments.push({ text: tToken.text, ...context });
                 }
@@ -150,8 +150,8 @@ export function flattenTokens(
             case 'link':
                 const lToken = token as marked.Tokens.Link;
                 if (lToken.tokens) {
-                    segments = segments.concat(
-                        flattenTokens(lToken.tokens, { ...context, link: lToken.href })
+                    segments.push(
+                        ...flattenTokens(lToken.tokens, { ...context, link: lToken.href })
                     );
                 } else {
                     segments.push({ text: lToken.text, ...context, link: lToken.href });

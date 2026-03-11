@@ -28,6 +28,9 @@ export interface RenderResult {
 
 const BULLETS = ['• ', '◦ ', '– ', '· '] as const;
 const INDENT_PER_DEPTH = 20;
+const CHECKBOX_CHECKED: SolidPaint = { type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } };
+const CHECKBOX_UNCHECKED_FILL: SolidPaint = { type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } };
+const CHECKBOX_UNCHECKED_STROKE: SolidPaint = { type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } };
 
 /**
  * Returns the X coordinate at which a new frame should be placed so it does not
@@ -217,16 +220,18 @@ export async function renderBlocks(
             listGroupFrame.layoutAlign = 'STRETCH';
             listGroupFrame.fills = [];
 
+            const listStyle = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
+
             while (i < blocks.length && isListType(blocks[i])) {
                 const listBlock = blocks[i];
                 try {
                     let listNode: SceneNode;
                     if (listBlock.type === 'orderedListItem') {
-                        listNode = await renderOrderedListBlock(listBlock);
+                        listNode = await renderOrderedListBlock(listBlock, listStyle);
                     } else if (listBlock.type === 'taskListItem') {
-                        listNode = await renderTaskListBlock(listBlock);
+                        listNode = await renderTaskListBlock(listBlock, listStyle);
                     } else {
-                        listNode = await renderListBlock(listBlock);
+                        listNode = await renderListBlock(listBlock, listStyle);
                     }
                     listGroupFrame.appendChild(listNode);
                 } catch (err) {
@@ -362,51 +367,14 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
 }
 
 /**
- * Renders a single list block as a TextNode.
- * When inline tokens are present, prepends a bullet token ('• ') before passing to
- * applyInlineStyles so the bullet is part of the formatted character range.
- * Falls back to prepending '• ' to block.content when no tokens are present.
+ * Renders a list item as a TextNode with a prefix string (bullet or number).
+ * The prefix is prepended as a synthetic text token so applyInlineStyles includes it
+ * in the formatted character range. Falls back to string concatenation when no tokens.
  */
-async function renderListBlock(block: Block): Promise<TextNode> {
+async function renderPrefixedListItem(block: Block, prefix: string, listStyle: TextStyle): Promise<TextNode> {
     const node = figma.createText();
-    const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
-    await node.setTextStyleIdAsync(style.id);
+    await node.setTextStyleIdAsync(listStyle.id);
     node.layoutAlign = 'STRETCH';
-
-    const depth = block.depth ?? 0;
-    const bullet = BULLETS[Math.min(depth, BULLETS.length - 1)];
-
-    if (block.tokens && block.tokens.length > 0) {
-        // Prepend bullet as a synthetic text token so applyInlineStyles includes it
-        const bulletToken = { type: 'text', raw: bullet, text: bullet } as any;
-        await applyInlineStyles(node, [bulletToken, ...block.tokens], STYLE_NAMES.LIST);
-    } else {
-        const content = block.content ? `${bullet}${block.content}` : bullet.trimEnd();
-        node.characters = content;
-    }
-
-    // Apply indentation for nested items
-    if (depth > 0) {
-        node.paragraphIndent = depth * INDENT_PER_DEPTH;
-    }
-
-    return node;
-}
-
-/**
- * Renders an ordered list item as a TextNode with number prefix.
- * When inline tokens are present, prepends a number token (e.g. '1. ') before passing
- * to applyInlineStyles so the prefix is part of the formatted character range.
- * Falls back to prepending the number prefix to block.content when no tokens are present.
- */
-async function renderOrderedListBlock(block: Block): Promise<TextNode> {
-    const node = figma.createText();
-    const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
-    await node.setTextStyleIdAsync(style.id);
-    node.layoutAlign = 'STRETCH';
-
-    const prefix = `${block.index ?? 1}. `;
-    const depth = block.depth ?? 0;
 
     if (block.tokens && block.tokens.length > 0) {
         const prefixToken = { type: 'text', raw: prefix, text: prefix } as any;
@@ -415,7 +383,7 @@ async function renderOrderedListBlock(block: Block): Promise<TextNode> {
         node.characters = block.content ? `${prefix}${block.content}` : prefix.trimEnd();
     }
 
-    // Apply indentation for nested items
+    const depth = block.depth ?? 0;
     if (depth > 0) {
         node.paragraphIndent = depth * INDENT_PER_DEPTH;
     }
@@ -423,10 +391,21 @@ async function renderOrderedListBlock(block: Block): Promise<TextNode> {
     return node;
 }
 
+async function renderListBlock(block: Block, listStyle: TextStyle): Promise<TextNode> {
+    const depth = block.depth ?? 0;
+    const bullet = BULLETS[Math.min(depth, BULLETS.length - 1)];
+    return renderPrefixedListItem(block, bullet, listStyle);
+}
+
+async function renderOrderedListBlock(block: Block, listStyle: TextStyle): Promise<TextNode> {
+    const prefix = `${block.index ?? 1}. `;
+    return renderPrefixedListItem(block, prefix, listStyle);
+}
+
 /**
  * Renders a task list item as a horizontal frame containing a checkbox rectangle and text node.
  */
-async function renderTaskListBlock(block: Block): Promise<FrameNode> {
+async function renderTaskListBlock(block: Block, listStyle: TextStyle): Promise<FrameNode> {
     const taskFrame = figma.createFrame();
     taskFrame.name = block.checked ? 'Task (done)' : 'Task';
     taskFrame.layoutMode = 'HORIZONTAL';
@@ -447,17 +426,16 @@ async function renderTaskListBlock(block: Block): Promise<FrameNode> {
     checkbox.resize(16, 16);
     checkbox.cornerRadius = 3;
     if (block.checked) {
-        checkbox.fills = [{ type: 'SOLID', color: { r: 0.2, g: 0.6, b: 0.2 } }];
+        checkbox.fills = [CHECKBOX_CHECKED];
     } else {
-        checkbox.fills = [{ type: 'SOLID', color: { r: 0.9, g: 0.9, b: 0.9 } }];
-        checkbox.strokes = [{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }];
+        checkbox.fills = [CHECKBOX_UNCHECKED_FILL];
+        checkbox.strokes = [CHECKBOX_UNCHECKED_STROKE];
         checkbox.strokeWeight = 1;
     }
 
     // Text node
     const textNode = figma.createText();
-    const style = await getOrCreateTextStyle(STYLE_NAMES.LIST, DEFAULT_STYLES[STYLE_NAMES.LIST]);
-    await textNode.setTextStyleIdAsync(style.id);
+    await textNode.setTextStyleIdAsync(listStyle.id);
     textNode.layoutAlign = 'STRETCH';
     textNode.layoutGrow = 1;
 
