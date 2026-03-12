@@ -259,12 +259,93 @@ function inferBadgeRowFrame(node: any): InferredBlock {
     return { text: badges.join(' '), blockType: 'badgeRow', label: 'Badge Row' };
 }
 
-// ─── Placeholder stubs (implemented in later tasks) ──────────────────────────
+// ─── Diff and Merge ───────────────────────────────────────────────────────────
 
-export function diffBlocks(_sourceLines: string[], _inferredBlocks: InferredBlock[]): DiffBlock[] {
-    throw new Error('diffBlocks not yet implemented');
+/**
+ * Heuristic: infer block type from Markdown text prefix, for fingerprinting
+ * source lines that were not produced by the inference engine.
+ */
+function guessBlockType(text: string): string {
+    if (text.startsWith('# '))   return 'heading-1';
+    if (text.startsWith('## '))  return 'heading-2';
+    if (text.startsWith('### ')) return 'heading-3';
+    if (text.startsWith('> [!')) return 'callout';
+    if (text.startsWith('> '))   return 'quote';
+    if (text.startsWith('- ') || text.startsWith('* ')) return 'list';
+    if (text.startsWith('---'))  return 'separator';
+    if (text.startsWith('```'))  return 'code';
+    if (text.startsWith('$$'))   return 'math';
+    if (text.startsWith('|'))    return 'table';
+    return 'paragraph';
 }
 
+/**
+ * Diffs source Markdown strings against inferred blocks using content-hash
+ * matching with position+type as fallback.
+ *
+ * @param sourceLines - Markdown strings from stored pluginData, split by double-newline.
+ * @param inferredBlocks - Output of inferBlocksFromFrame.
+ */
+export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[]): DiffBlock[] {
+    const sourceByFingerprint = new Map<string, string>();
+    for (const line of sourceLines) {
+        const fp = fingerprintBlock(guessBlockType(line), line);
+        sourceByFingerprint.set(fp, line);
+    }
+
+    // First pass: identify which source indices will be consumed by content-hash matches
+    const sourceIndicesUsedByContentHash = new Set<number>();
+    for (const inferred of inferredBlocks) {
+        const fp = fingerprintBlock(inferred.blockType, inferred.text);
+        if (sourceByFingerprint.has(fp)) {
+            const matched = sourceByFingerprint.get(fp)!;
+            for (let i = 0; i < sourceLines.length; i++) {
+                if (sourceLines[i] === matched) {
+                    sourceIndicesUsedByContentHash.add(i);
+                    break;
+                }
+            }
+        }
+    }
+
+    const usedSourceIndices = new Set<number>();
+    const result: DiffBlock[] = [];
+
+    for (let i = 0; i < inferredBlocks.length; i++) {
+        const inferred = inferredBlocks[i];
+        const fp = fingerprintBlock(inferred.blockType, inferred.text);
+
+        if (sourceByFingerprint.has(fp)) {
+            const originalText = sourceByFingerprint.get(fp)!;
+            sourceByFingerprint.delete(fp);
+            result.push({ state: 'unchanged', originalText, inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+            continue;
+        }
+
+        const sourceLine = sourceLines[i];
+        if (sourceLine !== undefined && guessBlockType(sourceLine) === inferred.blockType && !usedSourceIndices.has(i) && !sourceIndicesUsedByContentHash.has(i)) {
+            usedSourceIndices.add(i);
+            result.push({ state: 'modified', originalText: sourceLine, inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+            continue;
+        }
+
+        result.push({ state: 'new', inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+    }
+
+    return result;
+}
+
+/**
+ * Merges DiffBlocks into a final Markdown string.
+ *
+ * Defaults per state:
+ *   unchanged → originalText (preserves inline links, footnotes, etc.)
+ *   modified  → originalText (conservative; user can override in review mode)
+ *   new       → inferredText (include by default)
+ *
+ * For 'new' blocks: useOriginal = true means "skip this block".
+ * Blocks are joined with a single blank line between them.
+ */
 export function assembleMarkdown(_blocks: DiffBlock[], _selections: BlockSelection[]): string {
     throw new Error('assembleMarkdown not yet implemented');
 }

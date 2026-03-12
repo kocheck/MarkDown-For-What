@@ -180,3 +180,46 @@ describe('inferBlocksFromFrame — named frames', () => {
         expect(blocks[0].fidelityWarning).toMatch(/url not recoverable/i);
     });
 });
+
+// ── diffBlocks ────────────────────────────────────────────────────────────────
+
+describe('diffBlocks', () => {
+    const makeInferred = (blockType: string, text: string, label = blockType): InferredBlock =>
+        ({ text, blockType, label });
+
+    it('marks blocks as unchanged when fingerprints match', () => {
+        const result = diffBlocks(['# Hello World'], [makeInferred('heading-1', '# Hello World', 'Heading 1')]);
+        expect(result[0].state).toBe('unchanged');
+        expect(result[0].originalText).toBe('# Hello World');
+    });
+
+    it('marks blocks as modified when same position, different content', () => {
+        const result = diffBlocks(['# Old Title'], [makeInferred('heading-1', '# New Title', 'Heading 1')]);
+        expect(result[0].state).toBe('modified');
+        expect(result[0].originalText).toBe('# Old Title');
+        expect(result[0].inferredText).toBe('# New Title');
+    });
+
+    it('marks blocks as new when no source block exists', () => {
+        const result = diffBlocks([], [makeInferred('paragraph', 'New paragraph', 'Paragraph')]);
+        expect(result[0].state).toBe('new');
+        expect(result[0].originalText).toBeUndefined();
+    });
+
+    it('uses content-hash matching across positions (insertion tolerance)', () => {
+        const source = ['First paragraph', 'Second paragraph'];
+        const inferred = [
+            makeInferred('paragraph', 'Brand new intro', 'Paragraph'),
+            makeInferred('paragraph', 'First paragraph', 'Paragraph'),
+            makeInferred('paragraph', 'Second paragraph', 'Paragraph'),
+        ];
+        const result = diffBlocks(source, inferred);
+        expect(result.find(b => b.inferredText === 'Brand new intro')?.state).toBe('new');
+        expect(result.find(b => b.inferredText === 'First paragraph')?.state).toBe('unchanged');
+        expect(result.find(b => b.inferredText === 'Second paragraph')?.state).toBe('unchanged');
+    });
+
+    it('returns empty array when both inputs are empty', () => {
+        expect(diffBlocks([], [])).toEqual([]);
+    });
+});
