@@ -163,6 +163,14 @@ figma.showUI(__html__, { width: 400, height: 500 });
                     const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
+                    // Store source for round-trip export. Skip if > 50 KB to avoid pluginData limits.
+                    if (file.content.length <= 50_000) {
+                        result.frame.setPluginData('markdownSource', file.content);
+                        result.frame.setPluginData('markdownFilename', file.name);
+                        result.frame.setPluginData('markdownImportedAt', Date.now().toString());
+                    } else {
+                        result.frame.setPluginData('markdownSourceTruncated', 'true');
+                    }
                     // Record in import history (fire-and-forget — don't block render)
                     recordImport(file.name, blocks.length).catch(err => { console.error('[MarkDown For What] Failed to record import history:', err); });
                 } catch (e) {
