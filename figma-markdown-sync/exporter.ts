@@ -346,6 +346,63 @@ export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[
  * For 'new' blocks: useOriginal = true means "skip this block".
  * Blocks are joined with a single blank line between them.
  */
-export function assembleMarkdown(_blocks: DiffBlock[], _selections: BlockSelection[]): string {
-    throw new Error('assembleMarkdown not yet implemented');
+export function assembleMarkdown(blocks: DiffBlock[], selections: BlockSelection[]): string {
+    const selMap = new Map(selections.map(s => [s.blockIndex, s.useOriginal]));
+    const lines: string[] = [];
+
+    for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        const override = selMap.get(i);
+        let text: string;
+
+        if (block.state === 'unchanged') {
+            text = block.originalText!;
+        } else if (block.state === 'modified') {
+            const useOriginal = override !== undefined ? override : true;
+            text = useOriginal ? block.originalText! : block.inferredText;
+        } else {
+            if (override === true) continue;
+            text = block.inferredText;
+        }
+
+        if (text.trim().length > 0) lines.push(text);
+    }
+
+    return lines.join('\n\n');
+}
+
+/**
+ * Runs the full 4-stage export pipeline for a single Figma FrameNode.
+ * Returns an ExportFrameResult ready to send to the UI via postMessage.
+ */
+export async function exportFrame(frame: any): Promise<ExportFrameResult> {
+    const frameId: string = frame.id;
+    const storedSource: string = frame.getPluginData('markdownSource');
+    const storedFilename: string = frame.getPluginData('markdownFilename');
+    const sourceTruncated: boolean = frame.getPluginData('markdownSourceTruncated') === 'true';
+    const hasStoredSource: boolean = storedSource.length > 0 && !sourceTruncated;
+
+    const rawFilename = storedFilename || frame.name || 'export';
+    const filename = rawFilename.replace(/\.md$/i, '') + '.md';
+
+    const { blocks: inferredBlocks, skippedLayers } = await inferBlocksFromFrame(frame);
+
+    let diffResult: DiffBlock[];
+
+    if (hasStoredSource) {
+        const sourceLines = storedSource
+            .split(/\n\n+/)
+            .map((s: string) => s.trim())
+            .filter((s: string) => s.length > 0);
+        diffResult = diffBlocks(sourceLines, inferredBlocks);
+    } else {
+        diffResult = inferredBlocks.map(b => ({
+            state: 'new' as const,
+            inferredText: b.text,
+            label: b.label,
+            fidelityWarning: b.fidelityWarning,
+        }));
+    }
+
+    return { frameId, filename, hasStoredSource, sourceTruncated, blocks: diffResult, skippedLayers };
 }

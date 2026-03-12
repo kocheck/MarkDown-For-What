@@ -223,3 +223,46 @@ describe('diffBlocks', () => {
         expect(diffBlocks([], [])).toEqual([]);
     });
 });
+
+// ── assembleMarkdown ──────────────────────────────────────────────────────────
+
+describe('assembleMarkdown', () => {
+    it('uses originalText for unchanged blocks (preserves inline formatting)', () => {
+        const blocks: DiffBlock[] = [
+            { state: 'unchanged', originalText: '# My [linked](url) Heading', inferredText: '# My linked Heading', label: 'Heading 1' },
+        ];
+        expect(assembleMarkdown(blocks, [])).toBe('# My [linked](url) Heading');
+    });
+
+    it('uses inferredText for new blocks', () => {
+        const blocks: DiffBlock[] = [{ state: 'new', inferredText: 'New paragraph', label: 'Paragraph' }];
+        expect(assembleMarkdown(blocks, [])).toBe('New paragraph');
+    });
+
+    it('uses originalText by default for modified blocks (conservative)', () => {
+        const blocks: DiffBlock[] = [
+            { state: 'modified', originalText: 'Old text', inferredText: 'New text', label: 'Paragraph' },
+        ];
+        expect(assembleMarkdown(blocks, [])).toBe('Old text');
+    });
+
+    it('respects BlockSelection to use inferred for modified block', () => {
+        const blocks: DiffBlock[] = [
+            { state: 'modified', originalText: 'Old text', inferredText: 'New text', label: 'Paragraph' },
+        ];
+        expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: false }])).toBe('New text');
+    });
+
+    it('respects BlockSelection useOriginal=true to skip a new block', () => {
+        const blocks: DiffBlock[] = [{ state: 'new', inferredText: 'Unwanted', label: 'Paragraph' }];
+        expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: true }])).toBe('');
+    });
+
+    it('separates blocks with a blank line', () => {
+        const blocks: DiffBlock[] = [
+            { state: 'unchanged', originalText: '# Title', inferredText: '# Title', label: 'Heading 1' },
+            { state: 'new', inferredText: 'Body text', label: 'Paragraph' },
+        ];
+        expect(assembleMarkdown(blocks, [])).toBe('# Title\n\nBody text');
+    });
+});
