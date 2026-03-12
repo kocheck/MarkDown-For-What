@@ -7,8 +7,9 @@ import {
     fingerprintBlock,
     diffBlocks,
     assembleMarkdown,
+    exportFrame,
 } from './exporter';
-import type { InferredBlock, DiffBlock, BlockSelection } from './exporter';
+import type { InferredBlock, ExportBlock, BlockSelection } from './exporter';
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -40,6 +41,18 @@ function makeFrame(name: string, children: any[] = [], overrides: Partial<any> =
         type: 'FRAME',
         name,
         children,
+        _pluginData: {} as Record<string, string>,
+        getPluginData: jest.fn(function(this: any, k: string) { return this._pluginData[k] ?? ''; }),
+        ...overrides,
+    };
+}
+
+function makeMockFrame(overrides: Partial<any> = {}): any {
+    return {
+        type: 'FRAME',
+        id: 'frame-1',
+        name: 'My Frame',
+        children: [],
         _pluginData: {} as Record<string, string>,
         getPluginData: jest.fn(function(this: any, k: string) { return this._pluginData[k] ?? ''; }),
         ...overrides,
@@ -228,41 +241,107 @@ describe('diffBlocks', () => {
 
 describe('assembleMarkdown', () => {
     it('uses originalText for unchanged blocks (preserves inline formatting)', () => {
-        const blocks: DiffBlock[] = [
-            { state: 'unchanged', originalText: '# My [linked](url) Heading', inferredText: '# My linked Heading', label: 'Heading 1' },
+        const blocks: ExportBlock[] = [
+            { state: 'unchanged', originalText: '# My [linked](url) Heading', inferredText: '# My linked Heading' },
         ];
         expect(assembleMarkdown(blocks, [])).toBe('# My [linked](url) Heading');
     });
 
     it('uses inferredText for new blocks', () => {
-        const blocks: DiffBlock[] = [{ state: 'new', inferredText: 'New paragraph', label: 'Paragraph' }];
+        const blocks: ExportBlock[] = [{ state: 'new', inferredText: 'New paragraph' }];
         expect(assembleMarkdown(blocks, [])).toBe('New paragraph');
     });
 
     it('uses originalText by default for modified blocks (conservative)', () => {
-        const blocks: DiffBlock[] = [
-            { state: 'modified', originalText: 'Old text', inferredText: 'New text', label: 'Paragraph' },
+        const blocks: ExportBlock[] = [
+            { state: 'modified', originalText: 'Old text', inferredText: 'New text' },
         ];
         expect(assembleMarkdown(blocks, [])).toBe('Old text');
     });
 
     it('respects BlockSelection to use inferred for modified block', () => {
-        const blocks: DiffBlock[] = [
-            { state: 'modified', originalText: 'Old text', inferredText: 'New text', label: 'Paragraph' },
+        const blocks: ExportBlock[] = [
+            { state: 'modified', originalText: 'Old text', inferredText: 'New text' },
         ];
         expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: false }])).toBe('New text');
     });
 
     it('respects BlockSelection useOriginal=true to skip a new block', () => {
-        const blocks: DiffBlock[] = [{ state: 'new', inferredText: 'Unwanted', label: 'Paragraph' }];
+        const blocks: ExportBlock[] = [{ state: 'new', inferredText: 'Unwanted' }];
         expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: true }])).toBe('');
     });
 
     it('separates blocks with a blank line', () => {
-        const blocks: DiffBlock[] = [
-            { state: 'unchanged', originalText: '# Title', inferredText: '# Title', label: 'Heading 1' },
-            { state: 'new', inferredText: 'Body text', label: 'Paragraph' },
+        const blocks: ExportBlock[] = [
+            { state: 'unchanged', originalText: '# Title', inferredText: '# Title' },
+            { state: 'new', inferredText: 'Body text' },
         ];
         expect(assembleMarkdown(blocks, [])).toBe('# Title\n\nBody text');
+    });
+});
+
+// ── exportFrame ───────────────────────────────────────────────────────────────
+
+describe('exportFrame', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it('returns hasStoredSource: true when markdownSource is present', async () => {
+        const frame = makeMockFrame() as any;
+        frame._pluginData['markdownSource'] = '# Hello\n\nWorld';
+        frame._pluginData['markdownFilename'] = 'test.md';
+        // Add a child text node
+        const textNode = { type: 'TEXT', name: 'Body', characters: 'World', textStyleId: '',
+            getTextStyleIdAsync: jest.fn().mockResolvedValue('') };
+        frame.children = [textNode];
+        const result = await exportFrame(frame);
+        expect(result.hasStoredSource).toBe(true);
+        expect(result.sourceTruncated).toBe(false);
+    });
+
+    it('returns hasStoredSource: true and sourceTruncated: true when truncated flag is set', async () => {
+        const frame = makeMockFrame() as any;
+        frame._pluginData['markdownSourceTruncated'] = 'true';
+        frame.children = [];
+        const result = await exportFrame(frame);
+        expect(result.hasStoredSource).toBe(true);
+        expect(result.sourceTruncated).toBe(true);
+    });
+
+    it('returns hasStoredSource: false for frames with no pluginData', async () => {
+        const frame = makeMockFrame() as any;
+        frame.children = [];
+        const result = await exportFrame(frame);
+        expect(result.hasStoredSource).toBe(false);
+        expect(result.sourceTruncated).toBe(false);
+    });
+
+    it('uses markdownFilename for filename, then frame.name, then "export"', async () => {
+        const frame1 = makeMockFrame() as any;
+        frame1._pluginData['markdownSource'] = '# A';
+        frame1._pluginData['markdownFilename'] = 'my-spec.md';
+        frame1.children = [];
+        const r1 = await exportFrame(frame1);
+        expect(r1.filename).toBe('my-spec.md');
+
+        const frame2 = makeMockFrame() as any;
+        frame2.name = 'My Frame';
+        frame2.children = [];
+        const r2 = await exportFrame(frame2);
+        expect(r2.filename).toBe('My Frame.md');
+
+        const frame3 = makeMockFrame() as any;
+        frame3.name = '';
+        frame3.children = [];
+        const r3 = await exportFrame(frame3);
+        expect(r3.filename).toBe('export.md');
+    });
+
+    it('marks all blocks as new when no stored source', async () => {
+        const frame = makeMockFrame() as any;
+        const textNode = { type: 'TEXT', name: 'Body', characters: 'Hello', textStyleId: '',
+            getTextStyleIdAsync: jest.fn().mockResolvedValue('') };
+        frame.children = [textNode];
+        const result = await exportFrame(frame);
+        expect(result.blocks.every((b: any) => b.state === 'new')).toBe(true);
     });
 });

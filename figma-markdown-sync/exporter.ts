@@ -20,11 +20,10 @@ export interface InferredBlock {
     fidelityWarning?: string;
 }
 
-export interface DiffBlock {
+export interface ExportBlock {
     state: 'unchanged' | 'modified' | 'new';
     originalText?: string;
     inferredText: string;
-    label: string;
     fidelityWarning?: string;
 }
 
@@ -33,7 +32,7 @@ export interface ExportFrameResult {
     filename: string;
     hasStoredSource: boolean;
     sourceTruncated: boolean;
-    blocks: DiffBlock[];
+    blocks: ExportBlock[];
     skippedLayers: Array<{ name: string; reason: string }>;
 }
 
@@ -271,8 +270,9 @@ function guessBlockType(text: string): string {
     if (text.startsWith('### ')) return 'heading-3';
     if (text.startsWith('> [!')) return 'callout';
     if (text.startsWith('> '))   return 'quote';
-    if (text.startsWith('- ') || text.startsWith('* ')) return 'list';
+    if (text.startsWith('- ') || /^\d+\. /.test(text)) return 'listItem';
     if (text.startsWith('---'))  return 'separator';
+    if (text.startsWith('```mermaid')) return 'mermaid';
     if (text.startsWith('```'))  return 'code';
     if (text.startsWith('$$'))   return 'math';
     if (text.startsWith('|'))    return 'table';
@@ -286,50 +286,53 @@ function guessBlockType(text: string): string {
  * @param sourceLines - Markdown strings from stored pluginData, split by double-newline.
  * @param inferredBlocks - Output of inferBlocksFromFrame.
  */
-export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[]): DiffBlock[] {
-    const sourceByFingerprint = new Map<string, string>();
-    for (const line of sourceLines) {
+export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[]): ExportBlock[] {
+    const sourceByFingerprint = new Map<string, number[]>();
+    for (let idx = 0; idx < sourceLines.length; idx++) {
+        const line = sourceLines[idx];
         const fp = fingerprintBlock(guessBlockType(line), line);
-        sourceByFingerprint.set(fp, line);
+        const existing = sourceByFingerprint.get(fp);
+        if (existing) {
+            existing.push(idx);
+        } else {
+            sourceByFingerprint.set(fp, [idx]);
+        }
     }
 
     // First pass: identify which source indices will be consumed by content-hash matches
     const sourceIndicesUsedByContentHash = new Set<number>();
     for (const inferred of inferredBlocks) {
         const fp = fingerprintBlock(inferred.blockType, inferred.text);
-        if (sourceByFingerprint.has(fp)) {
-            const matched = sourceByFingerprint.get(fp)!;
-            for (let i = 0; i < sourceLines.length; i++) {
-                if (sourceLines[i] === matched) {
-                    sourceIndicesUsedByContentHash.add(i);
-                    break;
-                }
-            }
+        const indices = sourceByFingerprint.get(fp);
+        if (indices && indices.length > 0) {
+            sourceIndicesUsedByContentHash.add(indices[0]);
         }
     }
 
     const usedSourceIndices = new Set<number>();
-    const result: DiffBlock[] = [];
+    const result: ExportBlock[] = [];
 
     for (let i = 0; i < inferredBlocks.length; i++) {
         const inferred = inferredBlocks[i];
         const fp = fingerprintBlock(inferred.blockType, inferred.text);
 
-        if (sourceByFingerprint.has(fp)) {
-            const originalText = sourceByFingerprint.get(fp)!;
-            sourceByFingerprint.delete(fp);
-            result.push({ state: 'unchanged', originalText, inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+        const fpIndices = sourceByFingerprint.get(fp);
+        if (fpIndices && fpIndices.length > 0) {
+            const matchedIdx = fpIndices.shift()!;
+            if (fpIndices.length === 0) sourceByFingerprint.delete(fp);
+            const originalText = sourceLines[matchedIdx];
+            result.push({ state: 'unchanged', originalText, inferredText: inferred.text });
             continue;
         }
 
         const sourceLine = sourceLines[i];
         if (sourceLine !== undefined && guessBlockType(sourceLine) === inferred.blockType && !usedSourceIndices.has(i) && !sourceIndicesUsedByContentHash.has(i)) {
             usedSourceIndices.add(i);
-            result.push({ state: 'modified', originalText: sourceLine, inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+            result.push({ state: 'modified', originalText: sourceLine, inferredText: inferred.text, fidelityWarning: inferred.fidelityWarning });
             continue;
         }
 
-        result.push({ state: 'new', inferredText: inferred.text, label: inferred.label, fidelityWarning: inferred.fidelityWarning });
+        result.push({ state: 'new', inferredText: inferred.text, fidelityWarning: inferred.fidelityWarning });
     }
 
     return result;
@@ -346,7 +349,7 @@ export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[
  * For 'new' blocks: useOriginal = true means "skip this block".
  * Blocks are joined with a single blank line between them.
  */
-export function assembleMarkdown(blocks: DiffBlock[], selections: BlockSelection[]): string {
+export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelection[]): string {
     const selMap = new Map(selections.map(s => [s.blockIndex, s.useOriginal]));
     const lines: string[] = [];
 
@@ -380,14 +383,14 @@ export async function exportFrame(frame: any): Promise<ExportFrameResult> {
     const storedSource: string = frame.getPluginData('markdownSource');
     const storedFilename: string = frame.getPluginData('markdownFilename');
     const sourceTruncated: boolean = frame.getPluginData('markdownSourceTruncated') === 'true';
-    const hasStoredSource: boolean = storedSource.length > 0 && !sourceTruncated;
+    const hasStoredSource: boolean = storedSource.length > 0 || sourceTruncated;
 
     const rawFilename = storedFilename || frame.name || 'export';
     const filename = rawFilename.replace(/\.md$/i, '') + '.md';
 
     const { blocks: inferredBlocks, skippedLayers } = await inferBlocksFromFrame(frame);
 
-    let diffResult: DiffBlock[];
+    let diffResult: ExportBlock[];
 
     if (hasStoredSource) {
         const sourceLines = storedSource
@@ -399,7 +402,6 @@ export async function exportFrame(frame: any): Promise<ExportFrameResult> {
         diffResult = inferredBlocks.map(b => ({
             state: 'new' as const,
             inferredText: b.text,
-            label: b.label,
             fidelityWarning: b.fidelityWarning,
         }));
     }
