@@ -5,12 +5,12 @@
  *
  * This module owns the top-level rendering pipeline:
  *   - Frame creation and placement
+ *   - Component Output Mode dispatch
  *   - Block dispatch routing
  *   - List grouping into nested frames
  *   - Text style application
  *
- * Individual block renderers (callout, TOC, list, task, image, error placeholder)
- * live in blockRenderers.ts.
+ * Individual block renderers and `tryRenderWithComponent` live in blockRenderers.ts.
  * Rendering constants (colors, bullets, checkbox paints) live in constants.ts.
  *
  * Public API:
@@ -18,7 +18,7 @@
  */
 
 import type { Block } from './parser';
-import type { PluginSettings, StyleBindings } from './settings';
+import type { PluginSettings, StyleBindings, ComponentBindings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import { STYLE_NAMES, DEFAULT_STYLES, getOrCreateTextStyle, getOrCreateTextStyleWithBinding, applyInlineStyles, initializeStyles } from './styles';
 
@@ -47,6 +47,8 @@ import {
     renderMathBlock,
     createImageNode,
     createErrorPlaceholder,
+    tryRenderWithComponent,
+    clearComponentCache,
 } from './blockRenderers';
 
 /** Result returned by renderBlocks with the rendered frame and non-fatal warning counts. */
@@ -172,6 +174,9 @@ export async function renderBlocks(
     settings: PluginSettings,
     targetNode?: SceneNode
 ): Promise<RenderResult> {
+    // Clear per-render component cache so stale lookups don't persist across batches
+    clearComponentCache();
+
     // Ensure all Markdown/* text styles exist
     try {
         await initializeStyles();
@@ -183,7 +188,7 @@ export async function renderBlocks(
     // to figma.currentPage.children, which would inflate computeNewFrameX's result.
     const newFrameX = (!targetNode || !targetNode.parent) ? computeNewFrameX(100) : 0;
 
-    // ── Create outer frame (do NOT insert into document yet) ─────────────────
+    // ── Create outer frame (auto-appended by Figma; final placement is set after rendering) ──
     const frame = figma.createFrame();
 
     frame.name = name;
@@ -296,14 +301,48 @@ export async function renderBlocks(
 
 // ─── Block-level render dispatch ─────────────────────────────────────────────
 
+/** Maps block types to their Component Output Mode binding key, title, and content extractors. */
+const COMPONENT_BINDING_MAP: Partial<Record<Block['type'], {
+    key: keyof ComponentBindings;
+    title?: (b: Block) => string | undefined;
+    content?: (b: Block) => string;
+}>> = {
+    quote:   { key: 'blockquote' },
+    code:    { key: 'codeBlock', title: b => b.language || undefined },
+    table:   {
+        key: 'table',
+        title: b => b.header?.map(c => c.text).join(' | ') || undefined,
+        content: b => {
+            const rows = b.rows?.map(r => r.map(c => c.text).join(' | ')) ?? [];
+            return rows.join('\n');
+        },
+    },
+    image:   { key: 'image', title: b => b.imageAlt || undefined, content: b => b.imageUrl ?? '' },
+    callout: { key: 'callout', title: b => b.calloutType ?? 'note' },
+};
+
 /**
  * Renders a single non-list block into a SceneNode.
+ * Component Output Mode is attempted first for supported block types (via
+ * tryRenderWithComponent) before falling back to switch-based default rendering.
  * List-like blocks (list, orderedListItem, taskListItem) are handled by the
  * list grouping loop in renderBlocks and dispatched to dedicated render functions.
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
- * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
+ * Returns null only for list-type blocks that reach here due to a routing bug.
+ * Unrecognized block types produce a visible error placeholder.
  */
 async function renderBlock(block: Block, settings: PluginSettings): Promise<SceneNode | null> {
+    // Try Component Output Mode for supported block types
+    const mapping = COMPONENT_BINDING_MAP[block.type];
+    if (mapping) {
+        // Override block content if the mapping provides a custom content extractor
+        const blockForComponent = mapping.content
+            ? { ...block, content: mapping.content(block), tokens: undefined }
+            : block;
+        const compNode = await tryRenderWithComponent(blockForComponent, mapping.key, settings.componentBindings, mapping.title?.(block));
+        if (compNode) return compNode;
+    }
+
     switch (block.type) {
         case 'heading': {
             const node = figma.createText();
@@ -398,14 +437,13 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         case 'list':
         case 'orderedListItem':
         case 'taskListItem':
-            // These are handled by the list grouping loop in renderBlocks — reaching
-            // here indicates a routing bug.
-            console.error(`[MarkDown For What] Block type "${block.type}" reached renderBlock — should be handled by list grouping`);
-            return null;
+            // Reaching here indicates a routing bug — list types should be handled
+            // by the list grouping loop in renderBlocks.
+            throw new Error(`Block type "${block.type}" reached renderBlock — should be handled by list grouping (routing bug)`);
 
         default:
             console.warn(`[MarkDown For What] Unknown block type: "${(block as { type: string }).type}" — skipping`);
-            return null;
+            return await createErrorPlaceholder(block, `Unknown block type: "${(block as { type: string }).type}"`);
     }
 }
 

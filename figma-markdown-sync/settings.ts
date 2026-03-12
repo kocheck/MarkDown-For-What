@@ -7,11 +7,12 @@
  * This module does NOT render anything. It only defines and manages data.
  *
  * Public API:
- *   DEFAULT_SETTINGS          — the baseline values used on first run
- *   validateSettings(obj)     — returns true if obj is a well-formed PluginSettings
- *   mergeWithDefaults(obj)    — fills missing/invalid fields with defaults
- *   loadSettings()            — async: reads from clientStorage, merges with defaults
- *   saveSettings(settings)    — async: writes to clientStorage
+ *   Types: PluginSettings, StyleBindings, ComponentBindings, WidthMode, Theme, ImportHistoryEntry
+ *   Constants: DEFAULT_SETTINGS, THEME_PRESETS, WIDTH_PRESETS
+ *   Validation: validateSettings(obj), mergeWithDefaults(obj), resolvedFrameWidth(settings)
+ *   Theme: resolveThemeSettings(theme)
+ *   Persistence: loadSettings(), saveSettings(settings)
+ *   History: loadHistory(), recordImport(filename, blockCount), clearHistory()
  */
 
 import { isValidHex } from './utils';
@@ -57,6 +58,8 @@ export interface PluginSettings {
     styleBindings: StyleBindings;
     /** When true, use semantic component-ready layer names (e.g. "Heading/H1", "Body/Paragraph"). */
     componentNames: boolean;
+    /** Mappings from block types to Figma component IDs for Component Output Mode. */
+    componentBindings: ComponentBindings;
 }
 
 /** Maps block element types to Figma style IDs. 'auto' or absent = use default Markdown/* styles. */
@@ -70,6 +73,19 @@ export interface StyleBindings {
     quote?: string;
     codeBg?: string;
     tableBg?: string;
+}
+
+/**
+ * Maps block types to Figma component IDs for Component Output Mode.
+ * When a binding is set, the renderer creates an instance of the component
+ * and populates `#content` (or `#body`) / `#title` (or `#label`) text layers instead of building from scratch.
+ */
+export interface ComponentBindings {
+    codeBlock?: string;
+    blockquote?: string;
+    callout?: string;
+    table?: string;
+    image?: string;
 }
 
 // ─── Defaults ──────────────────────────────────────────────────────────────────
@@ -92,6 +108,7 @@ export const DEFAULT_SETTINGS: PluginSettings = {
     frameFillColor: '#FFFFFF',
     styleBindings: {},
     componentNames: false,
+    componentBindings: {},
 };
 
 const STORAGE_KEY = 'pluginSettings';
@@ -118,7 +135,8 @@ export async function loadHistory(): Promise<ImportHistoryEntry[]> {
         const raw = await figma.clientStorage.getAsync(HISTORY_STORAGE_KEY);
         if (Array.isArray(raw)) return raw.slice(0, MAX_HISTORY_ENTRIES);
         return [];
-    } catch {
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to load import history:', err);
         return [];
     }
 }
@@ -126,13 +144,20 @@ export async function loadHistory(): Promise<ImportHistoryEntry[]> {
 /**
  * Records a new import in history.
  * Prepends to the list, deduplicates by filename (keeps latest), and trims to MAX_HISTORY_ENTRIES.
+ * If history cannot be read, the write is skipped to avoid overwriting existing entries with
+ * a single-item array (cascading silent-fallback data loss).
  */
 export async function recordImport(filename: string, blockCount: number): Promise<void> {
-    const history = await loadHistory();
+    let history: ImportHistoryEntry[];
+    try {
+        const raw = await figma.clientStorage.getAsync(HISTORY_STORAGE_KEY);
+        history = Array.isArray(raw) ? raw.slice(0, MAX_HISTORY_ENTRIES) : [];
+    } catch (err) {
+        console.error('[MarkDown For What] Cannot read history; skipping record to avoid data loss:', err);
+        return;
+    }
     const entry: ImportHistoryEntry = { filename, timestamp: Date.now(), blockCount };
-    // Remove any existing entry with the same filename
     const filtered = history.filter(h => h.filename !== filename);
-    // Prepend new entry and trim
     const updated = [entry, ...filtered].slice(0, MAX_HISTORY_ENTRIES);
     try {
         await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, updated);
@@ -142,14 +167,11 @@ export async function recordImport(filename: string, blockCount: number): Promis
 }
 
 /**
- * Clears all import history.
+ * Clears all import history. Throws on storage failure so callers can
+ * report the error to the user rather than showing a false success message.
  */
 export async function clearHistory(): Promise<void> {
-    try {
-        await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, []);
-    } catch (err) {
-        console.error('[MarkDown For What] Failed to clear import history:', err);
-    }
+    await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, []);
 }
 
 // ─── Theme Presets ──────────────────────────────────────────────────────────────
@@ -185,10 +207,10 @@ export const THEME_PRESETS: Record<Exclude<Theme, 'custom'>, Partial<PluginSetti
     },
 };
 
-const VALID_THEMES: readonly string[] = ['minimal-light', 'dark-mode', 'documentation', 'custom'];
+const VALID_THEMES: readonly Theme[] = ['minimal-light', 'dark-mode', 'documentation', 'custom'];
 
 function isValidTheme(value: unknown): value is Theme {
-    return typeof value === 'string' && VALID_THEMES.includes(value);
+    return typeof value === 'string' && VALID_THEMES.includes(value as Theme);
 }
 
 /**
@@ -209,10 +231,10 @@ export const WIDTH_PRESETS: Record<WidthMode, number | null> = {
     custom: null,
 };
 
-const VALID_WIDTH_MODES: readonly string[] = Object.keys(WIDTH_PRESETS);
+const VALID_WIDTH_MODES: readonly WidthMode[] = Object.keys(WIDTH_PRESETS) as WidthMode[];
 
 function isValidWidthMode(value: unknown): value is WidthMode {
-    return typeof value === 'string' && VALID_WIDTH_MODES.includes(value);
+    return typeof value === 'string' && VALID_WIDTH_MODES.includes(value as WidthMode);
 }
 
 /**
@@ -235,18 +257,38 @@ function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
 }
 
-const VALID_BINDING_KEYS = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
+const VALID_BINDING_KEYS: (keyof StyleBindings)[] = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
+const VALID_COMPONENT_BINDING_KEYS: (keyof ComponentBindings)[] = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
 
-/** Returns true if value is a valid StyleBindings object (plain object with string values). */
-function isValidStyleBindings(value: unknown): boolean {
+/** Returns true if value is a plain object whose keys are in validKeys and whose values are non-empty strings. */
+function isValidBindings(value: unknown, validKeys: string[]): boolean {
     if (value === undefined || value === null) return false;
     if (typeof value !== 'object' || Array.isArray(value)) return false;
     const obj = value as Record<string, unknown>;
     for (const key of Object.keys(obj)) {
-        if (!VALID_BINDING_KEYS.includes(key)) return false;
-        if (typeof obj[key] !== 'string') return false;
+        if (!validKeys.includes(key)) return false;
+        if (typeof obj[key] !== 'string' || obj[key] === '') return false;
     }
     return true;
+}
+
+function isValidStyleBindings(value: unknown): boolean {
+    return isValidBindings(value, VALID_BINDING_KEYS);
+}
+
+function isValidComponentBindings(value: unknown): boolean {
+    return isValidBindings(value, VALID_COMPONENT_BINDING_KEYS);
+}
+
+/** Strips empty-string values from a bindings object so legacy stored data doesn't fail validation. */
+function sanitizeBindings(value: unknown): unknown {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+    const obj = value as Record<string, unknown>;
+    const cleaned: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) {
+        if (v !== '') cleaned[k] = v;
+    }
+    return cleaned;
 }
 
 // ─── Public API ────────────────────────────────────────────────────────────────
@@ -276,7 +318,8 @@ export function validateSettings(obj: unknown): obj is PluginSettings {
         isValidTheme(s.theme) &&
         isValidHex(s.frameFillColor) &&
         isValidStyleBindings(s.styleBindings) &&
-        typeof s.componentNames === 'boolean'
+        typeof s.componentNames === 'boolean' &&
+        isValidComponentBindings(s.componentBindings)
     );
 }
 
@@ -327,8 +370,9 @@ export function mergeWithDefaults(partial: unknown): PluginSettings {
         generateToc:           typeof p.generateToc === 'boolean'     ? p.generateToc                       : DEFAULT_SETTINGS.generateToc,
         theme:                 isValidTheme(p.theme)                  ? p.theme                              : DEFAULT_SETTINGS.theme,
         frameFillColor:        isValidHex(p.frameFillColor)           ? (p.frameFillColor as string)        : DEFAULT_SETTINGS.frameFillColor,
-        styleBindings:         isValidStyleBindings(p.styleBindings)  ? (p.styleBindings as StyleBindings)  : { ...DEFAULT_SETTINGS.styleBindings },
+        styleBindings:         isValidStyleBindings(sanitizeBindings(p.styleBindings))  ? (sanitizeBindings(p.styleBindings) as StyleBindings)  : { ...DEFAULT_SETTINGS.styleBindings },
         componentNames:        typeof p.componentNames === 'boolean'   ? p.componentNames                     : DEFAULT_SETTINGS.componentNames,
+        componentBindings:     isValidComponentBindings(sanitizeBindings(p.componentBindings)) ? (sanitizeBindings(p.componentBindings) as ComponentBindings) : { ...DEFAULT_SETTINGS.componentBindings },
     };
     // Keep frameWidth in sync with resolved width for backwards compat
     merged.frameWidth = resolvedFrameWidth(merged);
@@ -346,7 +390,7 @@ export async function loadSettings(): Promise<PluginSettings> {
         const raw = await figma.clientStorage.getAsync(STORAGE_KEY);
         return mergeWithDefaults(raw);
     } catch (err) {
-        console.error('[MarkDown For What] Failed to load settings:', err);
+        console.error('[MarkDown For What] Failed to load settings — using defaults:', err);
         return { ...DEFAULT_SETTINGS };
     }
 }

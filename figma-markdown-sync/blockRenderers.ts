@@ -4,18 +4,16 @@
  * Individual block-level renderers extracted from renderer.ts.
  * Each function converts a single Block into a Figma SceneNode.
  *
- * This module handles:
- *   - Callout/admonition blocks
- *   - Table of contents blocks
- *   - List item blocks (unordered, ordered, task)
- *   - Image blocks (with placeholder fallback)
- *   - Error placeholder blocks
+ * This module handles all block-level renderers (callout, TOC, list, ordered
+ * list, task list, definition list, footnote section, badge row, mermaid, math,
+ * image, error placeholder) and Component Output Mode rendering
+ * (tryRenderWithComponent).
  *
  * The orchestration (renderBlocks, renderBlock dispatch) stays in renderer.ts.
  */
 
 import type { Block, CalloutType } from './parser';
-import type { PluginSettings } from './settings';
+import type { PluginSettings, ComponentBindings } from './settings';
 import { resolvedFrameWidth } from './settings';
 import type { marked } from 'marked';
 import { STYLE_NAMES, DEFAULT_STYLES, loadFont, getOrCreateTextStyle, applyInlineStyles } from './styles';
@@ -468,18 +466,13 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
         throw new Error('Invalid image block');
     }
 
+    const imageRect = figma.createRectangle();
+    imageRect.name = block.imageAlt || 'Image';
+    imageRect.layoutAlign = 'STRETCH';
+    imageRect.resize(600, 400);
+
     try {
-        const imageRect = figma.createRectangle();
-        imageRect.name = block.imageAlt || 'Image';
-        imageRect.layoutAlign = 'STRETCH';
-
-        // Set default size (will be adjusted after image loads)
-        imageRect.resize(600, 400);
-
-        // Fetch the image asynchronously
         const image = await figma.createImageAsync(block.imageUrl);
-
-        // Get image dimensions
         const imageSize = await image.getSizeAsync();
 
         // Scale image to fit max width while maintaining aspect ratio
@@ -491,7 +484,6 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
             imageRect.resize(imageSize.width, imageSize.height);
         }
 
-        // Apply image fill
         imageRect.fills = [
             {
                 type: 'IMAGE',
@@ -502,7 +494,7 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
 
         return imageRect;
     } catch (error) {
-        // If image loading fails, create a placeholder
+        imageRect.remove();
         console.error(`Failed to load image: ${block.imageUrl}`, error);
 
         const placeholderFrame = figma.createFrame();
@@ -566,6 +558,121 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
     return errFrame;
 }
 
+// ─── Component Output Mode ───────────────────────────────────────────────────
+
+const CONTENT_LAYER_NAMES = ['#content', '#body'];
+const TITLE_LAYER_NAMES = ['#title', '#label'];
+
+/** Resolves a TextNode's font name to a concrete FontName, narrowing past the `FontName | typeof figma.mixed` union. */
+function resolvedFontName(node: TextNode): FontName {
+    return node.fontName === figma.mixed
+        ? node.getRangeFontName(0, 1) as FontName
+        : node.fontName as FontName;
+}
+
+/**
+ * Single-pass recursive search for content and title text layers in a component instance.
+ * Populates both fields of the `result` object in one traversal to avoid walking the tree twice.
+ */
+function findComponentLayers(node: SceneNode, result: { content?: TextNode; title?: TextNode }): void {
+    if (node.type === 'TEXT') {
+        if (!result.content && CONTENT_LAYER_NAMES.includes(node.name)) {
+            result.content = node as TextNode;
+        } else if (!result.title && TITLE_LAYER_NAMES.includes(node.name)) {
+            result.title = node as TextNode;
+        }
+        if (result.content && result.title) return;
+    }
+    if ('children' in node && Array.isArray((node as any).children)) {
+        for (const child of (node as FrameNode).children) {
+            findComponentLayers(child, result);
+            if (result.content && result.title) return;
+        }
+    }
+}
+
+/**
+ * Module-level cache for component lookups, cleared at the start of each
+ * renderBlocks() call via clearComponentCache(). Avoids repeated
+ * getNodeByIdAsync calls within a single render pass.
+ */
+const componentCache = new Map<string, ComponentNode | null>();
+
+/** Clears the component lookup cache. Called at the start of each renderBlocks() pass. */
+export function clearComponentCache(): void {
+    componentCache.clear();
+}
+
+/**
+ * Attempts to render a block using a component instance from Component Output Mode.
+ * Returns the populated instance node if successful, or null if bindings are not
+ * configured or the binding key is absent (i.e. "not configured" — caller falls
+ * through to default rendering).
+ *
+ * Throws on errors so the caller can insert a visible error placeholder rather
+ * than silently falling back. Also throws when the component can't be found or
+ * has no #content layer — these indicate a misconfigured binding that the user
+ * should see.
+ */
+export async function tryRenderWithComponent(
+    block: Block,
+    bindingKey: keyof ComponentBindings,
+    bindings: ComponentBindings | undefined,
+    titleText?: string,
+): Promise<SceneNode | null> {
+    if (!bindings) return null;
+    const componentId = bindings[bindingKey];
+    if (!componentId) return null;
+
+    let instance: InstanceNode | undefined;
+    try {
+        let component: ComponentNode | null;
+        if (componentCache.has(componentId)) {
+            component = componentCache.get(componentId)!;
+        } else {
+            const node = await figma.getNodeByIdAsync(componentId);
+            component = (node && node.type === 'COMPONENT') ? node as ComponentNode : null;
+            componentCache.set(componentId, component);
+        }
+        if (!component) {
+            throw new Error(`Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
+        }
+
+        instance = component.createInstance();
+        instance.layoutAlign = 'STRETCH';
+
+        const layers: { content?: TextNode; title?: TextNode } = {};
+        findComponentLayers(instance, layers);
+
+        if (!layers.content) {
+            instance.remove();
+            throw new Error(`Component "${component.name}" has no #content or #body text layer`);
+        }
+
+        // Load fonts concurrently for content and title layers
+        const fontLoads: Promise<void>[] = [figma.loadFontAsync(resolvedFontName(layers.content))];
+        if (titleText && layers.title) {
+            fontLoads.push(figma.loadFontAsync(resolvedFontName(layers.title)));
+        }
+        await Promise.all(fontLoads);
+
+        if (block.tokens && block.tokens.length > 0) {
+            await applyInlineStyles(layers.content, block.tokens, STYLE_NAMES.BODY);
+        } else {
+            layers.content.characters = block.content ?? '';
+        }
+
+        if (titleText && layers.title) {
+            layers.title.characters = titleText;
+        }
+
+        return instance;
+    } catch (err) {
+        if (instance) instance.remove();
+        throw err;
+    }
+}
+
 // CommonJS export shim — allows Jest (require()) and webpack (import) to both work
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -581,5 +688,7 @@ if (typeof module !== 'undefined' && module.exports) {
         renderMathBlock,
         createImageNode,
         createErrorPlaceholder,
+        tryRenderWithComponent,
+        clearComponentCache,
     };
 }

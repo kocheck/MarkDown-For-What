@@ -126,6 +126,7 @@ describe('mergeWithDefaults', () => {
             frameFillColor: '#F0F0F0',
             styleBindings: { h1: 'S:abc123' },
             componentNames: false,
+            componentBindings: {},
         };
         const result = mergeWithDefaults(custom);
         expect(result).toEqual(custom);
@@ -430,5 +431,53 @@ describe('import history', () => {
         (figma.clientStorage.getAsync as jest.Mock).mockRejectedValue(new Error('storage error'));
         const history = await loadHistory();
         expect(history).toEqual([]);
+    });
+});
+
+describe('componentBindings', () => {
+    test('DEFAULT_SETTINGS has empty componentBindings', () => {
+        expect(DEFAULT_SETTINGS.componentBindings).toEqual({});
+    });
+
+    test('validates settings with empty componentBindings', () => {
+        expect(validateSettings(DEFAULT_SETTINGS)).toBe(true);
+    });
+
+    test('validates settings with populated componentBindings', () => {
+        const settings = { ...DEFAULT_SETTINGS, componentBindings: { codeBlock: 'comp-123', callout: 'comp-456' } };
+        expect(validateSettings(settings)).toBe(true);
+    });
+
+    test('rejects invalid componentBindings keys', () => {
+        const settings = { ...DEFAULT_SETTINGS, componentBindings: { unknownKey: 'comp-123' } };
+        expect(validateSettings(settings)).toBe(false);
+    });
+
+    test('rejects non-string componentBindings values', () => {
+        const settings = { ...DEFAULT_SETTINGS, componentBindings: { codeBlock: 123 } };
+        expect(validateSettings(settings)).toBe(false);
+    });
+
+    test('rejects empty-string componentBindings values', () => {
+        const settings = { ...DEFAULT_SETTINGS, componentBindings: { codeBlock: '' } };
+        expect(validateSettings(settings)).toBe(false);
+    });
+
+    test('mergeWithDefaults preserves valid componentBindings', () => {
+        const partial = { ...DEFAULT_SETTINGS, componentBindings: { blockquote: 'comp-789' } };
+        const merged = mergeWithDefaults(partial);
+        expect(merged.componentBindings).toEqual({ blockquote: 'comp-789' });
+    });
+
+    test('mergeWithDefaults fills missing componentBindings with empty object', () => {
+        const { componentBindings, ...rest } = DEFAULT_SETTINGS;
+        const merged = mergeWithDefaults(rest);
+        expect(merged.componentBindings).toEqual({});
+    });
+
+    test('mergeWithDefaults replaces invalid componentBindings with empty object', () => {
+        const partial = { ...DEFAULT_SETTINGS, componentBindings: 'not-an-object' };
+        const merged = mergeWithDefaults(partial);
+        expect(merged.componentBindings).toEqual({});
     });
 });

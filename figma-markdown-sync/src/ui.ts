@@ -1,6 +1,12 @@
 import './styles.css';
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
+import {
+    MSG_GET_SETTINGS, MSG_SAVE_SETTINGS, MSG_RESET_SETTINGS,
+    MSG_GET_LOCAL_STYLES, MSG_GET_LOCAL_COMPONENTS,
+    MSG_GET_HISTORY, MSG_CLEAR_HISTORY, MSG_IMPORT_BATCH,
+    MSG_STATUS, MSG_SETTINGS, MSG_LOCAL_STYLES, MSG_LOCAL_COMPONENTS, MSG_HISTORY,
+} from '../messages';
 
 function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -59,7 +65,11 @@ const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
 // Style binding selects
 const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
 
-// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
+// Component binding selects
+const componentBindingSelects = document.querySelectorAll<HTMLSelectElement>('.component-binding-select');
+
+// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
+// IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
         frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
@@ -81,7 +91,6 @@ const THEME_PRESETS: Record<string, Record<string, unknown>> = {
 // ── State ───────────────────────────────────────────────────────────────────
 
 let currentFiles: { name: string; content: string }[] = [];
-let isPreviewVisible = false;
 
 // ── Tab switching ───────────────────────────────────────────────────────────
 
@@ -96,11 +105,12 @@ tabs.forEach(tab => {
         });
 
         if (tab.dataset.tab === 'settings') {
-            parent.postMessage({ pluginMessage: { type: 'get-settings' } }, '*');
-            parent.postMessage({ pluginMessage: { type: 'get-local-styles' } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
         }
         if (tab.dataset.tab === 'history') {
-            parent.postMessage({ pluginMessage: { type: 'get-history' } }, '*');
+            parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
         }
     });
 });
@@ -247,7 +257,6 @@ function showPreview(files: { name: string; content: string }[]) {
     previewCancelBtn.classList.remove('hidden');
     importBtn.disabled = false;
     importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
-    isPreviewVisible = true;
 }
 
 function hidePreview() {
@@ -257,7 +266,6 @@ function hidePreview() {
     importSection.style.display = '';
     fileList.style.display = '';
     importBtn.textContent = 'Import';
-    isPreviewVisible = false;
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
@@ -300,7 +308,7 @@ importBtn.addEventListener('click', () => {
 
     parent.postMessage({
         pluginMessage: {
-            type: 'import-markdown-batch',
+            type: MSG_IMPORT_BATCH,
             files: currentFiles,
             excludedBlocks,
         }
@@ -354,28 +362,48 @@ function populateSettings(settings: Record<string, unknown>) {
         btn.classList.toggle('active', btn.dataset.theme === theme);
     });
 
-    // Handle style bindings
-    const bindings = (settings.styleBindings ?? {}) as Record<string, string>;
-    styleBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && bindings[key]) select.value = bindings[key];
-        else select.value = 'auto';
-    });
+    // Handle style and component bindings
+    restoreBindings(styleBindingSelects, (settings.styleBindings ?? {}) as Record<string, string>, 'auto');
+    restoreBindings(componentBindingSelects, (settings.componentBindings ?? {}) as Record<string, string>, '');
 
     // Handle width mode visibility
     updateCustomWidthVisibility();
 }
 
-function populateStyleDropdowns(textStyles: Array<{ id: string; name: string }>) {
-    styleBindingSelects.forEach(select => {
+/** Restores select values from a bindings record, falling back to defaultValue. */
+function restoreBindings(selects: NodeListOf<HTMLSelectElement>, bindings: Record<string, string>, defaultValue: string) {
+    selects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && bindings[key]) select.value = bindings[key];
+        else select.value = defaultValue;
+    });
+}
+
+/** Collects binding values from a set of <select> elements, omitting those set to defaultValue. */
+function collectBindings(selects: NodeListOf<HTMLSelectElement>, defaultValue: string): Record<string, string> {
+    const bindings: Record<string, string> = {};
+    selects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && select.value !== defaultValue) {
+            bindings[key] = select.value;
+        }
+    });
+    return bindings;
+}
+
+/** Populates a set of <select> dropdowns with items, preserving current selections. */
+function populateDropdowns(
+    selects: NodeListOf<HTMLSelectElement>,
+    items: Array<{ id: string; name: string }>,
+) {
+    selects.forEach(select => {
         const currentValue = select.value;
-        // Clear all options except "Auto"
+        // Clear all options except the first default ("Auto" / "None")
         while (select.options.length > 1) select.remove(1);
-        // Add each local text style as an option
-        for (const style of textStyles) {
+        for (const item of items) {
             const opt = document.createElement('option');
-            opt.value = style.id;
-            opt.textContent = style.name;
+            opt.value = item.id;
+            opt.textContent = item.name;
             select.appendChild(opt);
         }
         // Restore previous selection if it still exists
@@ -446,15 +474,15 @@ function setupSettingListeners() {
         });
     });
 
-    // Style binding selects
-    styleBindingSelects.forEach(select => {
-        select.addEventListener('change', () => {
-            sendCurrentSettings();
+    // Style and component binding selects
+    [styleBindingSelects, componentBindingSelects].forEach(selects => {
+        selects.forEach(select => {
+            select.addEventListener('change', () => sendCurrentSettings());
         });
     });
 
     document.getElementById('reset-btn')?.addEventListener('click', () => {
-        parent.postMessage({ pluginMessage: { type: 'reset-settings' } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_RESET_SETTINGS } }, '*');
     });
 }
 
@@ -476,15 +504,9 @@ function sendCurrentSettings() {
         if (cb) settings[id] = cb.checked;
     }
 
-    // Include style bindings
-    const styleBindings: Record<string, string> = {};
-    styleBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && select.value !== 'auto') {
-            styleBindings[key] = select.value;
-        }
-    });
-    settings.styleBindings = styleBindings;
+    // Collect style and component bindings
+    settings.styleBindings = collectBindings(styleBindingSelects, 'auto');
+    settings.componentBindings = collectBindings(componentBindingSelects, '');
 
     // Determine active theme
     const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
@@ -493,11 +515,12 @@ function sendCurrentSettings() {
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
     // so it cannot import from the plugin sandbox bundle directly.
+    // IMPORTANT: Keep in sync with WIDTH_PRESETS in settings.ts (custom omitted; handled by fallback).
     const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
     const mode = settings.widthMode as string;
     settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;
 
-    parent.postMessage({ pluginMessage: { type: 'save-settings', settings } }, '*');
+    parent.postMessage({ pluginMessage: { type: MSG_SAVE_SETTINGS, settings } }, '*');
 }
 
 setupSettingListeners();
@@ -537,7 +560,7 @@ function renderHistory(entries: Array<{ filename: string; timestamp: number; blo
 }
 
 clearHistoryBtn.addEventListener('click', () => {
-    parent.postMessage({ pluginMessage: { type: 'clear-history' } }, '*');
+    parent.postMessage({ pluginMessage: { type: MSG_CLEAR_HISTORY } }, '*');
 });
 
 // ── Status helper ───────────────────────────────────────────────────────────
@@ -554,9 +577,9 @@ window.onmessage = event => {
     if (!msg) return;
 
     switch (msg.type) {
-        case 'status':
+        case MSG_STATUS:
             loader.classList.add('hidden');
-            if (isPreviewVisible) hidePreview();
+            if (!previewPane.classList.contains('hidden')) hidePreview();
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             // Clear paste area on successful import
@@ -568,13 +591,18 @@ window.onmessage = event => {
                 renderFileList([]);
             }
             break;
-        case 'settings':
+        case MSG_SETTINGS:
             populateSettings(msg.settings);
             break;
-        case 'local-styles':
-            populateStyleDropdowns(msg.textStyles ?? []);
+        case MSG_LOCAL_STYLES:
+            populateDropdowns(styleBindingSelects, msg.textStyles ?? []);
+            if (msg.error) showStatus(msg.error, 'error');
             break;
-        case 'history':
+        case MSG_LOCAL_COMPONENTS:
+            populateDropdowns(componentBindingSelects, msg.components ?? []);
+            if (msg.error) showStatus(msg.error, 'error');
+            break;
+        case MSG_HISTORY:
             renderHistory(msg.entries ?? []);
             break;
         default:
