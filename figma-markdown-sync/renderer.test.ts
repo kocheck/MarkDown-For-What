@@ -1046,6 +1046,178 @@ describe('renderBlocks', () => {
             expect(result.frame.children[0]).toBe(mockInstance);
         });
 
+        it('should populate #title layer from calloutType', async () => {
+            const contentLayer = {
+                type: 'TEXT',
+                name: '#content',
+                characters: '',
+                fontName: { family: 'Inter', style: 'Regular' },
+                fontSize: 16,
+                fills: [],
+                layoutAlign: 'MIN',
+                layoutGrow: 0,
+                textAlignHorizontal: 'LEFT',
+                paragraphIndent: 0,
+                opacity: 1,
+                parent: null,
+                setRangeFontName: jest.fn(),
+                setRangeTextDecoration: jest.fn(),
+                setRangeHyperlink: jest.fn(),
+                setRangeFills: jest.fn(),
+                insertCharacters: jest.fn(),
+                remove: jest.fn(),
+                setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
+            };
+            const titleLayer = {
+                type: 'TEXT',
+                name: '#title',
+                characters: '',
+                fontName: { family: 'Inter', style: 'Bold' },
+                fontSize: 14,
+                fills: [],
+                layoutAlign: 'MIN',
+                layoutGrow: 0,
+                textAlignHorizontal: 'LEFT',
+                paragraphIndent: 0,
+                opacity: 1,
+                parent: null,
+                setRangeFontName: jest.fn(),
+                setRangeTextDecoration: jest.fn(),
+                setRangeHyperlink: jest.fn(),
+                setRangeFills: jest.fn(),
+                insertCharacters: jest.fn(),
+                remove: jest.fn(),
+                setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
+            };
+            const mockInstance = {
+                type: 'INSTANCE',
+                name: 'Callout Component',
+                layoutAlign: 'MIN',
+                children: [titleLayer, contentLayer],
+                remove: jest.fn(),
+            };
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'Callout Component',
+                createInstance: jest.fn(() => mockInstance),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+
+            const blocks: Block[] = [
+                { type: 'callout', calloutType: 'warning', content: 'Be careful!' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { callout: 'comp-callout-1' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            expect(mockComponent.createInstance).toHaveBeenCalled();
+            expect(titleLayer.characters).toBe('warning');
+            expect(contentLayer.characters).toBe('Be careful!');
+            expect(result.frame.children[0]).toBe(mockInstance);
+        });
+
+        it('should use applyInlineStyles when block has tokens in component mode', async () => {
+            const contentLayer = {
+                type: 'TEXT',
+                name: '#content',
+                characters: '',
+                fontName: { family: 'Inter', style: 'Regular' },
+                fontSize: 16,
+                fills: [],
+                layoutAlign: 'MIN',
+                layoutGrow: 0,
+                textAlignHorizontal: 'LEFT',
+                paragraphIndent: 0,
+                opacity: 1,
+                parent: null,
+                setRangeFontName: jest.fn(),
+                setRangeTextDecoration: jest.fn(),
+                setRangeHyperlink: jest.fn(),
+                setRangeFills: jest.fn(),
+                insertCharacters: jest.fn(),
+                remove: jest.fn(),
+                setTextStyleIdAsync: jest.fn().mockResolvedValue(undefined),
+            };
+            const mockInstance = {
+                type: 'INSTANCE',
+                name: 'Quote Component',
+                layoutAlign: 'MIN',
+                children: [contentLayer],
+                remove: jest.fn(),
+            };
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'Quote Component',
+                createInstance: jest.fn(() => mockInstance),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+
+            const blocks: Block[] = [
+                {
+                    type: 'quote',
+                    content: 'bold text',
+                    tokens: [
+                        { type: 'strong', raw: '**bold text**', text: 'bold text', tokens: [
+                            { type: 'text', raw: 'bold text', text: 'bold text' },
+                        ] } as any,
+                    ],
+                },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { blockquote: 'comp-quote-1' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            expect(mockComponent.createInstance).toHaveBeenCalled();
+            // When tokens are present, applyInlineStyles sets .characters from flattened
+            // token text and calls setRangeFontName for formatting ranges
+            expect(contentLayer.characters).toBe('bold text');
+            expect(contentLayer.setRangeFontName).toHaveBeenCalled();
+            expect(result.frame.children[0]).toBe(mockInstance);
+        });
+
+        it('should fall back when component node type is FRAME instead of COMPONENT', async () => {
+            const mockFrameNode = {
+                type: 'FRAME',
+                name: 'Not A Component',
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockFrameNode);
+
+            const blocks: Block[] = [
+                { type: 'code', content: 'let x = 1;', language: 'js' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { codeBlock: 'frame-id-999' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            // Should fall back to default code frame rendering
+            expect(result.frame.children.length).toBe(1);
+            expect(result.frame.children[0].type).toBe('FRAME');
+        });
+
+        it('should return null and fall back when createInstance throws', async () => {
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'Broken Component',
+                createInstance: jest.fn(() => { throw new Error('Instance creation failed'); }),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+
+            const blocks: Block[] = [
+                { type: 'quote', content: 'Should still render' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { blockquote: 'comp-broken-1' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            // Should not crash — falls back to default rendering
+            expect(result.frame.children.length).toBe(1);
+            expect(result.frame.children[0].type).toBe('TEXT');
+        });
+
         it('should render normally when componentBindings is empty', async () => {
             const blocks: Block[] = [
                 { type: 'quote', content: 'Normal quote' },

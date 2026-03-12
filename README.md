@@ -60,7 +60,7 @@ Currently available as a **Figma plugin**.
 - **Configurable Spacing** — block spacing, list spacing, frame padding
 - **Custom Colors** — code block background, table header background, separator color, frame fill color
 - **Component-Ready Naming** — optional layer naming mode for design system workflows
-- **Component Output Mode** — map block types (code, blockquote, callout, table, image) to your own Figma components; the plugin instantiates them and populates `#content`/`#title` text layers automatically
+- **Component Output Mode** — map block types (code, blockquote, callout, table, image) to your own Figma components; the plugin instantiates them and populates `#content` (or `#body`) / `#title` (or `#label`) text layers automatically
 
 ### Plugin UX
 

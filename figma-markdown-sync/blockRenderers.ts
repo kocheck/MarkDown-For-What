@@ -10,6 +10,7 @@
  *   - List item blocks (unordered, ordered, task)
  *   - Image blocks (with placeholder fallback)
  *   - Error placeholder blocks
+ *   - Component Output Mode rendering (tryRenderWithComponent)
  *
  * The orchestration (renderBlocks, renderBlock dispatch) stays in renderer.ts.
  */
@@ -573,7 +574,7 @@ const TITLE_LAYER_NAMES = ['#title', '#label'];
 
 /**
  * Single-pass recursive search for content and title text layers in a component instance.
- * Returns both in one traversal to avoid walking the tree twice.
+ * Populates both fields of the `result` object in one traversal to avoid walking the tree twice.
  */
 function findComponentLayers(node: SceneNode, result: { content?: TextNode; title?: TextNode }): void {
     if (node.type === 'TEXT') {
@@ -594,8 +595,9 @@ function findComponentLayers(node: SceneNode, result: { content?: TextNode; titl
 
 /**
  * Attempts to render a block using a component instance from Component Output Mode.
- * Returns the populated instance node if successful, or null if the component
- * binding doesn't exist, the component can't be found, or no #content layer exists.
+ * Returns the populated instance node if successful, or null if: bindings are not
+ * configured, the binding key is absent, the component can't be found, the node is
+ * not a COMPONENT type, no #content layer exists, or an error occurs during instantiation.
  */
 export async function tryRenderWithComponent(
     block: Block,
@@ -607,48 +609,53 @@ export async function tryRenderWithComponent(
     const componentId = bindings[bindingKey];
     if (!componentId) return null;
 
+    let instance: InstanceNode | undefined;
     try {
         const component = await figma.getNodeByIdAsync(componentId);
         if (!component || component.type !== 'COMPONENT') {
-            console.warn(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
+            console.error(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
             return null;
         }
 
-        const instance = (component as ComponentNode).createInstance();
+        instance = (component as ComponentNode).createInstance();
         instance.layoutAlign = 'STRETCH';
 
-        // Single-pass search for both content and title layers
         const layers: { content?: TextNode; title?: TextNode } = {};
         findComponentLayers(instance, layers);
 
         if (!layers.content) {
-            console.warn(`[MarkDown For What] Component "${component.name}" has no #content or #body text layer — falling back to default rendering`);
+            console.error(`[MarkDown For What] Component "${component.name}" has no #content or #body text layer — falling back to default rendering`);
             instance.remove();
             return null;
         }
 
         // Load fonts concurrently for content and title layers
-        const fontLoads: Promise<void>[] = [figma.loadFontAsync(layers.content.fontName as FontName)];
+        const contentFontName = layers.content.fontName === figma.mixed
+            ? layers.content.getRangeFontName(0, 1) as FontName
+            : layers.content.fontName as FontName;
+        const fontLoads: Promise<void>[] = [figma.loadFontAsync(contentFontName)];
         if (titleText && layers.title) {
-            fontLoads.push(figma.loadFontAsync(layers.title.fontName as FontName));
+            const titleFontName = layers.title.fontName === figma.mixed
+                ? layers.title.getRangeFontName(0, 1) as FontName
+                : layers.title.fontName as FontName;
+            fontLoads.push(figma.loadFontAsync(titleFontName));
         }
         await Promise.all(fontLoads);
 
-        // Populate content
         if (block.tokens && block.tokens.length > 0) {
             await applyInlineStyles(layers.content, block.tokens, STYLE_NAMES.BODY);
         } else {
             layers.content.characters = block.content ?? '';
         }
 
-        // Populate optional title
         if (titleText && layers.title) {
             layers.title.characters = titleText;
         }
 
         return instance;
     } catch (err) {
-        console.warn(`[MarkDown For What] Component output failed for "${bindingKey}":`, err);
+        console.error(`[MarkDown For What] Component output failed for "${bindingKey}":`, err);
+        if (instance) instance.remove();
         return null;
     }
 }

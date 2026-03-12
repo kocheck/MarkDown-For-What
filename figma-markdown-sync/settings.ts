@@ -7,11 +7,13 @@
  * This module does NOT render anything. It only defines and manages data.
  *
  * Public API:
- *   DEFAULT_SETTINGS          — the baseline values used on first run
- *   validateSettings(obj)     — returns true if obj is a well-formed PluginSettings
- *   mergeWithDefaults(obj)    — fills missing/invalid fields with defaults
- *   loadSettings()            — async: reads from clientStorage, merges with defaults
- *   saveSettings(settings)    — async: writes to clientStorage
+ *   DEFAULT_SETTINGS              — the baseline values used on first run
+ *   validateSettings(obj)         — returns true if obj is a well-formed PluginSettings
+ *   mergeWithDefaults(obj)        — fills missing/invalid fields with defaults
+ *   loadSettings()                — async: reads from clientStorage, merges with defaults
+ *   saveSettings(settings)        — async: writes to clientStorage
+ *   ComponentBindings             — type for component output mode bindings
+ *   isValidComponentBindings(obj) — returns true if obj is a valid ComponentBindings
  */
 
 import { isValidHex } from './utils';
@@ -77,7 +79,7 @@ export interface StyleBindings {
 /**
  * Maps block types to Figma component IDs for Component Output Mode.
  * When a binding is set, the renderer creates an instance of the component
- * and populates #content/#title text layers instead of building from scratch.
+ * and populates `#content` (or `#body`) / `#title` (or `#label`) text layers instead of building from scratch.
  */
 export interface ComponentBindings {
     codeBlock?: string;
@@ -134,7 +136,8 @@ export async function loadHistory(): Promise<ImportHistoryEntry[]> {
         const raw = await figma.clientStorage.getAsync(HISTORY_STORAGE_KEY);
         if (Array.isArray(raw)) return raw.slice(0, MAX_HISTORY_ENTRIES);
         return [];
-    } catch {
+    } catch (err) {
+        console.error('[MarkDown For What] Failed to load import history:', err);
         return [];
     }
 }

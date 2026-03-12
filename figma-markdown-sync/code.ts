@@ -85,7 +85,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 });
             } catch (err) {
                 console.error('[MarkDown For What] Failed to fetch local components:', err);
-                figma.ui.postMessage({ type: MSG_LOCAL_COMPONENTS, components: [] });
+                figma.ui.postMessage({ type: MSG_LOCAL_COMPONENTS, components: [], error: 'Failed to load components from the current page.' });
             }
             return;
         }
@@ -156,7 +156,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
                     // Record in import history (fire-and-forget — don't block render)
-                    recordImport(file.name, blocks.length).catch(() => {});
+                    recordImport(file.name, blocks.length).catch(err => { console.error('[MarkDown For What] Failed to record import history:', err); });
                 } catch (e) {
                     failedCount++;
                     console.error(`Failed to import ${file.name}`, e);

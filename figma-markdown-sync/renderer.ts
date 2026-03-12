@@ -5,12 +5,13 @@
  *
  * This module owns the top-level rendering pipeline:
  *   - Frame creation and placement
+ *   - Component Output Mode dispatch
  *   - Block dispatch routing
  *   - List grouping into nested frames
  *   - Text style application
  *
  * Individual block renderers (callout, TOC, list, task, image, error placeholder)
- * live in blockRenderers.ts.
+ * and `tryRenderWithComponent` live in blockRenderers.ts.
  * Rendering constants (colors, bullets, checkbox paints) live in constants.ts.
  *
  * Public API:
@@ -299,11 +300,14 @@ export async function renderBlocks(
 
 /**
  * Renders a single non-list block into a SceneNode.
+ * Component Output Mode is attempted first for supported block types (via
+ * tryRenderWithComponent) before falling back to switch-based default rendering.
  * List-like blocks (list, orderedListItem, taskListItem) are handled by the
  * list grouping loop in renderBlocks and dispatched to dedicated render functions.
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
  * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
  */
+
 /** Maps block types to their Component Output Mode binding key and title extractor. */
 const COMPONENT_BINDING_MAP: Partial<Record<Block['type'], { key: keyof ComponentBindings; title?: (b: Block) => string | undefined }>> = {
     quote:   { key: 'blockquote' },
