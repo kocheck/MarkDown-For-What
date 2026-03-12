@@ -13,7 +13,6 @@
  *   loadSettings()                — async: reads from clientStorage, merges with defaults
  *   saveSettings(settings)        — async: writes to clientStorage
  *   ComponentBindings             — type for component output mode bindings
- *   isValidComponentBindings(obj) — returns true if obj is a valid ComponentBindings
  */
 
 import { isValidHex } from './utils';
@@ -161,14 +160,11 @@ export async function recordImport(filename: string, blockCount: number): Promis
 }
 
 /**
- * Clears all import history.
+ * Clears all import history. Throws on storage failure so callers can
+ * report the error to the user rather than showing a false success message.
  */
 export async function clearHistory(): Promise<void> {
-    try {
-        await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, []);
-    } catch (err) {
-        console.error('[MarkDown For What] Failed to clear import history:', err);
-    }
+    await figma.clientStorage.setAsync(HISTORY_STORAGE_KEY, []);
 }
 
 // ─── Theme Presets ──────────────────────────────────────────────────────────────
@@ -255,16 +251,16 @@ function isPositiveNumber(value: unknown): boolean {
 }
 
 const VALID_BINDING_KEYS = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
-const VALID_COMPONENT_BINDING_KEYS = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
+const VALID_COMPONENT_BINDING_KEYS: (keyof ComponentBindings)[] = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
 
-/** Returns true if value is a plain object whose keys are in validKeys and whose values are strings. */
+/** Returns true if value is a plain object whose keys are in validKeys and whose values are non-empty strings. */
 function isValidBindings(value: unknown, validKeys: string[]): boolean {
     if (value === undefined || value === null) return false;
     if (typeof value !== 'object' || Array.isArray(value)) return false;
     const obj = value as Record<string, unknown>;
     for (const key of Object.keys(obj)) {
         if (!validKeys.includes(key)) return false;
-        if (typeof obj[key] !== 'string') return false;
+        if (typeof obj[key] !== 'string' || obj[key] === '') return false;
     }
     return true;
 }

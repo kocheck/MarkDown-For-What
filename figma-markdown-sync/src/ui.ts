@@ -361,24 +361,33 @@ function populateSettings(settings: Record<string, unknown>) {
         btn.classList.toggle('active', btn.dataset.theme === theme);
     });
 
-    // Handle style bindings
-    const bindings = (settings.styleBindings ?? {}) as Record<string, string>;
-    styleBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && bindings[key]) select.value = bindings[key];
-        else select.value = 'auto';
-    });
-
-    // Handle component bindings
-    const compBindings = (settings.componentBindings ?? {}) as Record<string, string>;
-    componentBindingSelects.forEach(select => {
-        const key = select.dataset.binding;
-        if (key && compBindings[key]) select.value = compBindings[key];
-        else select.value = '';
-    });
+    // Handle style and component bindings
+    restoreBindings(styleBindingSelects, (settings.styleBindings ?? {}) as Record<string, string>, 'auto');
+    restoreBindings(componentBindingSelects, (settings.componentBindings ?? {}) as Record<string, string>, '');
 
     // Handle width mode visibility
     updateCustomWidthVisibility();
+}
+
+/** Restores select values from a bindings record, falling back to defaultValue. */
+function restoreBindings(selects: NodeListOf<HTMLSelectElement>, bindings: Record<string, string>, defaultValue: string) {
+    selects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && bindings[key]) select.value = bindings[key];
+        else select.value = defaultValue;
+    });
+}
+
+/** Collects binding values from a set of <select> elements, omitting those set to defaultValue. */
+function collectBindings(selects: NodeListOf<HTMLSelectElement>, defaultValue: string): Record<string, string> {
+    const bindings: Record<string, string> = {};
+    selects.forEach(select => {
+        const key = select.dataset.binding;
+        if (key && select.value !== defaultValue) {
+            bindings[key] = select.value;
+        }
+    });
+    return bindings;
 }
 
 /** Populates a set of <select> dropdowns with items, preserving current selections. */
@@ -495,16 +504,6 @@ function sendCurrentSettings() {
     }
 
     // Collect style and component bindings
-    function collectBindings(selects: NodeListOf<HTMLSelectElement>, defaultValue: string): Record<string, string> {
-        const bindings: Record<string, string> = {};
-        selects.forEach(select => {
-            const key = select.dataset.binding;
-            if (key && select.value !== defaultValue) {
-                bindings[key] = select.value;
-            }
-        });
-        return bindings;
-    }
     settings.styleBindings = collectBindings(styleBindingSelects, 'auto');
     settings.componentBindings = collectBindings(componentBindingSelects, '');
 
@@ -595,9 +594,11 @@ window.onmessage = event => {
             break;
         case MSG_LOCAL_STYLES:
             populateDropdowns(styleBindingSelects, msg.textStyles ?? []);
+            if (msg.error) showStatus(msg.error, 'error');
             break;
         case MSG_LOCAL_COMPONENTS:
             populateDropdowns(componentBindingSelects, msg.components ?? []);
+            if (msg.error) showStatus(msg.error, 'error');
             break;
         case MSG_HISTORY:
             renderHistory(msg.entries ?? []);

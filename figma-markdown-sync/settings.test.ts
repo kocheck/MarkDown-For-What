@@ -458,6 +458,11 @@ describe('componentBindings', () => {
         expect(validateSettings(settings)).toBe(false);
     });
 
+    test('rejects empty-string componentBindings values', () => {
+        const settings = { ...DEFAULT_SETTINGS, componentBindings: { codeBlock: '' } };
+        expect(validateSettings(settings)).toBe(false);
+    });
+
     test('mergeWithDefaults preserves valid componentBindings', () => {
         const partial = { ...DEFAULT_SETTINGS, componentBindings: { blockquote: 'comp-789' } };
         const merged = mergeWithDefaults(partial);

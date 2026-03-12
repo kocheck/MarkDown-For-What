@@ -71,7 +71,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 });
             } catch (err) {
                 console.error('[MarkDown For What] Failed to fetch local styles:', err);
-                figma.ui.postMessage({ type: MSG_LOCAL_STYLES, textStyles: [] });
+                figma.ui.postMessage({ type: MSG_LOCAL_STYLES, textStyles: [], error: 'Failed to load text styles.' });
             }
             return;
         }
@@ -97,9 +97,13 @@ figma.showUI(__html__, { width: 400, height: 500 });
         }
 
         if (msg.type === MSG_CLEAR_HISTORY) {
-            await clearHistory();
-            figma.ui.postMessage({ type: MSG_HISTORY, entries: [] });
-            figma.ui.postMessage({ type: MSG_STATUS, message: 'Import history cleared.', error: false });
+            try {
+                await clearHistory();
+                figma.ui.postMessage({ type: MSG_HISTORY, entries: [] });
+                figma.ui.postMessage({ type: MSG_STATUS, message: 'Import history cleared.', error: false });
+            } catch (err) {
+                figma.ui.postMessage({ type: MSG_STATUS, message: `Failed to clear history: ${errorMessage(err)}`, error: true });
+            }
             return;
         }
 

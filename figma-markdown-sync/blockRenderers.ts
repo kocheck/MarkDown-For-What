@@ -4,13 +4,10 @@
  * Individual block-level renderers extracted from renderer.ts.
  * Each function converts a single Block into a Figma SceneNode.
  *
- * This module handles:
- *   - Callout/admonition blocks
- *   - Table of contents blocks
- *   - List item blocks (unordered, ordered, task)
- *   - Image blocks (with placeholder fallback)
- *   - Error placeholder blocks
- *   - Component Output Mode rendering (tryRenderWithComponent)
+ * This module handles all block-level renderers (callout, TOC, list, ordered
+ * list, task list, definition list, footnote section, badge row, mermaid, math,
+ * image, error placeholder) and Component Output Mode rendering
+ * (tryRenderWithComponent).
  *
  * The orchestration (renderBlocks, renderBlock dispatch) stays in renderer.ts.
  */
@@ -569,8 +566,15 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
 
 // ─── Component Output Mode ───────────────────────────────────────────────────
 
-const CONTENT_LAYER_NAMES = ['#content', '#body'];
-const TITLE_LAYER_NAMES = ['#title', '#label'];
+export const CONTENT_LAYER_NAMES = ['#content', '#body'];
+export const TITLE_LAYER_NAMES = ['#title', '#label'];
+
+/** Resolves a TextNode's font name to a concrete FontName, narrowing past the `FontName | typeof figma.mixed` union. */
+function resolvedFontName(node: TextNode): FontName {
+    return node.fontName === figma.mixed
+        ? node.getRangeFontName(0, 1) as FontName
+        : node.fontName as FontName;
+}
 
 /**
  * Single-pass recursive search for content and title text layers in a component instance.
@@ -594,10 +598,27 @@ function findComponentLayers(node: SceneNode, result: { content?: TextNode; titl
 }
 
 /**
+ * Module-level cache for component lookups, cleared at the start of each
+ * renderBlocks() call via clearComponentCache(). Avoids repeated
+ * getNodeByIdAsync calls within a single render pass.
+ */
+const componentCache = new Map<string, ComponentNode | null>();
+
+/** Clears the component lookup cache. Called at the start of each renderBlocks() pass. */
+export function clearComponentCache(): void {
+    componentCache.clear();
+}
+
+/**
  * Attempts to render a block using a component instance from Component Output Mode.
- * Returns the populated instance node if successful, or null if: bindings are not
- * configured, the binding key is absent, the component can't be found, the node is
- * not a COMPONENT type, no #content layer exists, or an error occurs during instantiation.
+ * Returns the populated instance node if successful, or null if bindings are not
+ * configured or the binding key is absent (i.e. "not configured" — caller falls
+ * through to default rendering).
+ *
+ * Throws on errors so the caller can insert a visible error placeholder rather
+ * than silently falling back. Also throws when the component can't be found or
+ * has no #content layer — these indicate a misconfigured binding that the user
+ * should see.
  */
 export async function tryRenderWithComponent(
     block: Block,
@@ -611,34 +632,37 @@ export async function tryRenderWithComponent(
 
     let instance: InstanceNode | undefined;
     try {
-        const component = await figma.getNodeByIdAsync(componentId);
-        if (!component || component.type !== 'COMPONENT') {
-            console.error(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
-            return null;
+        let component: ComponentNode | null;
+        if (componentCache.has(componentId)) {
+            component = componentCache.get(componentId)!;
+        } else {
+            const node = await figma.getNodeByIdAsync(componentId);
+            component = (node && node.type === 'COMPONENT') ? node as ComponentNode : null;
+            componentCache.set(componentId, component);
+            // Log only on cache miss to avoid repeating the same error for every block
+            if (!component) {
+                console.error(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
+            }
+        }
+        if (!component) {
+            throw new Error(`Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
         }
 
-        instance = (component as ComponentNode).createInstance();
+        instance = component.createInstance();
         instance.layoutAlign = 'STRETCH';
 
         const layers: { content?: TextNode; title?: TextNode } = {};
         findComponentLayers(instance, layers);
 
         if (!layers.content) {
-            console.error(`[MarkDown For What] Component "${component.name}" has no #content or #body text layer — falling back to default rendering`);
             instance.remove();
-            return null;
+            throw new Error(`Component "${component.name}" has no #content or #body text layer`);
         }
 
         // Load fonts concurrently for content and title layers
-        const contentFontName = layers.content.fontName === figma.mixed
-            ? layers.content.getRangeFontName(0, 1) as FontName
-            : layers.content.fontName as FontName;
-        const fontLoads: Promise<void>[] = [figma.loadFontAsync(contentFontName)];
+        const fontLoads: Promise<void>[] = [figma.loadFontAsync(resolvedFontName(layers.content))];
         if (titleText && layers.title) {
-            const titleFontName = layers.title.fontName === figma.mixed
-                ? layers.title.getRangeFontName(0, 1) as FontName
-                : layers.title.fontName as FontName;
-            fontLoads.push(figma.loadFontAsync(titleFontName));
+            fontLoads.push(figma.loadFontAsync(resolvedFontName(layers.title)));
         }
         await Promise.all(fontLoads);
 
@@ -654,9 +678,8 @@ export async function tryRenderWithComponent(
 
         return instance;
     } catch (err) {
-        console.error(`[MarkDown For What] Component output failed for "${bindingKey}":`, err);
         if (instance) instance.remove();
-        return null;
+        throw err;
     }
 }
 
@@ -676,5 +699,6 @@ if (typeof module !== 'undefined' && module.exports) {
         createImageNode,
         createErrorPlaceholder,
         tryRenderWithComponent,
+        clearComponentCache,
     };
 }
