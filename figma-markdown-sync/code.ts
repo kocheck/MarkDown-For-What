@@ -3,11 +3,15 @@ import { DEFAULT_SETTINGS, loadSettings, saveSettings, loadHistory, recordImport
 import { loadFont } from './styles';
 import { renderBlocks, RenderResult } from './renderer';
 import { errorMessage } from './utils';
+import { exportFrame, assembleMarkdown, ExportFrameResult, BlockSelection } from './exporter';
 import {
     MSG_GET_SETTINGS, MSG_SAVE_SETTINGS, MSG_RESET_SETTINGS,
     MSG_GET_LOCAL_STYLES, MSG_GET_LOCAL_COMPONENTS,
     MSG_GET_HISTORY, MSG_CLEAR_HISTORY, MSG_IMPORT_BATCH,
     MSG_STATUS, MSG_SETTINGS, MSG_LOCAL_STYLES, MSG_LOCAL_COMPONENTS, MSG_HISTORY,
+    MSG_EXPORT_REQUEST, MSG_EXPORT_RESULT,
+    MSG_EXPORT_DOWNLOAD, MSG_EXPORT_MARKDOWN,
+    MSG_GET_SELECTION, MSG_SELECTION_CHANGED,
 } from './messages';
 
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
@@ -19,6 +23,14 @@ figma.showUI(__html__, { width: 400, height: 500 });
         figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam or Slides.');
         return;
     }
+
+    // Notify UI whenever the Figma selection changes
+    figma.on('selectionchange', () => {
+        const frameIds = figma.currentPage.selection
+            .filter((n: SceneNode) => n.type === 'FRAME')
+            .map((n: SceneNode) => n.id);
+        figma.ui.postMessage({ type: MSG_SELECTION_CHANGED, frameIds });
+    });
 
     // Message handler — see messages.ts for all supported message types
     figma.ui.onmessage = async (msg) => {
@@ -197,6 +209,43 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 message: statusMessage,
                 error: failedCount > 0
             });
+        }
+
+        if (msg.type === MSG_GET_SELECTION) {
+            const frameIds = figma.currentPage.selection
+                .filter((n: SceneNode) => n.type === 'FRAME')
+                .map((n: SceneNode) => n.id);
+            figma.ui.postMessage({ type: MSG_SELECTION_CHANGED, frameIds });
+            return;
+        }
+
+        if (msg.type === MSG_EXPORT_REQUEST) {
+            const frameIds: string[] = msg.frameIds ?? [];
+            const frames: ExportFrameResult[] = [];
+            for (const frameId of frameIds) {
+                const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
+                if (!node) {
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+                    return;
+                }
+                frames.push(await exportFrame(node));
+            }
+            figma.ui.postMessage({ type: MSG_EXPORT_RESULT, frames });
+            return;
+        }
+
+        if (msg.type === MSG_EXPORT_DOWNLOAD) {
+            const frameId: string = msg.frameId;
+            const selections: BlockSelection[] = msg.selections ?? [];
+            const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
+            if (!node) {
+                figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+                return;
+            }
+            const result = await exportFrame(node);
+            const content = assembleMarkdown(result.blocks, selections);
+            figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: result.filename, content });
+            return;
         }
     } catch (err) {
         console.error('[MarkDown For What] Unhandled error in message handler:', err);

@@ -114,7 +114,9 @@ function makeMockRectangle(): any {
         appendChild: jest.fn(),
         findAll: jest.fn(() => []),
         findAllWithCriteria: jest.fn(() => []),
+        findOne: jest.fn(() => null),
         children: [],
+        selection: [],
     },
     editorType: 'figma',
     loadFontAsync: jest.fn().mockResolvedValue(undefined),
@@ -140,6 +142,7 @@ function makeMockRectangle(): any {
         setAsync: jest.fn().mockResolvedValue(undefined),
     },
     closePlugin: jest.fn(),
+    on: jest.fn(),
 };
 
 (global as any).__html__ = '';
