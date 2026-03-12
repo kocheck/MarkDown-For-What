@@ -88,10 +88,12 @@ export async function inferBlocksFromFrame(frame: any): Promise<InferenceResult>
     const skippedLayers: Array<{ name: string; reason: string }> = [];
 
     for (const child of (frame.children ?? [])) {
-        const inferred = await inferNode(child);
+        const skippedBefore = skippedLayers.length;
+        const inferred = await inferNode(child, skippedLayers);
         if (inferred) {
             blocks.push(inferred);
-        } else {
+        } else if (skippedLayers.length === skippedBefore) {
+            // inferNode returned null without adding to skippedLayers — add generic entry
             skippedLayers.push({ name: child.name || '(unnamed)', reason: 'Unrecognized layer type or name' });
         }
     }
@@ -99,7 +101,7 @@ export async function inferBlocksFromFrame(frame: any): Promise<InferenceResult>
     return { blocks, skippedLayers };
 }
 
-async function inferNode(node: any): Promise<InferredBlock | null> {
+async function inferNode(node: any, skippedLayers?: Array<{ name: string; reason: string }>): Promise<InferredBlock | null> {
     if (node.type === 'RECTANGLE' && node.height === 1) {
         return { text: '---', blockType: 'separator', label: 'Separator' };
     }
@@ -114,14 +116,18 @@ async function inferNode(node: any): Promise<InferredBlock | null> {
         };
     }
 
-    if (node.type === 'TEXT') return inferTextNode(node);
+    if (node.type === 'TEXT') return inferTextNode(node, skippedLayers);
     if (node.type === 'FRAME') return inferFrameNode(node);
 
     return null;
 }
 
-async function inferTextNode(node: any): Promise<InferredBlock | null> {
+async function inferTextNode(node: any, skippedLayers?: Array<{ name: string; reason: string }>): Promise<InferredBlock | null> {
     const styleId = await node.getTextStyleIdAsync();
+    if (styleId === (figma as any).mixed) {
+        skippedLayers?.push({ name: node.name || '(unnamed)', reason: 'Mixed text styles not supported' });
+        return null;
+    }
     const style = styleId ? await figma.getStyleByIdAsync(styleId) : null;
     const styleName: string = (style as any)?.name ?? '';
     const mapping = STYLE_TO_BLOCK[styleName];
@@ -224,7 +230,7 @@ function inferTableFrame(node: any): InferredBlock {
         }
         if (rowCells.length > 0) rows.push(rowCells);
     }
-    if (rows.length === 0) return { text: '', blockType: 'table', label: 'Table' };
+    if (rows.length === 0) return { text: '', blockType: 'table', label: 'Table', fidelityWarning: 'Empty table — no content to export' };
     const toRow = (cells: string[]) => `| ${cells.join(' | ')} |`;
     const sep = rows[0].map(() => '---');
     return {
@@ -276,6 +282,7 @@ function guessBlockType(text: string): string {
     if (text.startsWith('```'))  return 'code';
     if (text.startsWith('$$'))   return 'math';
     if (text.startsWith('|'))    return 'table';
+    if (/^#{4,6} /.test(text)) return 'heading-other';  // h4-h6 not rendered, but classifiable
     return 'paragraph';
 }
 
@@ -287,52 +294,88 @@ function guessBlockType(text: string): string {
  * @param inferredBlocks - Output of inferBlocksFromFrame.
  */
 export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[]): ExportBlock[] {
+    // Build fingerprint → available source indices map
     const sourceByFingerprint = new Map<string, number[]>();
-    for (let idx = 0; idx < sourceLines.length; idx++) {
-        const line = sourceLines[idx];
-        const fp = fingerprintBlock(guessBlockType(line), line);
+    for (let i = 0; i < sourceLines.length; i++) {
+        const line = sourceLines[i];
+        const type = guessBlockType(line);
+        const fp = fingerprintBlock(type, line);
         const existing = sourceByFingerprint.get(fp);
         if (existing) {
-            existing.push(idx);
+            existing.push(i);
         } else {
-            sourceByFingerprint.set(fp, [idx]);
+            sourceByFingerprint.set(fp, [i]);
         }
     }
 
-    // First pass: identify which source indices will be consumed by content-hash matches
-    const sourceIndicesUsedByContentHash = new Set<number>();
-    for (const inferred of inferredBlocks) {
-        const fp = fingerprintBlock(inferred.blockType, inferred.text);
-        const indices = sourceByFingerprint.get(fp);
-        if (indices && indices.length > 0) {
-            sourceIndicesUsedByContentHash.add(indices[0]);
+    // Pre-compute which source indices will be claimed by content-hash matches,
+    // so the position fallback does not steal them.
+    const reservedForContentHash = new Set<number>();
+    {
+        const tempUsed = new Set<number>();
+        for (const inferred of inferredBlocks) {
+            const fp = fingerprintBlock(inferred.blockType, inferred.text);
+            const indices = sourceByFingerprint.get(fp);
+            if (indices) {
+                for (let k = 0; k < indices.length; k++) {
+                    if (!tempUsed.has(indices[k])) {
+                        reservedForContentHash.add(indices[k]);
+                        tempUsed.add(indices[k]);
+                        break;
+                    }
+                }
+            }
         }
     }
 
     const usedSourceIndices = new Set<number>();
     const result: ExportBlock[] = [];
 
-    for (let i = 0; i < inferredBlocks.length; i++) {
-        const inferred = inferredBlocks[i];
+    for (let j = 0; j < inferredBlocks.length; j++) {
+        const inferred = inferredBlocks[j];
         const fp = fingerprintBlock(inferred.blockType, inferred.text);
+        const indices = sourceByFingerprint.get(fp);
 
-        const fpIndices = sourceByFingerprint.get(fp);
-        if (fpIndices && fpIndices.length > 0) {
-            const matchedIdx = fpIndices.shift()!;
-            if (fpIndices.length === 0) sourceByFingerprint.delete(fp);
-            const originalText = sourceLines[matchedIdx];
+        // Find first unused source index with matching fingerprint
+        let matchedSourceIndex: number | undefined;
+        if (indices) {
+            for (let k = 0; k < indices.length; k++) {
+                if (!usedSourceIndices.has(indices[k])) {
+                    matchedSourceIndex = indices[k];
+                    usedSourceIndices.add(matchedSourceIndex);
+                    break;
+                }
+            }
+        }
+
+        if (matchedSourceIndex !== undefined) {
+            // Content-hash match — unchanged
+            const originalText = sourceLines[matchedSourceIndex];
             result.push({ state: 'unchanged', originalText, inferredText: inferred.text });
-            continue;
+        } else {
+            // No content match — try position fallback, but only if not reserved for a later content-hash match
+            const sourceAtPosition = sourceLines[j];
+            if (
+                sourceAtPosition !== undefined &&
+                !usedSourceIndices.has(j) &&
+                !reservedForContentHash.has(j) &&
+                guessBlockType(sourceAtPosition) === inferred.blockType
+            ) {
+                usedSourceIndices.add(j);
+                result.push({
+                    state: 'modified',
+                    originalText: sourceAtPosition,
+                    inferredText: inferred.text,
+                    fidelityWarning: inferred.fidelityWarning,
+                });
+            } else {
+                result.push({
+                    state: 'new',
+                    inferredText: inferred.text,
+                    fidelityWarning: inferred.fidelityWarning,
+                });
+            }
         }
-
-        const sourceLine = sourceLines[i];
-        if (sourceLine !== undefined && guessBlockType(sourceLine) === inferred.blockType && !usedSourceIndices.has(i) && !sourceIndicesUsedByContentHash.has(i)) {
-            usedSourceIndices.add(i);
-            result.push({ state: 'modified', originalText: sourceLine, inferredText: inferred.text, fidelityWarning: inferred.fidelityWarning });
-            continue;
-        }
-
-        result.push({ state: 'new', inferredText: inferred.text, fidelityWarning: inferred.fidelityWarning });
     }
 
     return result;
@@ -349,7 +392,7 @@ export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[
  * For 'new' blocks: useOriginal = true means "skip this block".
  * Blocks are joined with a single blank line between them.
  */
-export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelection[]): string {
+export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelection[] = []): string {
     const selMap = new Map(selections.map(s => [s.blockIndex, s.useOriginal]));
     const lines: string[] = [];
 

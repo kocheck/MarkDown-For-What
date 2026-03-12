@@ -235,6 +235,22 @@ describe('diffBlocks', () => {
     it('returns empty array when both inputs are empty', () => {
         expect(diffBlocks([], [])).toEqual([]);
     });
+
+    it('handles duplicate fingerprints correctly — each maps to a distinct source line', () => {
+        const source = ['- Item', '- Item', '# Title'];
+        const inferred: InferredBlock[] = [
+            { blockType: 'listItem', text: '- Item', label: 'List item' },
+            { blockType: 'listItem', text: '- Item', label: 'List item' },
+            { blockType: 'heading-1', text: '# Title', label: 'H1' },
+        ];
+        const result = diffBlocks(source, inferred);
+        expect(result[0].state).toBe('unchanged');
+        expect(result[1].state).toBe('unchanged');
+        expect(result[2].state).toBe('unchanged');
+        // Both duplicate list items should reference distinct original texts
+        expect(result[0].originalText).toBe('- Item');
+        expect(result[1].originalText).toBe('- Item');
+    });
 });
 
 // ── assembleMarkdown ──────────────────────────────────────────────────────────
@@ -277,6 +293,20 @@ describe('assembleMarkdown', () => {
             { state: 'new', inferredText: 'Body text' },
         ];
         expect(assembleMarkdown(blocks, [])).toBe('# Title\n\nBody text');
+    });
+
+    it('silently drops blocks with empty or whitespace-only text', () => {
+        const blocks: ExportBlock[] = [
+            { state: 'new', inferredText: '# Title' },
+            { state: 'new', inferredText: '' },
+            { state: 'new', inferredText: '   ' },
+            { state: 'new', inferredText: 'Content' },
+        ];
+        const result = assembleMarkdown(blocks);
+        const lines = result.split('\n\n');
+        expect(lines.filter(l => l.trim().length > 0)).toHaveLength(2);
+        expect(result).toContain('# Title');
+        expect(result).toContain('Content');
     });
 });
 
