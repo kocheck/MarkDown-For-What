@@ -47,6 +47,9 @@ function makeMockFrame(): any {
             child.parent = frame;
         }),
         remove: jest.fn(),
+        _pluginData: {} as Record<string, string>,
+        setPluginData: jest.fn(function(key: string, value: string) { frame._pluginData[key] = value; }),
+        getPluginData: jest.fn(function(key: string) { return frame._pluginData[key] ?? ''; }),
     };
     return frame;
 }
