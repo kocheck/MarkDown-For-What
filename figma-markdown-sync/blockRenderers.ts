@@ -466,18 +466,13 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
         throw new Error('Invalid image block');
     }
 
+    const imageRect = figma.createRectangle();
+    imageRect.name = block.imageAlt || 'Image';
+    imageRect.layoutAlign = 'STRETCH';
+    imageRect.resize(600, 400);
+
     try {
-        const imageRect = figma.createRectangle();
-        imageRect.name = block.imageAlt || 'Image';
-        imageRect.layoutAlign = 'STRETCH';
-
-        // Set default size (will be adjusted after image loads)
-        imageRect.resize(600, 400);
-
-        // Fetch the image asynchronously
         const image = await figma.createImageAsync(block.imageUrl);
-
-        // Get image dimensions
         const imageSize = await image.getSizeAsync();
 
         // Scale image to fit max width while maintaining aspect ratio
@@ -489,7 +484,6 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
             imageRect.resize(imageSize.width, imageSize.height);
         }
 
-        // Apply image fill
         imageRect.fills = [
             {
                 type: 'IMAGE',
@@ -500,7 +494,7 @@ export async function createImageNode(block: Block, settings: PluginSettings): P
 
         return imageRect;
     } catch (error) {
-        // If image loading fails, create a placeholder
+        imageRect.remove();
         console.error(`Failed to load image: ${block.imageUrl}`, error);
 
         const placeholderFrame = figma.createFrame();

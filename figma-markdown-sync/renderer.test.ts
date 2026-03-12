@@ -1461,6 +1461,48 @@ describe('renderBlocks', () => {
             expect(result.frame.children[0]).toBe(mockInstance);
         });
 
+        it('should clean up instance when font loading fails', async () => {
+            const contentLayer = makeMockTextLayer('#content');
+            // Use an unusual font that will trigger the loadFontAsync call in tryRenderWithComponent
+            contentLayer.fontName = { family: 'MissingFont', style: 'Regular' };
+            const mockInstance = {
+                type: 'INSTANCE',
+                name: 'Font Fail Component',
+                layoutAlign: 'MIN',
+                children: [contentLayer],
+                remove: jest.fn(),
+            };
+            const mockComponent = {
+                type: 'COMPONENT',
+                name: 'Font Fail Component',
+                createInstance: jest.fn(() => mockInstance),
+            };
+            (figma.getNodeByIdAsync as jest.Mock).mockResolvedValue(mockComponent);
+            // Reject only for the specific font used by the content layer
+            const originalLoadFont = (figma.loadFontAsync as jest.Mock).getMockImplementation() || (() => Promise.resolve(undefined));
+            (figma.loadFontAsync as jest.Mock).mockImplementation((font: any) => {
+                if (font.family === 'MissingFont') return Promise.reject(new Error('Font not found'));
+                return Promise.resolve(undefined);
+            });
+
+            const blocks: Block[] = [
+                { type: 'quote', content: 'Should fail on font' },
+            ];
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                componentBindings: { blockquote: 'comp-fontfail-1' },
+            };
+            const result = await renderBlocks('test', blocks, settings);
+            // Instance should be cleaned up
+            expect(mockInstance.remove).toHaveBeenCalled();
+            // Should show error placeholder
+            expect(result.frame.children.length).toBe(1);
+            expect(result.frame.children[0].type).toBe('FRAME');
+
+            // Restore original mock
+            (figma.loadFontAsync as jest.Mock).mockImplementation(() => Promise.resolve(undefined));
+        });
+
         it('should set layoutAlign to STRETCH on component instance', async () => {
             const contentLayer = makeMockTextLayer('#content');
             const mockInstance = {

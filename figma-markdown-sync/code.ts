@@ -125,11 +125,15 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 loadFont('Inter', 'Bold Italic'),
                 loadFont('Roboto Mono', 'Regular'),
             ]);
-            if (fontResults.some(r => r.status === 'rejected')) {
-                console.warn('[MarkDown For What] Font pre-load partial failure — rendering will use available fallbacks:', fontResults);
+            const fontNames = ['Inter Regular', 'Inter Bold', 'Inter Italic', 'Inter Bold Italic', 'Roboto Mono Regular'];
+            const failedFonts = fontResults
+                .map((r, i) => r.status === 'rejected' ? fontNames[i] : null)
+                .filter(Boolean);
+            if (failedFonts.length > 0) {
+                console.warn('[MarkDown For What] Failed to load fonts:', failedFonts.join(', '));
                 figma.ui.postMessage({
                     type: MSG_STATUS,
-                    message: 'Warning: some fonts unavailable. Output may use fallback fonts.',
+                    message: `Warning: could not load fonts: ${failedFonts.join(', ')}. Output may use fallback fonts.`,
                     warning: true
                 });
             }

@@ -68,7 +68,8 @@ const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style
 // Component binding selects
 const componentBindingSelects = document.querySelectorAll<HTMLSelectElement>('.component-binding-select');
 
-// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle)
+// Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
+// IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
         frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
@@ -514,6 +515,7 @@ function sendCurrentSettings() {
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
     // so it cannot import from the plugin sandbox bundle directly.
+    // IMPORTANT: Keep in sync with WIDTH_PRESETS in settings.ts (custom omitted; handled by fallback).
     const widthPresets: Record<string, number> = { narrow: 480, medium: 800, wide: 960 };
     const mode = settings.widthMode as string;
     settings.frameWidth = widthPresets[mode] ?? (settings.customWidth as number) ?? 800;

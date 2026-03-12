@@ -328,7 +328,8 @@ const COMPONENT_BINDING_MAP: Partial<Record<Block['type'], {
  * List-like blocks (list, orderedListItem, taskListItem) are handled by the
  * list grouping loop in renderBlocks and dispatched to dedicated render functions.
  * Throws on unrecoverable errors so the caller can insert an error placeholder.
- * Returns null for unrecognized block types (default branch) — the caller silently skips null returns.
+ * Returns null only for list-type blocks that reach here due to a routing bug.
+ * Unrecognized block types produce a visible error placeholder.
  */
 async function renderBlock(block: Block, settings: PluginSettings): Promise<SceneNode | null> {
     // Try Component Output Mode for supported block types
@@ -436,10 +437,9 @@ async function renderBlock(block: Block, settings: PluginSettings): Promise<Scen
         case 'list':
         case 'orderedListItem':
         case 'taskListItem':
-            // These are handled by the list grouping loop in renderBlocks — reaching
-            // here indicates a routing bug.
-            console.error(`[MarkDown For What] Block type "${block.type}" reached renderBlock — should be handled by list grouping`);
-            return null;
+            // Reaching here indicates a routing bug — list types should be handled
+            // by the list grouping loop in renderBlocks.
+            throw new Error(`Block type "${block.type}" reached renderBlock — should be handled by list grouping (routing bug)`);
 
         default:
             console.warn(`[MarkDown For What] Unknown block type: "${(block as { type: string }).type}" — skipping`);

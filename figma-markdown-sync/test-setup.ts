@@ -101,6 +101,7 @@ function makeMockRectangle(): any {
 }
 
 (global as any).figma = {
+    mixed: Symbol('figma.mixed'),
     showUI: jest.fn(),
     ui: {
         onmessage: null,
