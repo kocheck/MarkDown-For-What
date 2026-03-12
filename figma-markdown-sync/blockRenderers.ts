@@ -416,6 +416,7 @@ export async function renderMermaidBlock(block: Block): Promise<FrameNode> {
 
     mermaidFrame.appendChild(labelNode);
     mermaidFrame.appendChild(sourceNode);
+    mermaidFrame.setPluginData('mermaidSource', block.content ?? '');
     return mermaidFrame;
 }
 
@@ -452,6 +453,7 @@ export async function renderMathBlock(block: Block): Promise<FrameNode> {
     mathText.textAlignHorizontal = 'CENTER';
 
     mathFrame.appendChild(mathText);
+    mathFrame.setPluginData('mathSource', block.content ?? '');
     return mathFrame;
 }
 
