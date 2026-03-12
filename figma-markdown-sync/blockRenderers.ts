@@ -566,8 +566,8 @@ export async function createErrorPlaceholder(block: Block, reason?: string): Pro
 
 // ─── Component Output Mode ───────────────────────────────────────────────────
 
-export const CONTENT_LAYER_NAMES = ['#content', '#body'];
-export const TITLE_LAYER_NAMES = ['#title', '#label'];
+const CONTENT_LAYER_NAMES = ['#content', '#body'];
+const TITLE_LAYER_NAMES = ['#title', '#label'];
 
 /** Resolves a TextNode's font name to a concrete FontName, narrowing past the `FontName | typeof figma.mixed` union. */
 function resolvedFontName(node: TextNode): FontName {
@@ -639,10 +639,6 @@ export async function tryRenderWithComponent(
             const node = await figma.getNodeByIdAsync(componentId);
             component = (node && node.type === 'COMPONENT') ? node as ComponentNode : null;
             componentCache.set(componentId, component);
-            // Log only on cache miss to avoid repeating the same error for every block
-            if (!component) {
-                console.error(`[MarkDown For What] Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);
-            }
         }
         if (!component) {
             throw new Error(`Component binding "${bindingKey}" points to non-existent or non-component node: ${componentId}`);

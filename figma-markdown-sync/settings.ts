@@ -250,7 +250,7 @@ function isPositiveNumber(value: unknown): boolean {
     return typeof value === 'number' && isFinite(value) && value > 0;
 }
 
-const VALID_BINDING_KEYS = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
+const VALID_BINDING_KEYS: (keyof StyleBindings)[] = ['h1', 'h2', 'h3', 'body', 'code', 'list', 'quote', 'codeBg', 'tableBg'];
 const VALID_COMPONENT_BINDING_KEYS: (keyof ComponentBindings)[] = ['codeBlock', 'blockquote', 'callout', 'table', 'image'];
 
 /** Returns true if value is a plain object whose keys are in validKeys and whose values are non-empty strings. */
