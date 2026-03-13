@@ -882,7 +882,9 @@ window.onmessage = event => {
             }
             pendingDownloadIndex++;
             if (pendingDownloadIndex < exportFrameResults.length) {
-                setTimeout(() => downloadFrame(pendingDownloadIndex), DOWNLOAD_STAGGER_MS);
+                const nextIndex = pendingDownloadIndex;
+                const thisBatchId = downloadBatchId;
+                setTimeout(() => downloadFrame(nextIndex, thisBatchId), DOWNLOAD_STAGGER_MS);
             }
             break;
         }
