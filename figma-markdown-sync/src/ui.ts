@@ -145,7 +145,7 @@ function renderExportSummary(frames: ExportFrameResult[]) {
         ? `"${frame.filename.replace('.md', '')}"`
         : `${frames.length} frames selected`;
 
-    exportTruncatedWarning.hidden = !frame.sourceTruncated;
+    exportTruncatedWarning.hidden = !frames.some(f => f.sourceTruncated);
 
     const unchanged = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'unchanged').length, 0);
     const modified  = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'modified').length, 0);
@@ -203,7 +203,6 @@ function renderReviewPanel(frameIndex: number) {
         const el = document.createElement('div');
         el.className = `review-block review-block--${block.state}`;
 
-        // Header - use block state as label (ExportBlock has no label field)
         const header = document.createElement('div');
         header.className = 'review-block-header';
         const stateIcon = block.state === 'modified' ? '↻' : '+';
@@ -211,7 +210,6 @@ function renderReviewPanel(frameIndex: number) {
         header.textContent = `${stateIcon} ${stateLabel}`;
         el.appendChild(header);
 
-        // Fidelity warning (fidelityWarning is our own string, not user input — textContent still fine)
         if (block.fidelityWarning) {
             const warn = document.createElement('div');
             warn.className = 'review-fidelity-warning';
@@ -223,7 +221,7 @@ function renderReviewPanel(frameIndex: number) {
         const diff = document.createElement('div');
         diff.className = 'review-diff';
 
-        if (block.originalText !== undefined) {
+        if (block.state === 'modified') {
             const origCol = document.createElement('div');
             origCol.className = 'review-diff-col';
             const origLabel = document.createElement('div');
@@ -280,14 +278,22 @@ function renderReviewPanel(frameIndex: number) {
     });
 }
 
-function triggerDownload(filename: string, content: string) {
-    const blob = new Blob([content], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
+function triggerDownload(filename: string, content: string): boolean {
+    let url: string | null = null;
+    try {
+        const blob = new Blob([content], { type: 'text/markdown' });
+        url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        return true;
+    } catch (err) {
+        console.error('[MarkDown For What] Download failed:', err);
+        return false;
+    } finally {
+        if (url) URL.revokeObjectURL(url);
+    }
 }
 
 function downloadFrame(frameIndex: number) {
@@ -763,7 +769,7 @@ exportReviewBack.addEventListener('click', () => {
     exportReviewPanel.hidden = true;
     exportFrameSummary.hidden = false;
 });
-exportConfirmBtn.addEventListener('click', () => downloadFrame(exportCurrentFrameIndex));
+exportConfirmBtn.addEventListener('click', startSequentialDownload);
 
 // ── History ─────────────────────────────────────────────────────────────────
 
@@ -822,8 +828,8 @@ window.onmessage = event => {
             if (!previewPane.classList.contains('hidden')) hidePreview();
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
-            // Clear paste area on successful import
-            if (!msg.error) {
+            // Clear paste area on successful import (but not for export-domain status messages)
+            if (!msg.error && msg.domain !== 'export') {
                 pasteArea.value = '';
                 pasteName.value = '';
                 pasteImportBtn.disabled = true;
@@ -846,7 +852,7 @@ window.onmessage = event => {
             renderHistory(msg.entries ?? []);
             break;
         case MSG_SELECTION_CHANGED: {
-            const activePanel = document.querySelector<HTMLElement>('.tab-panel:not([hidden])');
+            const activePanel = document.querySelector<HTMLElement>('.tab-panel:not(.hidden)');
             if (activePanel?.id === 'tab-export') {
                 if (msg.frameIds.length > 0) {
                     parent.postMessage({ pluginMessage: { type: MSG_EXPORT_REQUEST, frameIds: msg.frameIds } }, '*');
@@ -860,13 +866,18 @@ window.onmessage = event => {
             renderExportSummary(msg.frames);
             renderExportLog(msg.frames);
             break;
-        case MSG_EXPORT_MARKDOWN:
-            triggerDownload(msg.filename, msg.content);
+        case MSG_EXPORT_MARKDOWN: {
+            const success = triggerDownload(msg.filename, msg.content);
+            if (!success) {
+                // triggerDownload already logged; show user-visible feedback via existing status mechanism
+                showStatus(`Failed to download ${msg.filename}`, 'error');
+            }
             pendingDownloadIndex++;
             if (pendingDownloadIndex < exportFrameResults.length) {
                 setTimeout(() => downloadFrame(pendingDownloadIndex), DOWNLOAD_STAGGER_MS);
             }
             break;
+        }
         default:
             break;
     }

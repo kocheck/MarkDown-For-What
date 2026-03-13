@@ -27,15 +27,20 @@ figma.showUI(__html__, { width: 400, height: 500 });
         return;
     }
 
-    // Cache export results by frameId — reused by MSG_EXPORT_DOWNLOAD to avoid re-inferring
+    // Cache export results by frameId — reused by MSG_EXPORT_DOWNLOAD to avoid re-inferring.
+    // Cleared at the start of each MSG_EXPORT_REQUEST to prevent stale results after selection changes.
     const exportResultCache = new Map<string, ExportFrameResult>();
 
     // Notify UI whenever the Figma selection changes
     figma.on('selectionchange', () => {
-        const frameIds = figma.currentPage.selection
-            .filter((n: SceneNode) => n.type === 'FRAME')
-            .map((n: SceneNode) => n.id);
-        figma.ui.postMessage({ type: MSG_SELECTION_CHANGED, frameIds });
+        try {
+            const frameIds = figma.currentPage.selection
+                .filter((n: SceneNode) => n.type === 'FRAME')
+                .map((n: SceneNode) => n.id);
+            figma.ui.postMessage({ type: MSG_SELECTION_CHANGED, frameIds });
+        } catch (err) {
+            console.error('[MarkDown For What] selectionchange handler error:', err);
+        }
     });
 
     // Message handler — see messages.ts for all supported message types
@@ -187,6 +192,8 @@ figma.showUI(__html__, { width: 400, height: 500 });
                         result.frame.setPluginData('markdownFilename', file.name);
                         result.frame.setPluginData('markdownImportedAt', Date.now().toString());
                     } else {
+                        // If content exceeds MAX_MARKDOWN_SOURCE_SIZE, record that the source was too large
+                        // but do not store content. All blocks will be marked 'new' on export.
                         result.frame.setPluginData('markdownSourceTruncated', 'true');
                     }
                     // Record in import history (fire-and-forget — don't block render)
@@ -236,12 +243,16 @@ figma.showUI(__html__, { width: 400, height: 500 });
             for (const frameId of frameIds) {
                 const node = frameMap.get(frameId) ?? null;
                 if (!node) {
-                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: 'export' });
                     continue;
                 }
-                const result = await exportFrame(node);
-                exportResultCache.set(frameId, result);
-                frames.push(result);
+                try {
+                    const result = await exportFrame(node);
+                    exportResultCache.set(frameId, result);
+                    frames.push(result);
+                } catch (e) {
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Failed to export frame "${node.name}": ${errorMessage(e)}`, error: true, domain: 'export' });
+                }
             }
             figma.ui.postMessage({ type: MSG_EXPORT_RESULT, frames });
             return;
@@ -255,7 +266,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
             if (!cached) {
                 const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
                 if (!node) {
-                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: 'export' });
                     return;
                 }
                 const result = await exportFrame(node);

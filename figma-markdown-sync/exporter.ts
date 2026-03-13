@@ -13,19 +13,24 @@
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+export type BlockType =
+    | 'heading-1' | 'heading-2' | 'heading-3' | 'heading-other'
+    | 'paragraph' | 'code' | 'quote'
+    | 'list' | 'listGroup' | 'listItem'
+    | 'separator' | 'image' | 'table' | 'toc' | 'callout'
+    | 'definitionList' | 'footnoteSection' | 'badgeRow' | 'mermaid' | 'math';
+
 export interface InferredBlock {
     text: string;
-    blockType: string;
+    blockType: BlockType;
     label: string;
     fidelityWarning?: string;
 }
 
-export interface ExportBlock {
-    state: 'unchanged' | 'modified' | 'new';
-    originalText?: string;
-    inferredText: string;
-    fidelityWarning?: string;
-}
+export type ExportBlock =
+    | { state: 'unchanged'; originalText: string;  inferredText: string }
+    | { state: 'modified';  originalText: string;  inferredText: string; fidelityWarning?: string }
+    | { state: 'new';                              inferredText: string; fidelityWarning?: string };
 
 export interface ExportFrameResult {
     frameId: string;
@@ -49,13 +54,13 @@ export function normalizeContent(text: string): string {
 }
 
 /** Produces a stable fingerprint: "type:normalizedContent" */
-export function fingerprintBlock(blockType: string, content: string): string {
+export function fingerprintBlock(blockType: BlockType, content: string): string {
     return `${blockType}:${normalizeContent(content)}`;
 }
 
 // ─── Style name → block type mapping ─────────────────────────────────────────
 
-const STYLE_TO_BLOCK: Record<string, { blockType: string; label: string; prefix: string }> = {
+const STYLE_TO_BLOCK: Record<string, { blockType: BlockType; label: string; prefix: string }> = {
     'Markdown/H1':    { blockType: 'heading-1', label: 'Heading 1',  prefix: '# '  },
     'Markdown/H2':    { blockType: 'heading-2', label: 'Heading 2',  prefix: '## ' },
     'Markdown/H3':    { blockType: 'heading-3', label: 'Heading 3',  prefix: '### '},
@@ -65,7 +70,7 @@ const STYLE_TO_BLOCK: Record<string, { blockType: string; label: string; prefix:
     'Markdown/List':  { blockType: 'list',      label: 'List Item',  prefix: '- '  },
 };
 
-const FRAME_NAME_TO_BLOCK: Record<string, string> = {
+const FRAME_NAME_TO_BLOCK: Record<string, BlockType> = {
     'Table':             'table',
     'List Group':        'listGroup',
     'Table of Contents': 'toc',
@@ -130,8 +135,14 @@ async function inferTextNode(node: any, skippedLayers?: Array<{ name: string; re
     }
     const style = styleId ? await figma.getStyleByIdAsync(styleId) : null;
     const styleName: string = (style as any)?.name ?? '';
-    const mapping = STYLE_TO_BLOCK[styleName];
-    if (!mapping) return null;
+    const mapping = STYLE_TO_BLOCK[styleName as keyof typeof STYLE_TO_BLOCK];
+    if (!mapping) {
+        skippedLayers?.push({
+            name: node.name || '(unnamed)',
+            reason: `Text style "${styleName}" is not a Markdown/* style`,
+        });
+        return null;
+    }
 
     const text = node.characters as string;
     if (mapping.blockType === 'code') {
@@ -270,13 +281,13 @@ function inferBadgeRowFrame(node: any): InferredBlock {
  * Heuristic: infer block type from Markdown text prefix, for fingerprinting
  * source lines that were not produced by the inference engine.
  */
-function guessBlockType(text: string): string {
+function guessBlockType(text: string): BlockType {
     if (text.startsWith('# '))   return 'heading-1';
     if (text.startsWith('## '))  return 'heading-2';
     if (text.startsWith('### ')) return 'heading-3';
     if (text.startsWith('> [!')) return 'callout';
     if (text.startsWith('> '))   return 'quote';
-    if (text.startsWith('- ') || /^\d+\. /.test(text)) return 'listItem';
+    if (text.startsWith('- ') || /^\d+\. /.test(text)) return 'list';
     if (text.startsWith('---'))  return 'separator';
     if (text.startsWith('```mermaid')) return 'mermaid';
     if (text.startsWith('```'))  return 'code';
@@ -289,6 +300,10 @@ function guessBlockType(text: string): string {
 /**
  * Diffs source Markdown strings against inferred blocks using content-hash
  * matching with position+type as fallback.
+ *
+ * Uses a pre-pass to reserve source indices for content-hash matches before
+ * running the position fallback, preventing the fallback from consuming an
+ * index needed by a later hash match.
  *
  * @param sourceLines - Markdown strings from stored pluginData, split by double-newline.
  * @param inferredBlocks - Output of inferBlocksFromFrame.
@@ -309,7 +324,9 @@ export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[
     }
 
     // Pre-compute which source indices will be claimed by content-hash matches,
-    // so the position fallback does not steal them.
+    // so the position fallback does not steal them. Without this, the position
+    // fallback could consume a source index that a later content-hash match needs,
+    // producing a spurious 'modified' instead of 'unchanged'.
     const reservedForContentHash = new Set<number>();
     {
         const tempUsed = new Set<number>();
@@ -402,10 +419,10 @@ export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelecti
         let text: string;
 
         if (block.state === 'unchanged') {
-            text = block.originalText!;
+            text = block.originalText;
         } else if (block.state === 'modified') {
             const useOriginal = override !== undefined ? override : true;
-            text = useOriginal ? block.originalText! : block.inferredText;
+            text = useOriginal ? block.originalText : block.inferredText;
         } else {
             if (override === true) continue;
             text = block.inferredText;
@@ -418,7 +435,7 @@ export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelecti
 }
 
 /**
- * Runs the full 4-stage export pipeline for a single Figma FrameNode.
+ * Runs the full 3-stage export pipeline for a single Figma FrameNode.
  * Returns an ExportFrameResult ready to send to the UI via postMessage.
  */
 export async function exportFrame(frame: any): Promise<ExportFrameResult> {

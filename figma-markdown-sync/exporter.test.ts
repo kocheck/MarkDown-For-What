@@ -9,7 +9,7 @@ import {
     assembleMarkdown,
     exportFrame,
 } from './exporter';
-import type { InferredBlock, ExportBlock, BlockSelection } from './exporter';
+import type { BlockType, InferredBlock, ExportBlock, BlockSelection } from './exporter';
 
 // ── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ describe('normalizeContent', () => {
 
 describe('fingerprintBlock', () => {
     it('produces type:normalizedContent string', () => {
-        expect(fingerprintBlock('heading', '  Hello World  ')).toBe('heading:Hello World');
+        expect(fingerprintBlock('heading-1', '  Hello World  ')).toBe('heading-1:Hello World');
     });
 
     it('is case-sensitive', () => {
@@ -197,26 +197,26 @@ describe('inferBlocksFromFrame — named frames', () => {
 // ── diffBlocks ────────────────────────────────────────────────────────────────
 
 describe('diffBlocks', () => {
-    const makeInferred = (blockType: string, text: string, label = blockType): InferredBlock =>
+    const makeInferred = (blockType: BlockType, text: string, label: string = blockType): InferredBlock =>
         ({ text, blockType, label });
 
     it('marks blocks as unchanged when fingerprints match', () => {
         const result = diffBlocks(['# Hello World'], [makeInferred('heading-1', '# Hello World', 'Heading 1')]);
         expect(result[0].state).toBe('unchanged');
-        expect(result[0].originalText).toBe('# Hello World');
+        expect((result[0] as Extract<typeof result[0], { state: 'unchanged' }>).originalText).toBe('# Hello World');
     });
 
     it('marks blocks as modified when same position, different content', () => {
         const result = diffBlocks(['# Old Title'], [makeInferred('heading-1', '# New Title', 'Heading 1')]);
         expect(result[0].state).toBe('modified');
-        expect(result[0].originalText).toBe('# Old Title');
+        expect((result[0] as Extract<typeof result[0], { state: 'modified' }>).originalText).toBe('# Old Title');
         expect(result[0].inferredText).toBe('# New Title');
     });
 
     it('marks blocks as new when no source block exists', () => {
         const result = diffBlocks([], [makeInferred('paragraph', 'New paragraph', 'Paragraph')]);
         expect(result[0].state).toBe('new');
-        expect(result[0].originalText).toBeUndefined();
+        expect('originalText' in result[0]).toBe(false);
     });
 
     it('uses content-hash matching across positions (insertion tolerance)', () => {
@@ -239,8 +239,8 @@ describe('diffBlocks', () => {
     it('handles duplicate fingerprints correctly — each maps to a distinct source line', () => {
         const source = ['- Item', '- Item', '# Title'];
         const inferred: InferredBlock[] = [
-            { blockType: 'listItem', text: '- Item', label: 'List item' },
-            { blockType: 'listItem', text: '- Item', label: 'List item' },
+            { blockType: 'list', text: '- Item', label: 'List item' },
+            { blockType: 'list', text: '- Item', label: 'List item' },
             { blockType: 'heading-1', text: '# Title', label: 'H1' },
         ];
         const result = diffBlocks(source, inferred);
@@ -248,8 +248,8 @@ describe('diffBlocks', () => {
         expect(result[1].state).toBe('unchanged');
         expect(result[2].state).toBe('unchanged');
         // Both duplicate list items should reference distinct original texts
-        expect(result[0].originalText).toBe('- Item');
-        expect(result[1].originalText).toBe('- Item');
+        expect((result[0] as Extract<typeof result[0], { state: 'unchanged' }>).originalText).toBe('- Item');
+        expect((result[1] as Extract<typeof result[0], { state: 'unchanged' }>).originalText).toBe('- Item');
     });
 });
 
