@@ -37,3 +37,7 @@ export const MSG_GET_SELECTION   = 'get-selection';    // UI asks sandbox for cu
 export const MSG_EXPORT_RESULT      = 'export-result';      // Sandbox returns diff result per frame
 export const MSG_EXPORT_MARKDOWN    = 'export-markdown';    // Sandbox returns assembled Markdown string
 export const MSG_SELECTION_CHANGED  = 'selection-changed';  // Sandbox notifies UI of frame selection change
+
+// ── Status message domain tags ───────────────────────────────────────────────
+
+export const STATUS_DOMAIN_EXPORT = 'export';  // MSG_STATUS messages from the export pipeline

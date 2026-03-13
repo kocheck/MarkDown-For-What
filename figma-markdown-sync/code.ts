@@ -12,6 +12,7 @@ import {
     MSG_EXPORT_REQUEST, MSG_EXPORT_RESULT,
     MSG_EXPORT_DOWNLOAD, MSG_EXPORT_MARKDOWN,
     MSG_GET_SELECTION, MSG_SELECTION_CHANGED,
+    STATUS_DOMAIN_EXPORT,
 } from './messages';
 
 // Max Markdown source size stored as pluginData (~50 KB — Figma's practical limit)
@@ -239,19 +240,21 @@ figma.showUI(__html__, { width: 400, height: 500 });
             const allFrames = figma.currentPage.findAllWithCriteria({ types: ['FRAME'] }) as FrameNode[];
             const frameMap = new Map(allFrames.map(n => [n.id, n]));
             exportResultCache.clear();
+            const nodes = frameIds.map(id => frameMap.get(id) ?? null);
+            const missing = frameIds.filter((_, i) => !nodes[i]);
+            for (const id of missing) {
+                figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${id}`, error: true, domain: STATUS_DOMAIN_EXPORT });
+            }
+            const validNodes = nodes.filter((n): n is FrameNode => n !== null);
+            const results = await Promise.allSettled(validNodes.map(node => exportFrame(node)));
             const frames: ExportFrameResult[] = [];
-            for (const frameId of frameIds) {
-                const node = frameMap.get(frameId) ?? null;
-                if (!node) {
-                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: 'export' });
-                    continue;
-                }
-                try {
-                    const result = await exportFrame(node);
-                    exportResultCache.set(frameId, result);
-                    frames.push(result);
-                } catch (e) {
-                    figma.ui.postMessage({ type: MSG_STATUS, message: `Failed to export frame "${node.name}": ${errorMessage(e)}`, error: true, domain: 'export' });
+            for (let i = 0; i < results.length; i++) {
+                const r = results[i];
+                if (r.status === 'fulfilled') {
+                    exportResultCache.set(validNodes[i].id, r.value);
+                    frames.push(r.value);
+                } else {
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Failed to export frame "${validNodes[i].name}": ${errorMessage(r.reason)}`, error: true, domain: STATUS_DOMAIN_EXPORT });
                 }
             }
             figma.ui.postMessage({ type: MSG_EXPORT_RESULT, frames });
@@ -266,7 +269,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
             if (!cached) {
                 const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
                 if (!node) {
-                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: 'export' });
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: STATUS_DOMAIN_EXPORT });
                     return;
                 }
                 const result = await exportFrame(node);

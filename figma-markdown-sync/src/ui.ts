@@ -8,6 +8,7 @@ import {
     MSG_STATUS, MSG_SETTINGS, MSG_LOCAL_STYLES, MSG_LOCAL_COMPONENTS, MSG_HISTORY,
     MSG_EXPORT_REQUEST, MSG_EXPORT_DOWNLOAD, MSG_GET_SELECTION,
     MSG_EXPORT_RESULT, MSG_EXPORT_MARKDOWN, MSG_SELECTION_CHANGED,
+    STATUS_DOMAIN_EXPORT,
 } from '../messages';
 import type { ExportBlock, BlockSelection, ExportFrameResult } from '../exporter';
 
@@ -829,7 +830,7 @@ window.onmessage = event => {
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             // Clear paste area on successful import (but not for export-domain status messages)
-            if (!msg.error && msg.domain !== 'export') {
+            if (!msg.error && msg.domain !== STATUS_DOMAIN_EXPORT) {
                 pasteArea.value = '';
                 pasteName.value = '';
                 pasteImportBtn.disabled = true;
