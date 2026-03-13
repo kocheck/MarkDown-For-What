@@ -116,6 +116,7 @@ let exportFrameResults: ExportFrameResult[] = [];
 let exportReviewSelections: Map<number, Map<number, boolean>> = new Map();
 let exportCurrentFrameIndex = 0;
 let pendingDownloadIndex = 0;
+const DOWNLOAD_STAGGER_MS = 300; // delay between sequential downloads to avoid browser throttling
 
 // ── Export UI helpers ────────────────────────────────────────────────────────
 
@@ -863,7 +864,7 @@ window.onmessage = event => {
             triggerDownload(msg.filename, msg.content);
             pendingDownloadIndex++;
             if (pendingDownloadIndex < exportFrameResults.length) {
-                setTimeout(() => downloadFrame(pendingDownloadIndex), 300);
+                setTimeout(() => downloadFrame(pendingDownloadIndex), DOWNLOAD_STAGGER_MS);
             }
             break;
         default:

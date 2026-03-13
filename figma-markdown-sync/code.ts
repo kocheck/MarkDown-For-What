@@ -14,6 +14,9 @@ import {
     MSG_GET_SELECTION, MSG_SELECTION_CHANGED,
 } from './messages';
 
+// Max Markdown source size stored as pluginData (~50 KB — Figma's practical limit)
+const MAX_MARKDOWN_SOURCE_SIZE = 50_000;
+
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
 figma.showUI(__html__, { width: 400, height: 500 });
 
@@ -23,6 +26,9 @@ figma.showUI(__html__, { width: 400, height: 500 });
         figma.closePlugin('MarkDown For What only supports Figma Design — not FigJam or Slides.');
         return;
     }
+
+    // Cache export results by frameId — reused by MSG_EXPORT_DOWNLOAD to avoid re-inferring
+    const exportResultCache = new Map<string, ExportFrameResult>();
 
     // Notify UI whenever the Figma selection changes
     figma.on('selectionchange', () => {
@@ -175,8 +181,8 @@ figma.showUI(__html__, { width: 400, height: 500 });
                     const result: RenderResult = await renderBlocks(nameNoExt, blocks, settings, target as SceneNode);
                     updatedCount++;
                     totalImageFailures += result.imageFailures;
-                    // Store source for round-trip export. Skip if > 50 KB to avoid pluginData limits.
-                    if (file.content.length <= 50_000) {
+                    // Store source for round-trip export. Skip if > MAX_MARKDOWN_SOURCE_SIZE to avoid pluginData limits.
+                    if (file.content.length <= MAX_MARKDOWN_SOURCE_SIZE) {
                         result.frame.setPluginData('markdownSource', file.content);
                         result.frame.setPluginData('markdownFilename', file.name);
                         result.frame.setPluginData('markdownImportedAt', Date.now().toString());
@@ -222,14 +228,20 @@ figma.showUI(__html__, { width: 400, height: 500 });
 
         if (msg.type === MSG_EXPORT_REQUEST) {
             const frameIds: string[] = msg.frameIds ?? [];
+            // One findAll scan + Map lookup — O(M + N) vs O(N × M) for repeated findOne
+            const allFrames = figma.currentPage.findAllWithCriteria({ types: ['FRAME'] }) as FrameNode[];
+            const frameMap = new Map(allFrames.map(n => [n.id, n]));
+            exportResultCache.clear();
             const frames: ExportFrameResult[] = [];
             for (const frameId of frameIds) {
-                const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
+                const node = frameMap.get(frameId) ?? null;
                 if (!node) {
                     figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
                     continue;
                 }
-                frames.push(await exportFrame(node));
+                const result = await exportFrame(node);
+                exportResultCache.set(frameId, result);
+                frames.push(result);
             }
             figma.ui.postMessage({ type: MSG_EXPORT_RESULT, frames });
             return;
@@ -238,14 +250,21 @@ figma.showUI(__html__, { width: 400, height: 500 });
         if (msg.type === MSG_EXPORT_DOWNLOAD) {
             const frameId: string = msg.frameId;
             const selections: BlockSelection[] = msg.selections ?? [];
-            const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
-            if (!node) {
-                figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+            // Reuse cached result from MSG_EXPORT_REQUEST to avoid re-inferring the layer tree
+            const cached = exportResultCache.get(frameId);
+            if (!cached) {
+                const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
+                if (!node) {
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
+                    return;
+                }
+                const result = await exportFrame(node);
+                const content = assembleMarkdown(result.blocks, selections);
+                figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: result.filename, content });
                 return;
             }
-            const result = await exportFrame(node);
-            const content = assembleMarkdown(result.blocks, selections);
-            figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: result.filename, content });
+            const content = assembleMarkdown(cached.blocks, selections);
+            figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: cached.filename, content });
             return;
         }
     } catch (err) {

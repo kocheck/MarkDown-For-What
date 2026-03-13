@@ -63,6 +63,8 @@ beforeEach(() => {
     (figma.currentPage as any).selection = [];
     // Reset findOne to return null by default
     (figma.currentPage as any).findOne = jest.fn(() => null);
+    // Reset findAllWithCriteria to return empty array by default
+    (figma.currentPage as any).findAllWithCriteria = jest.fn(() => []);
 });
 
 // ─── selectionchange listener ─────────────────────────────────────────────────
@@ -138,9 +140,7 @@ describe('MSG_GET_SELECTION handler', () => {
 describe('MSG_EXPORT_REQUEST handler', () => {
     it('calls exportFrame for each frameId and posts export-result', async () => {
         const mockFrame = { type: 'FRAME', id: 'frame-1', name: 'My Frame' };
-        (figma.currentPage as any).findOne = jest.fn((pred: (n: any) => boolean) =>
-            pred(mockFrame) ? mockFrame : null
-        );
+        (figma.currentPage as any).findAllWithCriteria = jest.fn(() => [mockFrame]);
 
         const fakeResult: ExportFrameResult = {
             frameId: 'frame-1',
@@ -162,7 +162,8 @@ describe('MSG_EXPORT_REQUEST handler', () => {
     });
 
     it('posts error status if frameId not found', async () => {
-        (figma.currentPage as any).findOne = jest.fn(() => null);
+        // findAllWithCriteria returns empty — no frames on page
+        (figma.currentPage as any).findAllWithCriteria = jest.fn(() => []);
 
         await sendMessage({ type: MSG_EXPORT_REQUEST, frameIds: ['nonexistent-id'] });
 
@@ -174,11 +175,9 @@ describe('MSG_EXPORT_REQUEST handler', () => {
     });
 
     it('skips missing frames and still sends export-result with found frames', async () => {
-        // Two frame IDs requested; only one exists
+        // Two frame IDs requested; only one exists on the page
         const foundFrame = { id: 'frame-1', type: 'FRAME', name: 'Found' };
-        (figma.currentPage as any).findOne = jest.fn()
-            .mockImplementationOnce(() => foundFrame)   // first call: found
-            .mockImplementationOnce(() => null);          // second call: not found
+        (figma.currentPage as any).findAllWithCriteria = jest.fn(() => [foundFrame]);
 
         const mockResult: ExportFrameResult = {
             frameId: 'frame-1',
@@ -206,19 +205,9 @@ describe('MSG_EXPORT_REQUEST handler', () => {
 // ─── MSG_EXPORT_DOWNLOAD handler ──────────────────────────────────────────────
 
 describe('MSG_EXPORT_DOWNLOAD handler', () => {
-    it('calls assembleMarkdown with selections and posts export-markdown', async () => {
-        const mockFrame = {
-            type: 'FRAME',
-            id: 'frame-dl',
-            name: 'Download Frame',
-            _pluginData: { markdownSource: '# Hello', markdownFilename: 'hello.md' },
-            getPluginData: jest.fn(function(this: any, key: string) {
-                return this._pluginData[key] ?? '';
-            }),
-        };
-        (figma.currentPage as any).findOne = jest.fn((pred: (n: any) => boolean) =>
-            pred(mockFrame) ? mockFrame : null
-        );
+    it('uses cached export result and assembles markdown without re-inferring', async () => {
+        const mockFrame = { type: 'FRAME', id: 'frame-dl', name: 'Download Frame' };
+        (figma.currentPage as any).findAllWithCriteria = jest.fn(() => [mockFrame]);
 
         const fakeResult: ExportFrameResult = {
             frameId: 'frame-dl',
@@ -233,15 +222,16 @@ describe('MSG_EXPORT_DOWNLOAD handler', () => {
         const assembled = '# Hello\n\nSome content';
         mockAssembleMarkdown.mockReturnValue(assembled);
 
+        // Populate cache via MSG_EXPORT_REQUEST first
+        await sendMessage({ type: MSG_EXPORT_REQUEST, frameIds: ['frame-dl'] });
+        jest.clearAllMocks(); // clear postMessage calls so we can assert only download messages
+        mockAssembleMarkdown.mockReturnValue(assembled);
+
         const selections: BlockSelection[] = [{ blockIndex: 0, useOriginal: true }];
+        await sendMessage({ type: MSG_EXPORT_DOWNLOAD, frameId: 'frame-dl', selections });
 
-        await sendMessage({
-            type: MSG_EXPORT_DOWNLOAD,
-            frameId: 'frame-dl',
-            selections,
-        });
-
-        expect(mockExportFrame).toHaveBeenCalledWith(mockFrame);
+        // exportFrame should NOT be called again — cache hit
+        expect(mockExportFrame).not.toHaveBeenCalled();
         expect(mockAssembleMarkdown).toHaveBeenCalledWith(fakeResult.blocks, selections);
         expect(figma.ui.postMessage).toHaveBeenCalledWith({
             type: MSG_EXPORT_MARKDOWN,
