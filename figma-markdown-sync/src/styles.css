@@ -636,3 +636,133 @@ button {
     color: #888;
     margin-top: 2px;
 }
+
+/* ── Export Panel ─────────────────────────────────────────────────────────── */
+
+.export-empty {
+    padding: 24px 16px;
+    color: var(--figma-color-text-secondary, #666);
+    text-align: center;
+    font-size: 13px;
+}
+
+#export-frame-info {
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+#export-block-counts {
+    font-size: 12px;
+    margin-bottom: 16px;
+    color: var(--figma-color-text-secondary, #555);
+}
+
+.export-warning {
+    font-size: 12px;
+    color: #9a6700;
+    margin-bottom: 12px;
+}
+
+#export-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.btn-primary {
+    background: var(--figma-color-bg-brand, #18a0fb);
+    color: white;
+    border: none;
+    font-size: 12px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.btn-primary:hover:not(:disabled) { background: #0d8de0; }
+.btn-primary:disabled { background: #B0C4CE; cursor: default; }
+
+/* ── Review Mode ──────────────────────────────────────────────────────────── */
+
+.review-block {
+    border: 1px solid var(--figma-color-border, #e0e0e0);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.review-block--modified { border-left: 3px solid #9a6700; }
+.review-block--new      { border-left: 3px solid #0969da; }
+
+.review-block-header {
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 8px;
+}
+
+.review-fidelity-warning {
+    font-size: 11px;
+    color: #9a6700;
+    margin-bottom: 8px;
+}
+
+.review-diff {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.review-diff-col { flex: 1; min-width: 0; }
+
+.review-diff-header {
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.review-diff-text {
+    font-size: 11px;
+    font-family: 'Roboto Mono', monospace;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--figma-color-bg-secondary, #f5f5f5);
+    border-radius: 4px;
+    padding: 6px 8px;
+    margin: 0;
+}
+
+.review-block-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.btn-review {
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--figma-color-border, #ccc);
+    background: transparent;
+    cursor: pointer;
+}
+
+.btn-review--active {
+    background: var(--figma-color-bg-brand, #18a0fb);
+    color: white;
+    border-color: transparent;
+}
+
+#export-review-back {
+    background: none;
+    border: none;
+    color: var(--figma-color-text-brand, #0969da);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+    margin-top: 12px;
+    display: block;
+}
+
+#export-log-panel { margin-top: 16px; }
+#export-log-content { font-size: 11px; font-family: monospace; white-space: pre-wrap; }
