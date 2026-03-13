@@ -227,7 +227,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 const node = figma.currentPage.findOne((n: SceneNode) => n.id === frameId && n.type === 'FRAME') as FrameNode | null;
                 if (!node) {
                     figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true });
-                    return;
+                    continue;
                 }
                 frames.push(await exportFrame(node));
             }

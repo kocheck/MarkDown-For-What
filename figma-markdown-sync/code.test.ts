@@ -172,6 +172,35 @@ describe('MSG_EXPORT_REQUEST handler', () => {
         );
         expect(mockExportFrame).not.toHaveBeenCalled();
     });
+
+    it('skips missing frames and still sends export-result with found frames', async () => {
+        // Two frame IDs requested; only one exists
+        const foundFrame = { id: 'frame-1', type: 'FRAME', name: 'Found' };
+        (figma.currentPage as any).findOne = jest.fn()
+            .mockImplementationOnce(() => foundFrame)   // first call: found
+            .mockImplementationOnce(() => null);          // second call: not found
+
+        const mockResult: ExportFrameResult = {
+            frameId: 'frame-1',
+            filename: 'Found',
+            hasStoredSource: false,
+            sourceTruncated: false,
+            blocks: [],
+            skippedLayers: [],
+        };
+        mockExportFrame.mockResolvedValueOnce(mockResult);
+
+        await sendMessage({ type: MSG_EXPORT_REQUEST, frameIds: ['frame-1', 'frame-missing'] });
+
+        // Should have sent an error status for the missing frame
+        expect(figma.ui.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: MSG_STATUS, error: true })
+        );
+        // But should still send export-result with the found frames
+        expect(figma.ui.postMessage).toHaveBeenCalledWith(
+            expect.objectContaining({ type: MSG_EXPORT_RESULT, frames: [mockResult] })
+        );
+    });
 });
 
 // ─── MSG_EXPORT_DOWNLOAD handler ──────────────────────────────────────────────
