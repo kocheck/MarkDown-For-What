@@ -126,8 +126,12 @@ function showExportNoSelection() {
 }
 
 function renderExportSummary(frames: ExportFrameResult[]) {
+    const incomingIds = frames.map(f => f.frameId).join(',');
+    const currentIds  = exportFrameResults.map(f => f.frameId).join(',');
+    if (incomingIds !== currentIds) {
+        exportReviewSelections = new Map();
+    }
     exportFrameResults = frames;
-    exportReviewSelections = new Map();
     exportNoSelection.hidden = true;
     exportReviewPanel.hidden = true;
 
@@ -147,9 +151,13 @@ function renderExportSummary(frames: ExportFrameResult[]) {
     const added     = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'new').length, 0);
 
     if (!frame.hasStoredSource && frames.length === 1) {
-        exportBlockCounts.textContent = added === 0
+        exportFrameInfo.textContent = 'No import history found.';
+
+        const countText = added === 0
             ? 'No Markdown content detected. This frame may not use Markdown/* styles.'
             : `${added} block${added !== 1 ? 's' : ''} inferred`;
+        exportBlockCounts.textContent = `Inference works best on frames using Markdown/* text styles. Other frames may produce few or no blocks.\n\n${countText}`;
+
         exportBtn.disabled = added === 0;
         exportReviewBtn.hidden = true;
     } else {
