@@ -209,6 +209,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 message: statusMessage,
                 error: failedCount > 0
             });
+            return;
         }
 
         if (msg.type === MSG_GET_SELECTION) {
