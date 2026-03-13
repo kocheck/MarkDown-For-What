@@ -145,8 +145,7 @@ describe('MSG_EXPORT_REQUEST handler', () => {
         const fakeResult: ExportFrameResult = {
             frameId: 'frame-1',
             filename: 'my-frame.md',
-            hasStoredSource: false,
-            sourceTruncated: false,
+            sourceStatus: 'none',
             blocks: [],
             skippedLayers: [],
         };
@@ -182,8 +181,7 @@ describe('MSG_EXPORT_REQUEST handler', () => {
         const mockResult: ExportFrameResult = {
             frameId: 'frame-1',
             filename: 'Found',
-            hasStoredSource: false,
-            sourceTruncated: false,
+            sourceStatus: 'none',
             blocks: [],
             skippedLayers: [],
         };
@@ -212,8 +210,7 @@ describe('MSG_EXPORT_DOWNLOAD handler', () => {
         const fakeResult: ExportFrameResult = {
             frameId: 'frame-dl',
             filename: 'hello.md',
-            hasStoredSource: true,
-            sourceTruncated: false,
+            sourceStatus: 'present',
             blocks: [{ state: 'unchanged', originalText: '# Hello', inferredText: '# Hello' }],
             skippedLayers: [],
         };
@@ -227,7 +224,7 @@ describe('MSG_EXPORT_DOWNLOAD handler', () => {
         jest.clearAllMocks(); // clear postMessage calls so we can assert only download messages
         mockAssembleMarkdown.mockReturnValue(assembled);
 
-        const selections: BlockSelection[] = [{ blockIndex: 0, useOriginal: true }];
+        const selections: BlockSelection[] = [{ blockIndex: 0, action: 'use-original' }];
         await sendMessage({ type: MSG_EXPORT_DOWNLOAD, frameId: 'frame-dl', selections });
 
         // exportFrame should NOT be called again — cache hit
@@ -253,6 +250,84 @@ describe('MSG_EXPORT_DOWNLOAD handler', () => {
         expect(msgs).toContainEqual(
             expect.objectContaining({ type: MSG_STATUS, error: true })
         );
+        expect(mockExportFrame).not.toHaveBeenCalled();
+    });
+
+    it('calls exportFrame and assembles markdown when cache miss but frame is found', async () => {
+        const frameId = 'frame-1';
+        const mockResult: ExportFrameResult = {
+            frameId,
+            filename: 'my-doc.md',
+            sourceStatus: 'present',
+            blocks: [{ state: 'new', inferredText: '# Hello' }],
+            skippedLayers: [],
+        };
+        mockExportFrame.mockResolvedValue(mockResult);
+        mockAssembleMarkdown.mockReturnValue('# Hello');
+
+        // No prior MSG_EXPORT_REQUEST — cache is empty
+        // Set up findOne to return a frame
+        (figma.currentPage as any).findOne = jest.fn().mockReturnValue({ id: frameId, name: 'my-doc', type: 'FRAME' });
+
+        await sendMessage({ type: MSG_EXPORT_DOWNLOAD, frameId, selections: [] });
+
+        expect(mockExportFrame).toHaveBeenCalledTimes(1);
+        const posted = (figma.ui.postMessage as jest.Mock).mock.calls.find(
+            c => c[0].type === MSG_EXPORT_MARKDOWN
+        );
+        expect(posted).toBeDefined();
+        expect(posted[0].filename).toBe('my-doc.md');
+        expect(posted[0].content).toBe('# Hello');
+    });
+});
+
+// ─── MSG_EXPORT_REQUEST handler — additional cases ────────────────────────────
+
+describe('MSG_EXPORT_REQUEST handler — additional cases', () => {
+    it('posts MSG_STATUS error for each frame where exportFrame rejects, but still sends MSG_EXPORT_RESULT', async () => {
+        const goodFrameId = 'frame-good';
+        const badFrameId  = 'frame-bad';
+
+        const mockGoodResult: ExportFrameResult = {
+            frameId: goodFrameId,
+            filename: 'good.md',
+            sourceStatus: 'none',
+            blocks: [{ state: 'new', inferredText: '# Good' }],
+            skippedLayers: [],
+        };
+        (figma.currentPage as any).findAllWithCriteria = jest.fn().mockReturnValue([
+            { id: goodFrameId, name: 'good', type: 'FRAME' },
+            { id: badFrameId,  name: 'bad',  type: 'FRAME' },
+        ]);
+        mockExportFrame
+            .mockResolvedValueOnce(mockGoodResult)
+            .mockRejectedValueOnce(new Error('Figma API failure'));
+
+        await sendMessage({ type: MSG_EXPORT_REQUEST, frameIds: [goodFrameId, badFrameId] });
+
+        const statusMessages = (figma.ui.postMessage as jest.Mock).mock.calls.filter(
+            c => c[0].type === MSG_STATUS && c[0].error
+        );
+        expect(statusMessages.length).toBeGreaterThanOrEqual(1);
+        expect(statusMessages.some((c: any[]) => c[0].message.includes('bad'))).toBe(true);
+
+        const resultMsg = (figma.ui.postMessage as jest.Mock).mock.calls.find(
+            c => c[0].type === MSG_EXPORT_RESULT
+        );
+        expect(resultMsg).toBeDefined();
+        expect(resultMsg[0].frames).toHaveLength(1);
+        expect(resultMsg[0].frames[0].frameId).toBe(goodFrameId);
+    });
+
+    it('sends MSG_EXPORT_RESULT with empty frames array for empty frameIds', async () => {
+        (figma.currentPage as any).findAllWithCriteria = jest.fn().mockReturnValue([]);
+        await sendMessage({ type: MSG_EXPORT_REQUEST, frameIds: [] });
+
+        const resultMsg = (figma.ui.postMessage as jest.Mock).mock.calls.find(
+            c => c[0].type === MSG_EXPORT_RESULT
+        );
+        expect(resultMsg).toBeDefined();
+        expect(resultMsg[0].frames).toEqual([]);
         expect(mockExportFrame).not.toHaveBeenCalled();
     });
 });

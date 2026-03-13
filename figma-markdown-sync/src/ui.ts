@@ -114,10 +114,11 @@ let currentFiles: { name: string; content: string }[] = [];
 
 // Export state
 let exportFrameResults: ExportFrameResult[] = [];
-let exportReviewSelections: Map<number, Map<number, boolean>> = new Map();
+let exportReviewSelections: Map<number, Map<number, 'use-original' | 'use-inferred' | 'skip'>> = new Map();
 let exportCurrentFrameIndex = 0;
 let pendingDownloadIndex = 0;
-const DOWNLOAD_STAGGER_MS = 300; // delay between sequential downloads to avoid browser throttling
+let downloadBatchId = 0;
+const DOWNLOAD_STAGGER_MS = 300; // delay between triggering successive file downloads to avoid browser download-manager throttling
 
 // ── Export UI helpers ────────────────────────────────────────────────────────
 
@@ -146,13 +147,13 @@ function renderExportSummary(frames: ExportFrameResult[]) {
         ? `"${frame.filename.replace('.md', '')}"`
         : `${frames.length} frames selected`;
 
-    exportTruncatedWarning.hidden = !frames.some(f => f.sourceTruncated);
+    exportTruncatedWarning.hidden = !frames.some(f => f.sourceStatus === 'truncated');
 
     const unchanged = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'unchanged').length, 0);
     const modified  = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'modified').length, 0);
     const added     = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'new').length, 0);
 
-    if (!frame.hasStoredSource && frames.length === 1) {
+    if (frame.sourceStatus === 'none' && frames.length === 1) {
         exportFrameInfo.textContent = 'No import history found.';
 
         const countText = added === 0
@@ -194,12 +195,12 @@ function renderReviewPanel(frameIndex: number) {
     while (exportReviewBlocks.firstChild) exportReviewBlocks.removeChild(exportReviewBlocks.firstChild);
 
     const reviewable = frame.blocks.filter(b => b.state !== 'unchanged');
-    const frameSelections = exportReviewSelections.get(frameIndex) ?? new Map<number, boolean>();
+    const frameSelections = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
 
     reviewable.forEach(block => {
         const blockIndex = frame.blocks.indexOf(block);
-        const defaultUseOriginal = block.state === 'modified';
-        const useOriginal = frameSelections.has(blockIndex) ? frameSelections.get(blockIndex)! : defaultUseOriginal;
+        const defaultAction: 'use-original' | 'use-inferred' | 'skip' = block.state === 'modified' ? 'use-original' : 'use-inferred';
+        const currentAction = frameSelections.get(blockIndex) ?? defaultAction;
 
         const el = document.createElement('div');
         el.className = `review-block review-block--${block.state}`;
@@ -253,13 +254,13 @@ function renderReviewPanel(frameIndex: number) {
         const actions = document.createElement('div');
         actions.className = 'review-block-actions';
 
-        const makeBtn = (label: string, blockIdx: number, useOrig: boolean, active: boolean) => {
+        const makeBtn = (label: string, blockIdx: number, selAction: 'use-original' | 'use-inferred' | 'skip', active: boolean) => {
             const btn = document.createElement('button');
             btn.className = `btn-review${active ? ' btn-review--active' : ''}`;
             btn.textContent = label;
             btn.addEventListener('click', () => {
-                const sel = exportReviewSelections.get(frameIndex) ?? new Map<number, boolean>();
-                sel.set(blockIdx, useOrig);
+                const sel = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
+                sel.set(blockIdx, selAction);
                 exportReviewSelections.set(frameIndex, sel);
                 renderReviewPanel(frameIndex);
             });
@@ -267,11 +268,11 @@ function renderReviewPanel(frameIndex: number) {
         };
 
         if (block.state === 'modified') {
-            actions.appendChild(makeBtn('✓ Keep original', blockIndex, true, useOriginal));
-            actions.appendChild(makeBtn('Use current', blockIndex, false, !useOriginal));
+            actions.appendChild(makeBtn('✓ Keep original', blockIndex, 'use-original', currentAction === 'use-original'));
+            actions.appendChild(makeBtn('Use current',     blockIndex, 'use-inferred', currentAction === 'use-inferred'));
         } else {
-            actions.appendChild(makeBtn('✓ Include', blockIndex, false, !useOriginal));
-            actions.appendChild(makeBtn('Skip', blockIndex, true, useOriginal));
+            actions.appendChild(makeBtn('✓ Include', blockIndex, 'use-inferred', currentAction === 'use-inferred'));
+            actions.appendChild(makeBtn('Skip',      blockIndex, 'skip',         currentAction === 'skip'));
         }
 
         el.appendChild(actions);
@@ -293,23 +294,28 @@ function triggerDownload(filename: string, content: string): boolean {
         console.error('[MarkDown For What] Download failed:', err);
         return false;
     } finally {
-        if (url) URL.revokeObjectURL(url);
+        if (url) {
+            const urlToRevoke = url;
+            setTimeout(() => URL.revokeObjectURL(urlToRevoke), 60_000);
+        }
     }
 }
 
-function downloadFrame(frameIndex: number) {
+function downloadFrame(frameIndex: number, batchId = downloadBatchId) {
     const frame = exportFrameResults[frameIndex];
     if (!frame) return;
     const sel = exportReviewSelections.get(frameIndex);
     const selections: BlockSelection[] = sel
-        ? Array.from(sel.entries()).map(([blockIndex, useOriginal]) => ({ blockIndex, useOriginal }))
+        ? Array.from(sel.entries()).map(([blockIndex, action]) => ({ blockIndex, action }))
         : [];
-    parent.postMessage({ pluginMessage: { type: MSG_EXPORT_DOWNLOAD, frameId: frame.frameId, selections } }, '*');
+    parent.postMessage({ pluginMessage: { type: MSG_EXPORT_DOWNLOAD, frameId: frame.frameId, selections, batchId } }, '*');
 }
 
 function startSequentialDownload() {
     pendingDownloadIndex = 0;
-    downloadFrame(pendingDownloadIndex);
+    downloadBatchId++;
+    const batchId = downloadBatchId;
+    downloadFrame(pendingDownloadIndex, batchId);
 }
 
 function renderExportLog(frames: ExportFrameResult[]) {
@@ -868,6 +874,7 @@ window.onmessage = event => {
             renderExportLog(msg.frames);
             break;
         case MSG_EXPORT_MARKDOWN: {
+            if (msg.batchId !== downloadBatchId) break; // stale batch — ignore
             const success = triggerDownload(msg.filename, msg.content);
             if (!success) {
                 // triggerDownload already logged; show user-visible feedback via existing status mechanism

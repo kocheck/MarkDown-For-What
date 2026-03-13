@@ -15,7 +15,7 @@ import {
     STATUS_DOMAIN_EXPORT,
 } from './messages';
 
-// Max Markdown source size stored as pluginData (~50 KB — Figma's practical limit)
+// Self-imposed cap on stored Markdown source (~50 KB). Keeps pluginData lean. Increase if needed.
 const MAX_MARKDOWN_SOURCE_SIZE = 50_000;
 
 // Initialize UI — 400×500 px panel, Figma Design only (not FigJam or Slides)
@@ -29,7 +29,9 @@ figma.showUI(__html__, { width: 400, height: 500 });
     }
 
     // Cache export results by frameId — reused by MSG_EXPORT_DOWNLOAD to avoid re-inferring.
-    // Cleared at the start of each MSG_EXPORT_REQUEST to prevent stale results after selection changes.
+    // Cleared at the start of each MSG_EXPORT_REQUEST to prevent stale results.
+    // Cache misses during MSG_EXPORT_DOWNLOAD fall through to a fresh exportFrame call;
+    // that result is not written back to the cache.
     const exportResultCache = new Map<string, ExportFrameResult>();
 
     // Notify UI whenever the Figma selection changes
@@ -162,6 +164,7 @@ figma.showUI(__html__, { width: 400, height: 500 });
                 });
             }
 
+            let truncatedCount = 0;
             let updatedCount = 0;
             let failedCount = 0;
             let totalImageFailures = 0;
@@ -193,9 +196,10 @@ figma.showUI(__html__, { width: 400, height: 500 });
                         result.frame.setPluginData('markdownFilename', file.name);
                         result.frame.setPluginData('markdownImportedAt', Date.now().toString());
                     } else {
-                        // If content exceeds MAX_MARKDOWN_SOURCE_SIZE, record that the source was too large
-                        // but do not store content. All blocks will be marked 'new' on export.
+                        // Source too large to store. The truncated flag causes exportFrame to run diffBlocks
+                        // against an empty source array, so all blocks appear as 'new' on export.
                         result.frame.setPluginData('markdownSourceTruncated', 'true');
+                        truncatedCount++;
                     }
                     // Record in import history (fire-and-forget — don't block render)
                     recordImport(file.name, blocks.length).catch(err => { console.error('[MarkDown For What] Failed to record import history:', err); });
@@ -216,6 +220,10 @@ figma.showUI(__html__, { width: 400, height: 500 });
 
             if (totalImageFailures > 0) {
                 statusMessage += ` (${totalImageFailures} image${totalImageFailures === 1 ? '' : 's'} failed to load)`;
+            }
+
+            if (truncatedCount > 0) {
+                statusMessage += ` Note: ${truncatedCount} file${truncatedCount === 1 ? '' : 's'} exceeded the ${MAX_MARKDOWN_SOURCE_SIZE / 1000} KB source storage limit — export will produce inferred-only output for those files.`;
             }
 
             figma.ui.postMessage({
@@ -272,9 +280,13 @@ figma.showUI(__html__, { width: 400, height: 500 });
                     figma.ui.postMessage({ type: MSG_STATUS, message: `Frame not found: ${frameId}`, error: true, domain: STATUS_DOMAIN_EXPORT });
                     return;
                 }
-                const result = await exportFrame(node);
-                const content = assembleMarkdown(result.blocks, selections);
-                figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: result.filename, content });
+                try {
+                    const result = await exportFrame(node);
+                    const content = assembleMarkdown(result.blocks, selections);
+                    figma.ui.postMessage({ type: MSG_EXPORT_MARKDOWN, filename: result.filename, content });
+                } catch (e) {
+                    figma.ui.postMessage({ type: MSG_STATUS, message: `Failed to export frame "${node.name}": ${errorMessage(e)}`, error: true, domain: STATUS_DOMAIN_EXPORT });
+                }
                 return;
             }
             const content = assembleMarkdown(cached.blocks, selections);

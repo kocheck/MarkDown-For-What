@@ -279,12 +279,12 @@ describe('assembleMarkdown', () => {
         const blocks: ExportBlock[] = [
             { state: 'modified', originalText: 'Old text', inferredText: 'New text' },
         ];
-        expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: false }])).toBe('New text');
+        expect(assembleMarkdown(blocks, [{ blockIndex: 0, action: 'use-inferred' }])).toBe('New text');
     });
 
-    it('respects BlockSelection useOriginal=true to skip a new block', () => {
+    it('respects BlockSelection action=skip to skip a new block', () => {
         const blocks: ExportBlock[] = [{ state: 'new', inferredText: 'Unwanted' }];
-        expect(assembleMarkdown(blocks, [{ blockIndex: 0, useOriginal: true }])).toBe('');
+        expect(assembleMarkdown(blocks, [{ blockIndex: 0, action: 'skip' }])).toBe('');
     });
 
     it('separates blocks with a blank line', () => {
@@ -315,7 +315,7 @@ describe('assembleMarkdown', () => {
 describe('exportFrame', () => {
     beforeEach(() => jest.clearAllMocks());
 
-    it('returns hasStoredSource: true when markdownSource is present', async () => {
+    it('returns sourceStatus: present when markdownSource is present', async () => {
         const frame = makeMockFrame() as any;
         frame._pluginData['markdownSource'] = '# Hello\n\nWorld';
         frame._pluginData['markdownFilename'] = 'test.md';
@@ -324,25 +324,22 @@ describe('exportFrame', () => {
             getTextStyleIdAsync: jest.fn().mockResolvedValue('') };
         frame.children = [textNode];
         const result = await exportFrame(frame);
-        expect(result.hasStoredSource).toBe(true);
-        expect(result.sourceTruncated).toBe(false);
+        expect(result.sourceStatus).toBe('present');
     });
 
-    it('returns hasStoredSource: true and sourceTruncated: true when truncated flag is set', async () => {
+    it('returns sourceStatus: truncated when truncated flag is set', async () => {
         const frame = makeMockFrame() as any;
         frame._pluginData['markdownSourceTruncated'] = 'true';
         frame.children = [];
         const result = await exportFrame(frame);
-        expect(result.hasStoredSource).toBe(true);
-        expect(result.sourceTruncated).toBe(true);
+        expect(result.sourceStatus).toBe('truncated');
     });
 
-    it('returns hasStoredSource: false for frames with no pluginData', async () => {
+    it('returns sourceStatus: none for frames with no pluginData', async () => {
         const frame = makeMockFrame() as any;
         frame.children = [];
         const result = await exportFrame(frame);
-        expect(result.hasStoredSource).toBe(false);
-        expect(result.sourceTruncated).toBe(false);
+        expect(result.sourceStatus).toBe('none');
     });
 
     it('uses markdownFilename for filename, then frame.name, then "export"', async () => {
@@ -373,5 +370,194 @@ describe('exportFrame', () => {
         frame.children = [textNode];
         const result = await exportFrame(frame);
         expect(result.blocks.every((b: any) => b.state === 'new')).toBe(true);
+    });
+});
+
+// ── inferBlocksFromFrame — figma.mixed and per-node error handling ─────────────
+
+describe('inferBlocksFromFrame — mixed styles and error handling', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it('skips text nodes with mixed styles and records them in skippedLayers', async () => {
+        const frame = {
+            children: [{
+                type: 'TEXT',
+                name: 'Mixed',
+                characters: 'mixed text',
+                getTextStyleIdAsync: jest.fn().mockResolvedValue((figma as any).mixed),
+            }],
+        };
+        const { blocks, skippedLayers } = await inferBlocksFromFrame(frame);
+        expect(blocks).toHaveLength(0);
+        expect(skippedLayers).toHaveLength(1);
+        expect(skippedLayers[0].reason).toContain('Mixed text styles');
+    });
+
+    it('catches per-node inference errors and records them in skippedLayers without aborting the frame', async () => {
+        const frame = {
+            children: [
+                {
+                    type: 'TEXT',
+                    name: 'Broken',
+                    getTextStyleIdAsync: jest.fn().mockRejectedValue(new Error('API timeout')),
+                },
+                {
+                    type: 'RECTANGLE',
+                    name: 'separator',
+                    height: 1,
+                    fills: [],
+                },
+            ],
+        };
+        const { blocks, skippedLayers } = await inferBlocksFromFrame(frame);
+        expect(blocks).toHaveLength(1);
+        expect(blocks[0].blockType).toBe('separator');
+        expect(skippedLayers).toHaveLength(1);
+        expect(skippedLayers[0].name).toBe('Broken');
+        expect(skippedLayers[0].reason).toContain('API timeout');
+    });
+});
+
+// ── guessBlockType — via diffBlocks fingerprinting ────────────────────────────
+
+describe('guessBlockType — via diffBlocks fingerprinting', () => {
+    it('classifies ordered list items as list type (matches inferred list block)', () => {
+        const source = ['1. First item'];
+        const inferred: InferredBlock[] = [{ blockType: 'list', text: '1. First item', label: 'List' }];
+        const result = diffBlocks(source, inferred);
+        expect(result[0].state).toBe('unchanged');
+    });
+
+    it('classifies h4-h6 as heading-other (never matches inferred blocks — always new)', () => {
+        const source = ['#### Deep Heading'];
+        const inferred: InferredBlock[] = [{ blockType: 'paragraph', text: '#### Deep Heading', label: 'Para' }];
+        const result = diffBlocks(source, inferred);
+        // heading-other vs paragraph — type mismatch means no content-hash match and position fallback also fails (different type)
+        expect(result[0].state).toBe('new');
+    });
+});
+
+// ── inferTableFrame ───────────────────────────────────────────────────────────
+
+describe('inferBlocksFromFrame — named frames (table, definition list, footnotes, badge row)', () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    it('inferTableFrame: empty table returns fidelity warning', async () => {
+        const tableFrame = makeFrame('Table', []);
+        const root = makeFrame('Root', [tableFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].fidelityWarning).toContain('Empty table');
+        expect(blocks[0].text).toBe('');
+    });
+
+    it('inferTableFrame: single-row table uses first row as header with separator', async () => {
+        const tableFrame = makeFrame('Table', [
+            { type: 'FRAME', children: [
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'Col A' }] },
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'Col B' }] },
+            ]},
+        ]);
+        const root = makeFrame('Root', [tableFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toContain('| Col A | Col B |');
+        expect(blocks[0].text).toContain('| --- | --- |');
+    });
+
+    it('inferTableFrame: multi-row table includes body rows', async () => {
+        const tableFrame = makeFrame('Table', [
+            { type: 'FRAME', children: [
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'H1' }] },
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'H2' }] },
+            ]},
+            { type: 'FRAME', children: [
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'R1C1' }] },
+                { type: 'FRAME', children: [{ type: 'TEXT', characters: 'R1C2' }] },
+            ]},
+        ]);
+        const root = makeFrame('Root', [tableFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toContain('| H1 | H2 |');
+        expect(blocks[0].text).toContain('| --- | --- |');
+        expect(blocks[0].text).toContain('| R1C1 | R1C2 |');
+    });
+
+    // ── inferDefinitionListFrame ──────────────────────────────────────────────
+
+    it('inferDefinitionListFrame: even number of text nodes produces paired term/definition', async () => {
+        const defFrame = makeFrame('Definition List', [
+            { type: 'TEXT', characters: 'Term 1' },
+            { type: 'TEXT', characters: 'Definition 1' },
+            { type: 'TEXT', characters: 'Term 2' },
+            { type: 'TEXT', characters: 'Definition 2' },
+        ]);
+        const root = makeFrame('Root', [defFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toBe('Term 1\n: Definition 1\nTerm 2\n: Definition 2');
+    });
+
+    it('inferDefinitionListFrame: odd number of text nodes handles gracefully', async () => {
+        const defFrame = makeFrame('Definition List', [
+            { type: 'TEXT', characters: 'Term 1' },
+            { type: 'TEXT', characters: 'Definition 1' },
+            { type: 'TEXT', characters: 'Orphan term' },
+        ]);
+        const root = makeFrame('Root', [defFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toContain('Term 1');
+        expect(blocks[0].text).toContain('Orphan term');
+    });
+
+    // ── inferFootnotesFrame ───────────────────────────────────────────────────
+
+    it('inferFootnotesFrame: produces numbered footnote references', async () => {
+        const footnotesFrame = makeFrame('Footnotes', [
+            { type: 'TEXT', characters: 'First note' },
+            { type: 'TEXT', characters: 'Second note' },
+        ]);
+        const root = makeFrame('Root', [footnotesFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toBe('[^1]: First note\n[^2]: Second note');
+        expect(blocks[0].blockType).toBe('footnoteSection');
+    });
+
+    // ── inferBadgeRowFrame ────────────────────────────────────────────────────
+
+    it('inferBadgeRowFrame: extracts badge children and ignores non-badge children', async () => {
+        const badgeFrame = makeFrame('Badge Row', [
+            { name: 'Badge: Alpha', type: 'FRAME' },
+            { name: 'Not a badge', type: 'FRAME' },
+            { name: 'Badge: Beta', type: 'FRAME' },
+        ]);
+        const root = makeFrame('Root', [badgeFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toBe('[badge:Alpha] [badge:Beta]');
+        expect(blocks[0].blockType).toBe('badgeRow');
+    });
+
+    it('inferBadgeRowFrame: empty badge row returns empty text', async () => {
+        const badgeFrame = makeFrame('Badge Row', [
+            { name: 'Not a badge', type: 'FRAME' },
+        ]);
+        const root = makeFrame('Root', [badgeFrame]);
+        const { blocks } = await inferBlocksFromFrame(root);
+        expect(blocks[0].text).toBe('');
+    });
+});
+
+// ── diffBlocks — fidelityWarning propagation ──────────────────────────────────
+
+describe('diffBlocks — fidelityWarning propagation', () => {
+    it('propagates fidelityWarning from InferredBlock onto modified ExportBlock', () => {
+        const source = ['# Old Title'];
+        const inferred: InferredBlock[] = [{
+            blockType: 'heading-1',
+            text: '# New Title',
+            label: 'H1',
+            fidelityWarning: 'Link lost in export',
+        }];
+        const result = diffBlocks(source, inferred);
+        expect(result[0].state).toBe('modified');
+        const block = result[0] as Extract<typeof result[0], { state: 'modified' }>;
+        expect(block.fidelityWarning).toBe('Link lost in export');
     });
 });

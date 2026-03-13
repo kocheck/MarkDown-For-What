@@ -16,7 +16,7 @@
 export type BlockType =
     | 'heading-1' | 'heading-2' | 'heading-3' | 'heading-other'
     | 'paragraph' | 'code' | 'quote'
-    | 'list' | 'listGroup' | 'listItem'
+    | 'list' | 'listGroup'
     | 'separator' | 'image' | 'table' | 'toc' | 'callout'
     | 'definitionList' | 'footnoteSection' | 'badgeRow' | 'mermaid' | 'math';
 
@@ -32,18 +32,21 @@ export type ExportBlock =
     | { state: 'modified';  originalText: string;  inferredText: string; fidelityWarning?: string }
     | { state: 'new';                              inferredText: string; fidelityWarning?: string };
 
+export type SkippedLayer = { name: string; reason: string };
+
+export type SourceStatus = 'none' | 'present' | 'truncated';
+
 export interface ExportFrameResult {
     frameId: string;
     filename: string;
-    hasStoredSource: boolean;
-    sourceTruncated: boolean;
+    sourceStatus: SourceStatus;
     blocks: ExportBlock[];
-    skippedLayers: Array<{ name: string; reason: string }>;
+    skippedLayers: SkippedLayer[];
 }
 
 export interface BlockSelection {
     blockIndex: number;
-    useOriginal: boolean;
+    action: 'use-original' | 'use-inferred' | 'skip';
 }
 
 // ─── Helpers (exported for testing) ──────────────────────────────────────────
@@ -85,20 +88,25 @@ const FRAME_NAME_TO_BLOCK: Record<string, BlockType> = {
 
 interface InferenceResult {
     blocks: InferredBlock[];
-    skippedLayers: Array<{ name: string; reason: string }>;
+    skippedLayers: SkippedLayer[];
 }
 
 export async function inferBlocksFromFrame(frame: any): Promise<InferenceResult> {
     const blocks: InferredBlock[] = [];
-    const skippedLayers: Array<{ name: string; reason: string }> = [];
+    const skippedLayers: SkippedLayer[] = [];
 
     for (const child of (frame.children ?? [])) {
         const skippedBefore = skippedLayers.length;
-        const inferred = await inferNode(child, skippedLayers);
+        let inferred: InferredBlock | null = null;
+        try {
+            inferred = await inferNode(child, skippedLayers);
+        } catch (err) {
+            skippedLayers.push({ name: child.name || '(unnamed)', reason: `Inference failed: ${(err as any)?.message ?? String(err)}` });
+            continue;
+        }
         if (inferred) {
             blocks.push(inferred);
         } else if (skippedLayers.length === skippedBefore) {
-            // inferNode returned null without adding to skippedLayers — add generic entry
             skippedLayers.push({ name: child.name || '(unnamed)', reason: 'Unrecognized layer type or name' });
         }
     }
@@ -106,7 +114,7 @@ export async function inferBlocksFromFrame(frame: any): Promise<InferenceResult>
     return { blocks, skippedLayers };
 }
 
-async function inferNode(node: any, skippedLayers?: Array<{ name: string; reason: string }>): Promise<InferredBlock | null> {
+async function inferNode(node: any, skippedLayers?: SkippedLayer[]): Promise<InferredBlock | null> {
     if (node.type === 'RECTANGLE' && node.height === 1) {
         return { text: '---', blockType: 'separator', label: 'Separator' };
     }
@@ -127,9 +135,10 @@ async function inferNode(node: any, skippedLayers?: Array<{ name: string; reason
     return null;
 }
 
-async function inferTextNode(node: any, skippedLayers?: Array<{ name: string; reason: string }>): Promise<InferredBlock | null> {
+async function inferTextNode(node: any, skippedLayers?: SkippedLayer[]): Promise<InferredBlock | null> {
     const styleId = await node.getTextStyleIdAsync();
     if (styleId === (figma as any).mixed) {
+        // figma.mixed is a runtime sentinel (not in TS typedefs) indicating the node has multiple different text styles applied.
         skippedLayers?.push({ name: node.name || '(unnamed)', reason: 'Mixed text styles not supported' });
         return null;
     }
@@ -278,8 +287,48 @@ function inferBadgeRowFrame(node: any): InferredBlock {
 // ─── Diff and Merge ───────────────────────────────────────────────────────────
 
 /**
- * Heuristic: infer block type from Markdown text prefix, for fingerprinting
- * source lines that were not produced by the inference engine.
+ * Splits stored Markdown source into block strings on blank lines,
+ * but does NOT split inside fenced blocks (``` or ~~~ or $$ math fences),
+ * which can contain intentional blank lines.
+ */
+function splitStoredSource(source: string): string[] {
+    const blocks: string[] = [];
+    let current = '';
+    let inFence = false;
+    let closingFence = '';
+
+    for (const line of source.split('\n')) {
+        const trimmed = line.trim();
+        if (!inFence) {
+            const fenceMatch = trimmed.match(/^(`{3,}|~{3,}|\$\$)/);
+            if (fenceMatch) {
+                inFence = true;
+                closingFence = fenceMatch[1] === '$$' ? '$$' : fenceMatch[1].charAt(0).repeat(fenceMatch[1].length);
+                current += (current ? '\n' : '') + line;
+            } else if (trimmed === '') {
+                if (current.trim()) {
+                    blocks.push(current.trim());
+                    current = '';
+                }
+            } else {
+                current += (current ? '\n' : '') + line;
+            }
+        } else {
+            current += '\n' + line;
+            if (trimmed.startsWith(closingFence) && !trimmed.slice(closingFence.length).trim()) {
+                inFence = false;
+                closingFence = '';
+            }
+        }
+    }
+    if (current.trim()) blocks.push(current.trim());
+    return blocks;
+}
+
+/**
+ * Heuristic: infer block type from Markdown text prefix.
+ * Used only for source lines from stored pluginData; inferred blocks carry their BlockType directly.
+ * Note: 'heading-other' (h4–h6) is produced here but never by inference — h4–h6 always diff as 'new'.
  */
 function guessBlockType(text: string): BlockType {
     if (text.startsWith('# '))   return 'heading-1';
@@ -305,7 +354,7 @@ function guessBlockType(text: string): BlockType {
  * running the position fallback, preventing the fallback from consuming an
  * index needed by a later hash match.
  *
- * @param sourceLines - Markdown strings from stored pluginData, split by double-newline.
+ * @param sourceLines - Markdown block strings from stored pluginData, split by splitStoredSource.
  * @param inferredBlocks - Output of inferBlocksFromFrame.
  */
 export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[]): ExportBlock[] {
@@ -399,18 +448,17 @@ export function diffBlocks(sourceLines: string[], inferredBlocks: InferredBlock[
 }
 
 /**
- * Merges DiffBlocks into a final Markdown string.
+ * Assembles an ExportBlock array into a final Markdown string.
  *
  * Defaults per state:
  *   unchanged → originalText (preserves inline links, footnotes, etc.)
- *   modified  → originalText (conservative; user can override in review mode)
- *   new       → inferredText (include by default)
+ *   modified  → originalText (conservative; user can override with action='use-inferred')
+ *   new       → inferredText (included by default; skip with action='skip')
  *
- * For 'new' blocks: useOriginal = true means "skip this block".
  * Blocks are joined with a single blank line between them.
  */
 export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelection[] = []): string {
-    const selMap = new Map(selections.map(s => [s.blockIndex, s.useOriginal]));
+    const selMap = new Map(selections.map(s => [s.blockIndex, s.action]));
     const lines: string[] = [];
 
     for (let i = 0; i < blocks.length; i++) {
@@ -421,10 +469,9 @@ export function assembleMarkdown(blocks: ExportBlock[], selections: BlockSelecti
         if (block.state === 'unchanged') {
             text = block.originalText;
         } else if (block.state === 'modified') {
-            const useOriginal = override !== undefined ? override : true;
-            text = useOriginal ? block.originalText : block.inferredText;
+            text = override === 'use-inferred' ? block.inferredText : block.originalText; // default: use-original
         } else {
-            if (override === true) continue;
+            if (override === 'skip') continue;
             text = block.inferredText;
         }
 
@@ -442,8 +489,8 @@ export async function exportFrame(frame: any): Promise<ExportFrameResult> {
     const frameId: string = frame.id;
     const storedSource: string = frame.getPluginData('markdownSource');
     const storedFilename: string = frame.getPluginData('markdownFilename');
-    const sourceTruncated: boolean = frame.getPluginData('markdownSourceTruncated') === 'true';
-    const hasStoredSource: boolean = storedSource.length > 0 || sourceTruncated;
+    const truncated: boolean = frame.getPluginData('markdownSourceTruncated') === 'true';
+    const sourceStatus: SourceStatus = truncated ? 'truncated' : storedSource.length > 0 ? 'present' : 'none';
 
     const rawFilename = storedFilename || frame.name || 'export';
     const filename = rawFilename.replace(/\.md$/i, '') + '.md';
@@ -452,11 +499,9 @@ export async function exportFrame(frame: any): Promise<ExportFrameResult> {
 
     let diffResult: ExportBlock[];
 
-    if (hasStoredSource) {
-        const sourceLines = storedSource
-            .split(/\n\n+/)
-            .map((s: string) => s.trim())
-            .filter((s: string) => s.length > 0);
+    if (sourceStatus !== 'none') {
+        // storedSource is empty when truncated — diffBlocks([], …) produces all-'new' blocks.
+        const sourceLines = splitStoredSource(storedSource);
         diffResult = diffBlocks(sourceLines, inferredBlocks);
     } else {
         diffResult = inferredBlocks.map(b => ({
@@ -466,5 +511,5 @@ export async function exportFrame(frame: any): Promise<ExportFrameResult> {
         }));
     }
 
-    return { frameId, filename, hasStoredSource, sourceTruncated, blocks: diffResult, skippedLayers };
+    return { frameId, filename, sourceStatus, blocks: diffResult, skippedLayers };
 }
