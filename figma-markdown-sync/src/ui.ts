@@ -837,7 +837,7 @@ exportConfirmBtn.addEventListener('click', startSequentialDownload);
 const historyFileList = document.getElementById('history-file-list') as HTMLElement & { setFiles(f: { name: string; meta: string }[]): void } | null;
 const historyEmpty = document.getElementById('history-empty') as HTMLElement | null;
 const historyCount = document.getElementById('history-count') as HTMLElement | null;
-const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement;
+const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLElement | null;
 
 function renderHistory(entries: Array<{ filename: string; timestamp: number; blockCount: number }>) {
     if (!historyFileList) return;
