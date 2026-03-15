@@ -1,48 +1,29 @@
-    <!-- Import tab -->
-    <div id="tab-import" class="tab-panel active">
+<div id="tab-import" class="tab-panel active">
 
-        <div id="import-section" class="import-color-block">
-            <span class="plugin-wordmark">Markdown For What</span>
-
-            <div id="drop-zone" class="drop-zone">
-                <span class="drop-zone-icon">&darr;</span>
-                <p class="drop-zone-label">Drop your Markdown here</p>
-                <p class="drop-zone-sub">or click to browse &middot; .md .markdown .txt</p>
-                <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple aria-label="Choose Markdown files">
-            </div>
-
-            <!-- Paste section -->
-            <div class="paste-section">
-                <button id="paste-toggle" class="paste-toggle-btn">or paste Markdown text</button>
-                <div id="paste-area-wrap" class="paste-area-wrap hidden">
-                    <textarea id="paste-area" class="paste-area" rows="6" placeholder="Paste your Markdown here..."></textarea>
-                    <div class="paste-actions">
-                        <input type="text" id="paste-name" class="paste-name-input" placeholder="Frame name (optional)">
-                        <button id="paste-import-btn" class="btn-secondary" disabled>Import Paste</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <ul id="file-list" class="file-list"></ul>
-
-        <!-- Preview pane (hidden by default, shown after file drop) -->
-        <div id="preview-pane" class="preview-pane hidden">
-            <div class="preview-header">
-                <span class="preview-title">Preview</span>
-                <span id="preview-summary" class="preview-summary"></span>
-                <span class="preview-select-controls">
-                    <button id="select-all-btn" class="btn-link">All</button>
-                    <button id="deselect-all-btn" class="btn-link">None</button>
-                </span>
-            </div>
-            <div id="preview-content" class="preview-content"></div>
-        </div>
-
-        <div class="bottom-bar">
-            <p id="status-message" class="status-message"></p>
-            <button id="preview-cancel" class="btn-secondary hidden">Cancel</button>
-            <button id="import-btn" disabled>Import</button>
-        </div>
-
+    <div id="import-section" class="import-color-block">
+        <span class="plugin-wordmark">Markdown For What</span>
+        <mfw-drop-zone input-id="file-input"
+            label="Drop your Markdown here"
+            sub-label="or click to browse &middot; .md .markdown .txt">
+        </mfw-drop-zone>
+        <mfw-paste-section></mfw-paste-section>
     </div>
+
+    <mfw-file-list></mfw-file-list>
+
+    <!-- Preview pane (hidden by default, shown after file drop) -->
+    <div id="preview-pane" class="preview-pane hidden">
+        <div class="preview-header">
+            <span class="preview-title">Preview</span>
+            <span id="preview-summary" class="preview-summary"></span>
+            <span class="preview-select-controls">
+                <button id="select-all-btn" class="btn-link">All</button>
+                <button id="deselect-all-btn" class="btn-link">None</button>
+            </span>
+        </div>
+        <div id="preview-content" class="preview-content"></div>
+    </div>
+
+    <mfw-bottom-bar></mfw-bottom-bar>
+
+</div>
