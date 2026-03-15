@@ -416,13 +416,13 @@ mfw-section-header {
 .bottom-bar-actions { display: flex; gap: 8px; }
 
 .bottom-bar {
-    border-top: 1px solid var(--color-gray6);
-    padding: 10px 16px;
+    border-top: 1px solid var(--color-gray3);
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
-    background: var(--color-gray2);
+    background: var(--color-gray1);
 }
 
 /* ── Status ───────────────────────────────────────────────── */
@@ -610,7 +610,8 @@ button {
     padding: 6px 0;
     border: none;
     border-radius: 0;
-    background: var(--color-gray2);
+    background: var(--color-gray3);
+    font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     color: var(--color-gray11);
@@ -620,7 +621,7 @@ button {
 }
 
 .theme-btn:last-child { border-right: none; }
-.theme-btn:hover { background: var(--color-gray3); }
+.theme-btn:hover { background: var(--color-gray2); }
 
 .theme-btn.active {
     background: var(--color-mint10);
@@ -665,7 +666,7 @@ button {
     width: 24px;
     height: 24px;
     border: 2px solid var(--color-gray6);
-    border-top-color: var(--color-gray12);
+    border-top-color: var(--color-mint10);
     border-radius: 50%;
     animation: spin 0.7s linear infinite;
     margin: 0 auto 12px;
