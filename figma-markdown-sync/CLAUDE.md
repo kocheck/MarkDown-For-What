@@ -10,7 +10,7 @@ reloading Figma. Open it directly in any browser:
 **Iteration workflow:**
 - Edit `src/styles.css` → refresh browser → see changes immediately (no build needed)
 - Edit `src/components/*.ts` → run `npm run build` (from `figma-markdown-sync/`) → refresh
-- Edit `ui.html` → apply the same change in `ui-preview.html` (see Sync Rule below)
+- Edit panel HTML in `src/panels/` → run `npm run build:html` → refresh
 
 **What it loads:**
 - `src/styles.css` via a direct link tag (source file, no build artifact)
@@ -34,24 +34,30 @@ All reusable UI elements live in `src/components/` as vanilla Web Components.
 - Use safe DOM methods only: `createElement`, `textContent`, `setAttribute`
   Never write raw HTML string content directly into the DOM
 
-**Design tokens:** CSS custom properties in `src/styles.css` (e.g., `--color-block`,
-`--color-accent`) are canonical. Never hardcode color or spacing values in component TS.
+**Design tokens:** `src/tokens.ts` is the canonical source for all design values
+(colors, spacing, typography, transitions). Running `npm run build:tokens` generates
+`src/tokens.css`. **Never edit `src/tokens.css` by hand** — it is generated.
+CSS custom properties in `src/styles.css` use `var(--*)` references sourced from tokens.
 
 **When to create a new component:** Any UI element appearing in 2+ places, or any
 element with meaningful interactive state, should become a component.
 
-**Tab ownership:** `mfw-tab-bar` owns all tab switching logic. When it exists, the
-`querySelectorAll('.tab')` code in `ui.ts` must be deleted. They must not coexist.
+**Tab bar:** `mfw-tab-bar` owns all tab switching logic and fires `mfw-tab-change` events.
+Do not add `querySelectorAll('.tab')` code to `ui.ts` — it will conflict.
 
-## Sync Rule
+**Catalog entries:** Every new component must have a catalog row in
+`src/shells/ui-preview-shell.html`'s Component Catalog section.
 
-The four tab panels inside the 320x500 frame in `ui-preview.html` must stay
-character-for-character identical to their counterparts in `ui.html`. Only the outer
-shell and the Component Catalog section below the frame may differ.
+## Source Files (Generated Outputs)
 
-When modifying tab panel HTML:
-1. Make the change in `ui.html`
-2. Apply the identical change in `ui-preview.html`
+`ui.html` and `ui-preview.html` are generated — do not edit them directly.
+
+Panel HTML lives in `src/panels/`. Shell templates live in `src/shells/`.
+Run `npm run build:html` after editing either to regenerate both output files.
+
+**Important:** `npm run build` (webpack) reads `ui.html` as its template. Always run
+`build:html` before `build` when panel HTML has changed. Use `npm run build:ui` for
+full rebuilds (tokens → html → webpack).
 
 ## Component Tests
 

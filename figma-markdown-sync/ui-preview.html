@@ -272,7 +272,71 @@
                 </div>
             </div>
 
-            <!-- NEW COMPONENT CATALOG ENTRIES GO HERE -->
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-tab-bar</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="import" (default)</span>
+                    <mfw-tab-bar active="import" style="width:100%"></mfw-tab-bar>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-theme-selector</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="minimal-light"</span>
+                    <mfw-theme-selector active="minimal-light"></mfw-theme-selector>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="dark-mode"</span>
+                    <mfw-theme-selector active="dark-mode"></mfw-theme-selector>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-settings-section</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">with title</span>
+                    <mfw-settings-section title="Example Section" style="width:100%">
+                        <p style="font-size:11px;color:#888;margin:4px 0;">Child content preserved</p>
+                    </mfw-settings-section>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-settings-row</h3>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">type=number</span>
+                    <mfw-settings-row label="Block spacing" type="number" input-id="cat-blockSpacing" min="0" max="200" unit="px" style="width:100%"></mfw-settings-row>
+                </div>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">type=checkbox</span>
+                    <mfw-settings-row label="Generate TOC" type="checkbox" input-id="cat-generateToc" style="width:100%"></mfw-settings-row>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-color-input</h3>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">with placeholder</span>
+                    <mfw-color-input input-id="cat-frameFill" placeholder="#FFFFFF" style="display:flex;gap:4px;"></mfw-color-input>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-paste-section</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">collapsed (default)</span>
+                    <mfw-paste-section style="width:100%"></mfw-paste-section>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-loader</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">visible=absent (hidden)</span>
+                    <mfw-loader></mfw-loader><span style="color:#888;font-size:11px;">(overlay hidden)</span>
+                </div>
+            </div>
 
         </div>
     </div>
