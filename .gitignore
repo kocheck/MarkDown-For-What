@@ -28,3 +28,6 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Visual brainstorming session files
+.superpowers/
