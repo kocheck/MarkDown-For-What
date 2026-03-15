@@ -113,7 +113,7 @@ import {
     MSG_EXPORT_RESULT, MSG_EXPORT_MARKDOWN, MSG_SELECTION_CHANGED,
     STATUS_DOMAIN_EXPORT,
 } from '../messages';
-import type { ExportBlock, BlockSelection, ExportFrameResult } from '../exporter';
+import type { BlockSelection, ExportFrameResult } from '../exporter';
 
 function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -170,20 +170,7 @@ const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style
 const componentBindingSelects = document.querySelectorAll<HTMLSelectElement>('.component-binding-select');
 
 // Export tab elements
-const exportNoSelection      = document.getElementById('export-no-selection') as HTMLElement;
-const exportFrameSummary     = document.getElementById('export-frame-summary') as HTMLElement;
-const exportFrameInfo        = document.getElementById('export-frame-info') as HTMLElement;
-const exportBlockCounts      = document.getElementById('export-block-counts') as HTMLElement;
-const exportTruncatedWarning = document.getElementById('export-truncated-warning') as HTMLElement;
-const exportBtn              = document.getElementById('export-btn') as HTMLButtonElement;
-const exportReviewBtn        = document.getElementById('export-review-btn') as HTMLButtonElement;
-const exportReviewPanel      = document.getElementById('export-review-panel') as HTMLElement;
-const exportReviewBreadcrumb = document.getElementById('export-review-breadcrumb') as HTMLElement;
-const exportReviewBlocks     = document.getElementById('export-review-blocks') as HTMLElement;
-const exportReviewBack       = document.getElementById('export-review-back') as HTMLButtonElement;
-const exportConfirmBtn       = document.getElementById('export-confirm-btn') as HTMLButtonElement;
-const exportLogPanel         = document.getElementById('export-log-panel') as HTMLElement;
-const exportLogContent       = document.getElementById('export-log-content') as HTMLElement;
+const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
 
 // After DOM refs are established
 if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
@@ -217,170 +204,61 @@ let currentFiles: { name: string; content: string }[] = [];
 
 // Export state
 let exportFrameResults: ExportFrameResult[] = [];
-let exportReviewSelections: Map<number, Map<number, 'use-original' | 'use-inferred' | 'skip'>> = new Map();
-let exportCurrentFrameIndex = 0;
 let pendingDownloadIndex = 0;
 let downloadBatchId = 0;
 const DOWNLOAD_STAGGER_MS = 300; // delay between triggering successive file downloads to avoid browser download-manager throttling
 
 // ── Export UI helpers ────────────────────────────────────────────────────────
 
-function showExportNoSelection() {
-    exportNoSelection.hidden = false;
-    exportFrameSummary.hidden = true;
-    exportReviewPanel.hidden = true;
+function buildLogEntry(text: string, status: 'done' | 'progress'): HTMLElement {
+    const entry = document.createElement('div');
+    entry.className = 'export-log-entry';
+
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('width', '12');
+    icon.setAttribute('height', '12');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('stroke-width', '2.5');
+
+    if (status === 'done') {
+        const check = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        check.setAttribute('points', '20 6 9 17 4 12');
+        icon.appendChild(check);
+        icon.classList.add('log-icon-done');
+    } else {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '12');
+        circle.setAttribute('cy', '12');
+        circle.setAttribute('r', '10');
+        icon.appendChild(circle);
+        icon.classList.add('log-icon-progress');
+    }
+
+    const label = document.createElement('span');
+    label.textContent = text;
+    label.className = status === 'progress' ? 'log-text-progress' : 'log-text-done';
+
+    entry.appendChild(icon);
+    entry.appendChild(label);
+    return entry;
 }
 
-function renderExportSummary(frames: ExportFrameResult[]) {
-    const incomingIds = frames.map(f => f.frameId).join(',');
-    const currentIds  = exportFrameResults.map(f => f.frameId).join(',');
-    if (incomingIds !== currentIds) {
-        exportReviewSelections = new Map();
-    }
-    exportFrameResults = frames;
-    exportNoSelection.hidden = true;
-    exportReviewPanel.hidden = true;
+function updateExportPanel(filename: string, meta: string, logEntries: { text: string; status: 'done' | 'progress' }[]): void {
+    const filenameEl = document.getElementById('export-filename');
+    const metaEl = document.getElementById('export-meta');
+    const logContainer = document.getElementById('export-log-entries');
 
-    if (frames.length === 0) { showExportNoSelection(); return; }
+    if (filenameEl) filenameEl.textContent = filename;
+    if (metaEl) metaEl.textContent = meta;
 
-    exportFrameSummary.hidden = false;
-    const frame = frames[0];
-
-    exportFrameInfo.textContent = frames.length === 1
-        ? `"${frame.filename.replace('.md', '')}"`
-        : `${frames.length} frames selected`;
-
-    exportTruncatedWarning.hidden = !frames.some(f => f.sourceStatus === 'truncated');
-
-    const unchanged = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'unchanged').length, 0);
-    const modified  = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'modified').length, 0);
-    const added     = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'new').length, 0);
-
-    if (frame.sourceStatus === 'none' && frames.length === 1) {
-        exportFrameInfo.textContent = 'No import history found.';
-
-        const countText = added === 0
-            ? 'No Markdown content detected. This frame may not use Markdown/* styles.'
-            : `${added} block${added !== 1 ? 's' : ''} inferred`;
-        exportBlockCounts.textContent = `Inference works best on frames using Markdown/* text styles. Other frames may produce few or no blocks.\n\n${countText}`;
-
-        exportBtn.disabled = added === 0;
-        exportReviewBtn.hidden = true;
-    } else {
-        const parts = [
-            unchanged > 0 ? `${unchanged} unchanged ✓` : '',
-            modified  > 0 ? `${modified} modified ↻`  : '',
-            added     > 0 ? `${added} added +`         : '',
-        ].filter(Boolean);
-        exportBlockCounts.textContent = parts.join('  ');
-        exportBtn.disabled = false;
-        exportBtn.textContent = frames.length > 1 ? `Export all (${frames.length} files)` : 'Export .md';
-        exportReviewBtn.hidden = (modified + added) === 0;
-    }
-}
-
-function renderReviewPanel(frameIndex: number) {
-    exportCurrentFrameIndex = frameIndex;
-    const frame = exportFrameResults[frameIndex];
-    if (!frame) return;
-
-    exportFrameSummary.hidden = true;
-    exportReviewPanel.hidden = false;
-
-    if (exportFrameResults.length > 1) {
-        exportReviewBreadcrumb.textContent = `Frame ${frameIndex + 1} of ${exportFrameResults.length}: ${frame.filename}`;
-        exportReviewBreadcrumb.hidden = false;
-    } else {
-        exportReviewBreadcrumb.hidden = true;
-    }
-
-    // Clear existing content using safe DOM method
-    while (exportReviewBlocks.firstChild) exportReviewBlocks.removeChild(exportReviewBlocks.firstChild);
-
-    const reviewable = frame.blocks.filter(b => b.state !== 'unchanged');
-    const frameSelections = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
-
-    reviewable.forEach(block => {
-        const blockIndex = frame.blocks.indexOf(block);
-        const defaultAction: 'use-original' | 'use-inferred' | 'skip' = block.state === 'modified' ? 'use-original' : 'use-inferred';
-        const currentAction = frameSelections.get(blockIndex) ?? defaultAction;
-
-        const el = document.createElement('div');
-        el.className = `review-block review-block--${block.state}`;
-
-        const header = document.createElement('div');
-        header.className = 'review-block-header';
-        const stateIcon = block.state === 'modified' ? '↻' : '+';
-        const stateLabel = block.state === 'modified' ? 'modified' : 'added';
-        header.textContent = `${stateIcon} ${stateLabel}`;
-        el.appendChild(header);
-
-        if (block.fidelityWarning) {
-            const warn = document.createElement('div');
-            warn.className = 'review-fidelity-warning';
-            warn.textContent = `⚠ ${block.fidelityWarning}`;
-            el.appendChild(warn);
+    if (logContainer) {
+        while (logContainer.firstChild) logContainer.removeChild(logContainer.firstChild);
+        for (const entry of logEntries) {
+            logContainer.appendChild(buildLogEntry(entry.text, entry.status));
         }
-
-        // Diff panes
-        const diff = document.createElement('div');
-        diff.className = 'review-diff';
-
-        if (block.state === 'modified') {
-            const origCol = document.createElement('div');
-            origCol.className = 'review-diff-col';
-            const origLabel = document.createElement('div');
-            origLabel.className = 'review-diff-header';
-            origLabel.textContent = 'Original';
-            const origPre = document.createElement('pre');
-            origPre.className = 'review-diff-text';
-            origPre.textContent = block.originalText;
-            origCol.appendChild(origLabel);
-            origCol.appendChild(origPre);
-            diff.appendChild(origCol);
-        }
-
-        const currCol = document.createElement('div');
-        currCol.className = 'review-diff-col';
-        const currLabel = document.createElement('div');
-        currLabel.className = 'review-diff-header';
-        currLabel.textContent = 'Current';
-        const currPre = document.createElement('pre');
-        currPre.className = 'review-diff-text';
-        currPre.textContent = block.inferredText;
-        currCol.appendChild(currLabel);
-        currCol.appendChild(currPre);
-        diff.appendChild(currCol);
-        el.appendChild(diff);
-
-        // Action buttons
-        const actions = document.createElement('div');
-        actions.className = 'review-block-actions';
-
-        const makeBtn = (label: string, blockIdx: number, selAction: 'use-original' | 'use-inferred' | 'skip', active: boolean) => {
-            const btn = document.createElement('button');
-            btn.className = `btn-review${active ? ' btn-review--active' : ''}`;
-            btn.textContent = label;
-            btn.addEventListener('click', () => {
-                const sel = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
-                sel.set(blockIdx, selAction);
-                exportReviewSelections.set(frameIndex, sel);
-                renderReviewPanel(frameIndex);
-            });
-            return btn;
-        };
-
-        if (block.state === 'modified') {
-            actions.appendChild(makeBtn('✓ Keep original', blockIndex, 'use-original', currentAction === 'use-original'));
-            actions.appendChild(makeBtn('Use current',     blockIndex, 'use-inferred', currentAction === 'use-inferred'));
-        } else {
-            actions.appendChild(makeBtn('✓ Include', blockIndex, 'use-inferred', currentAction === 'use-inferred'));
-            actions.appendChild(makeBtn('Skip',      blockIndex, 'skip',         currentAction === 'skip'));
-        }
-
-        el.appendChild(actions);
-        exportReviewBlocks.appendChild(el);
-    });
+    }
 }
 
 function triggerDownload(filename: string, content: string): boolean {
@@ -407,10 +285,7 @@ function triggerDownload(filename: string, content: string): boolean {
 function downloadFrame(frameIndex: number, batchId = downloadBatchId) {
     const frame = exportFrameResults[frameIndex];
     if (!frame) return;
-    const sel = exportReviewSelections.get(frameIndex);
-    const selections: BlockSelection[] = sel
-        ? Array.from(sel.entries()).map(([blockIndex, action]) => ({ blockIndex, action }))
-        : [];
+    const selections: BlockSelection[] = [];
     parent.postMessage({ pluginMessage: { type: MSG_EXPORT_DOWNLOAD, frameId: frame.frameId, selections, batchId } }, '*');
 }
 
@@ -419,20 +294,6 @@ function startSequentialDownload() {
     downloadBatchId++;
     const batchId = downloadBatchId;
     downloadFrame(pendingDownloadIndex, batchId);
-}
-
-function renderExportLog(frames: ExportFrameResult[]) {
-    const lines: string[] = [];
-    for (const frame of frames) {
-        if (frame.skippedLayers && frame.skippedLayers.length > 0) {
-            lines.push(`--- ${frame.filename} ---`);
-            for (const s of frame.skippedLayers) {
-                lines.push(`  Skipped: "${s.name}" — ${s.reason}`);
-            }
-        }
-    }
-    exportLogPanel.hidden = lines.length === 0;
-    exportLogContent.textContent = lines.join('\n');
 }
 
 // ── Tab switching ───────────────────────────────────────────────────────────
@@ -824,13 +685,7 @@ tabBar.addEventListener('mfw-tab-change', (e) => {
 
 // ── Export button listeners ──────────────────────────────────────────────────
 
-exportBtn.addEventListener('click', startSequentialDownload);
-exportReviewBtn.addEventListener('click', () => renderReviewPanel(0));
-exportReviewBack.addEventListener('click', () => {
-    exportReviewPanel.hidden = true;
-    exportFrameSummary.hidden = false;
-});
-exportConfirmBtn.addEventListener('click', startSequentialDownload);
+exportBtn?.addEventListener('click', startSequentialDownload);
 
 // ── History ─────────────────────────────────────────────────────────────────
 
@@ -901,18 +756,30 @@ window.onmessage = event => {
             break;
         case MSG_SELECTION_CHANGED: {
             const activePanel = document.querySelector<HTMLElement>('.tab-panel:not(.hidden)');
-            if (activePanel?.id === 'tab-export') {
+            if (activePanel?.id === 'export-panel') {
                 if (msg.frameIds.length > 0) {
                     parent.postMessage({ pluginMessage: { type: MSG_EXPORT_REQUEST, frameIds: msg.frameIds } }, '*');
-                } else {
-                    showExportNoSelection();
                 }
             }
             break;
         }
         case MSG_EXPORT_RESULT:
-            renderExportSummary(msg.frames);
-            renderExportLog(msg.frames);
+            exportFrameResults = msg.frames;
+            if (msg.frames?.length > 0) {
+                const frame = msg.frames[0] as ExportFrameResult;
+                const blockCount = frame.blocks.length;
+                const skipped = frame.skippedLayers.length;
+                const meta = `${blockCount} block${blockCount !== 1 ? 's' : ''}` +
+                    (skipped > 0 ? ` · ${skipped} layer${skipped !== 1 ? 's' : ''} skipped` : '');
+                updateExportPanel(
+                    frame.filename,
+                    meta,
+                    frame.blocks.map((_b, i) => ({
+                        text: `exported block ${i + 1}`,
+                        status: 'done' as const,
+                    })),
+                );
+            }
             break;
         case MSG_EXPORT_MARKDOWN: {
             if (msg.batchId !== downloadBatchId) break; // stale batch — ignore
