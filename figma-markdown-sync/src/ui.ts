@@ -18,7 +18,7 @@ function initBottomBar(): void {
     statusSlot.appendChild(statusEl);
 
     previewCancelBtn = document.createElement('button');
-    previewCancelBtn.className = 'btn-secondary hidden';
+    previewCancelBtn.className = 'btn-ghost hidden';
     previewCancelBtn.textContent = 'Cancel';
     actionsSlot.appendChild(previewCancelBtn);
 
