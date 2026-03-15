@@ -1,24 +1,75 @@
 import './styles.css';
 import './components/mfw-index';
 
-// Wire bottom-bar slots — must run after mfw-index import upgrades the custom element
-const _bottomBar = document.querySelector('mfw-bottom-bar')!;
-const _statusSlot = _bottomBar.querySelector('[data-slot="status"]')!;
-const _actionsSlot = _bottomBar.querySelector('[data-slot="actions"]')!;
+// Bottom-bar slot elements — initialised by initBottomBar() after the custom element upgrades
+let statusMsg: HTMLParagraphElement;
+let previewCancelBtn: HTMLButtonElement;
+let importBtn: HTMLButtonElement;
 
-const statusMsg = document.createElement('p');
-statusMsg.className = 'status-message';
-_statusSlot.appendChild(statusMsg);
+function initBottomBar(): void {
+    const _bottomBar = document.querySelector('mfw-bottom-bar');
+    if (!_bottomBar) {
+        console.error('[MFW] mfw-bottom-bar not found in DOM');
+        return;
+    }
+    const _statusSlot = _bottomBar.querySelector('[data-slot="status"]');
+    const _actionsSlot = _bottomBar.querySelector('[data-slot="actions"]');
+    if (!_statusSlot || !_actionsSlot) {
+        console.error('[MFW] mfw-bottom-bar slots not found — component may not have connected yet');
+        return;
+    }
 
-const previewCancelBtn = document.createElement('button');
-previewCancelBtn.className = 'btn-secondary hidden';
-previewCancelBtn.textContent = 'Cancel';
-_actionsSlot.appendChild(previewCancelBtn);
+    statusMsg = document.createElement('p');
+    statusMsg.className = 'status-message';
+    _statusSlot.appendChild(statusMsg);
 
-const importBtn = document.createElement('button');
-importBtn.disabled = true;
-importBtn.textContent = 'Import';
-_actionsSlot.appendChild(importBtn);
+    previewCancelBtn = document.createElement('button');
+    previewCancelBtn.className = 'btn-secondary hidden';
+    previewCancelBtn.textContent = 'Cancel';
+    _actionsSlot.appendChild(previewCancelBtn);
+
+    importBtn = document.createElement('button');
+    importBtn.disabled = true;
+    importBtn.textContent = 'Import';
+    _actionsSlot.appendChild(importBtn);
+
+    // Wire event listeners that depend on bottom-bar elements
+    importBtn.addEventListener('click', () => {
+        if (currentFiles.length === 0) return;
+        loader.setAttribute('visible', '');
+        importBtn.disabled = true;
+
+        // Collect unchecked block indices per file
+        const excludedBlocks: Record<number, number[]> = {};
+        const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
+        checkboxes.forEach(cb => {
+            if (!cb.checked) {
+                const fi = Number(cb.dataset.fileIndex ?? 0);
+                const bi = Number(cb.dataset.blockIndex ?? 0);
+                if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
+                excludedBlocks[fi].push(bi);
+            }
+        });
+
+        parent.postMessage({
+            pluginMessage: {
+                type: MSG_IMPORT_BATCH,
+                files: currentFiles,
+                excludedBlocks,
+            }
+        }, '*');
+    });
+
+    previewCancelBtn.addEventListener('click', () => {
+        hidePreview();
+        currentFiles = [];
+        renderFileList([]);
+        showStatus('', 'success');
+        importBtn.disabled = true;
+    });
+}
+
+customElements.whenDefined('mfw-bottom-bar').then(() => initBottomBar());
 
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
@@ -102,6 +153,11 @@ const exportReviewBack       = document.getElementById('export-review-back') as 
 const exportConfirmBtn       = document.getElementById('export-confirm-btn') as HTMLButtonElement;
 const exportLogPanel         = document.getElementById('export-log-panel') as HTMLElement;
 const exportLogContent       = document.getElementById('export-log-content') as HTMLElement;
+
+// After DOM refs are established
+if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
+    console.error('[MFW] One or more critical elements missing from DOM. Check shell template and build:html output.');
+}
 
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
 // IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
@@ -507,32 +563,6 @@ pasteSectionEl.addEventListener('mfw-paste-import', (e) => {
 
 // ── Import ──────────────────────────────────────────────────────────────────
 
-importBtn.addEventListener('click', () => {
-    if (currentFiles.length === 0) return;
-    loader.setAttribute('visible', '');
-    importBtn.disabled = true;
-
-    // Collect unchecked block indices per file
-    const excludedBlocks: Record<number, number[]> = {};
-    const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
-    checkboxes.forEach(cb => {
-        if (!cb.checked) {
-            const fi = Number(cb.dataset.fileIndex ?? 0);
-            const bi = Number(cb.dataset.blockIndex ?? 0);
-            if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
-            excludedBlocks[fi].push(bi);
-        }
-    });
-
-    parent.postMessage({
-        pluginMessage: {
-            type: MSG_IMPORT_BATCH,
-            files: currentFiles,
-            excludedBlocks,
-        }
-    }, '*');
-});
-
 function setAllCheckboxes(checked: boolean) {
     previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
         cb.checked = checked;
@@ -542,14 +572,6 @@ function setAllCheckboxes(checked: boolean) {
 
 selectAllBtn.addEventListener('click', () => setAllCheckboxes(true));
 deselectAllBtn.addEventListener('click', () => setAllCheckboxes(false));
-
-previewCancelBtn.addEventListener('click', () => {
-    hidePreview();
-    currentFiles = [];
-    renderFileList([]);
-    showStatus('', 'success');
-    importBtn.disabled = true;
-});
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
@@ -818,7 +840,6 @@ window.onmessage = event => {
         case MSG_STATUS:
             loader.removeAttribute('visible');
             if (!previewPane.classList.contains('hidden')) hidePreview();
-            importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             // Clear paste area on successful import (but not for export-domain status messages)
             if (!msg.error && msg.domain !== STATUS_DOMAIN_EXPORT) {
@@ -826,6 +847,7 @@ window.onmessage = event => {
                 currentFiles = [];
                 renderFileList([]);
             }
+            if (importBtn) importBtn.disabled = currentFiles.length === 0;
             break;
         case MSG_SETTINGS:
             populateSettings(msg.settings);
