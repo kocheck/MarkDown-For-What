@@ -58,4 +58,17 @@ describe('mfw-status', () => {
     document.body.appendChild(el);
     expect(el.querySelectorAll('.status-dot').length).toBe(1);
   });
+
+  it('updates text when message attribute changes after connection', () => {
+    const el = make({ message: 'Initial' });
+    el.setAttribute('message', 'Updated');
+    expect(el.querySelector('.status-text')!.textContent).toBe('Updated');
+  });
+
+  it('updates type class when type attribute changes after connection', () => {
+    const el = make({ message: 'Done', type: 'success' });
+    el.setAttribute('type', 'error');
+    expect(el.classList.contains('status--error')).toBe(true);
+    expect(el.classList.contains('status--success')).toBe(false);
+  });
 });

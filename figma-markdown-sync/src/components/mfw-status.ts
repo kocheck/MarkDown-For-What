@@ -11,8 +11,16 @@ function isStatusType(value: string): value is StatusType {
 }
 
 class MfwStatus extends HTMLElement {
+  static get observedAttributes(): string[] {
+    return ['message', 'type'];
+  }
+
   connectedCallback(): void {
     this.render();
+  }
+
+  attributeChangedCallback(): void {
+    if (this.isConnected) this.render();
   }
 
   render(): void {

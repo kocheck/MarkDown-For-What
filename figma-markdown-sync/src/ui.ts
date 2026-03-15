@@ -2,8 +2,7 @@ import './styles.css';
 import './components/mfw-index';
 
 // Bottom-bar slot elements — assigned by initBottomBar() once the custom element is defined and connected
-let statusDot: HTMLElement;
-let statusText: HTMLElement;
+let statusEl: HTMLElement;
 let previewCancelBtn: HTMLButtonElement;
 let importBtn: HTMLButtonElement;
 
@@ -15,14 +14,8 @@ function initBottomBar(): void {
     const actionsSlot = bar.querySelector('[data-slot="actions"]') as HTMLElement | null;
     if (!statusSlot || !actionsSlot) return;
 
-    statusDot = document.createElement('span');
-    statusDot.className = 'status-dot';
-
-    statusText = document.createElement('span');
-    statusText.className = 'status-text';
-
-    statusSlot.appendChild(statusDot);
-    statusSlot.appendChild(statusText);
+    statusEl = document.createElement('mfw-status');
+    statusSlot.appendChild(statusEl);
 
     previewCancelBtn = document.createElement('button');
     previewCancelBtn.className = 'btn-secondary hidden';
@@ -834,17 +827,9 @@ clearHistoryBtn.addEventListener('click', () => {
 // ── Status helper ───────────────────────────────────────────────────────────
 
 function showStatus(message: string, type: 'success' | 'error' = 'success') {
-    if (!statusText || !statusDot) return;
-
-    statusText.textContent = message;
-
-    // Reset classes on the parent slot
-    const slot = statusDot.parentElement;
-    if (slot) {
-        slot.classList.remove('status--success', 'status--error');
-        if (type === 'error') slot.classList.add('status--error');
-        else if (type === 'success') slot.classList.add('status--success');
-    }
+    if (!statusEl) return;
+    statusEl.setAttribute('message', message);
+    statusEl.setAttribute('type', type);
 }
 
 // ── Plugin → UI messages ─────────────────────────────────────────────────────
