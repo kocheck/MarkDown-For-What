@@ -1,3 +1,38 @@
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 400;
+  font-style: normal;
+  src: url('./fonts/SpaceGrotesk-Regular.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-weight: 700;
+  font-style: normal;
+  src: url('./fonts/SpaceGrotesk-Bold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-weight: 500;
+  font-style: normal;
+  src: url('./fonts/GeistMono-Medium.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Mono';
+  font-weight: 600;
+  font-style: normal;
+  src: url('./fonts/GeistMono-SemiBold.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Geist Pixel';
+  font-weight: 400;
+  font-style: normal;
+  src: url('./fonts/GeistPixel-Square.woff2') format('woff2');
+}
+
 @import './tokens.css';
 
 /* ── Reset & base ─────────────────────────────────────────── */
