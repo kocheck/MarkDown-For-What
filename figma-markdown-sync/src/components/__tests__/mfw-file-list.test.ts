@@ -31,10 +31,24 @@ describe('mfw-file-list', () => {
     expect(el.querySelectorAll('li').length).toBe(2);
   });
 
-  it('setFiles shows file names as text content', () => {
+  it('setFiles shows file name in .file-item-name element', () => {
     const el = make();
     (el as any).setFiles([{ name: 'design.md' }]);
-    expect(el.querySelector('li')!.textContent).toBe('design.md');
+    expect(el.querySelector('.file-item-name')!.textContent).toBe('design.md');
+  });
+
+  it('renders name and meta when meta is provided', () => {
+    const el = make();
+    (el as any).setFiles([{ name: 'readme.md', meta: '2.4 KB — UTF-8' }]);
+    const li = el.querySelector('li')!;
+    expect(li.querySelector('.file-item-name')!.textContent).toBe('readme.md');
+    expect(li.querySelector('.file-item-meta')!.textContent).toBe('2.4 KB — UTF-8');
+  });
+
+  it('does not render meta element when meta is absent', () => {
+    const el = make();
+    (el as any).setFiles([{ name: 'readme.md' }]);
+    expect(el.querySelector('.file-item-meta')).toBeNull();
   });
 
   it('setFiles clears previous list before rendering', () => {

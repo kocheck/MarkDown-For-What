@@ -1,5 +1,6 @@
 interface FileItem {
   name: string;
+  meta?: string;
 }
 
 class MfwFileList extends HTMLElement {
@@ -21,7 +22,20 @@ class MfwFileList extends HTMLElement {
     while (this._ul.firstChild) this._ul.removeChild(this._ul.firstChild);
     for (const file of files) {
       const li = document.createElement('li');
-      li.textContent = file.name;
+      li.className = 'file-item';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'file-item-name';
+      nameEl.textContent = file.name;
+      li.appendChild(nameEl);
+
+      if (file.meta) {
+        const metaEl = document.createElement('span');
+        metaEl.className = 'file-item-meta';
+        metaEl.textContent = file.meta;
+        li.appendChild(metaEl);
+      }
+
       this._ul.appendChild(li);
     }
   }
