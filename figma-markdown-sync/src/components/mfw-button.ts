@@ -14,12 +14,13 @@ class MfwButton extends HTMLElement {
   render(): void {
     while (this.firstChild) this.removeChild(this.firstChild);
 
-    const variant = (this.getAttribute('variant') ?? 'primary') as ButtonVariant;
+    const raw = this.getAttribute('variant') ?? 'primary';
+    const variant: ButtonVariant = raw in VARIANT_CLASS ? (raw as ButtonVariant) : 'primary';
     const label = this.getAttribute('label') ?? '';
     const isDisabled = this.hasAttribute('disabled');
 
     const btn = document.createElement('button');
-    btn.className = VARIANT_CLASS[variant] ?? VARIANT_CLASS.primary;
+    btn.className = VARIANT_CLASS[variant];
     btn.textContent = label;
     btn.disabled = isDisabled;
 

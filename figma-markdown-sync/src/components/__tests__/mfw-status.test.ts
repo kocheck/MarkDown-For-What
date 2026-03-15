@@ -2,13 +2,11 @@
  * @jest-environment jsdom
  */
 import '../mfw-status';
+import { makeComponent } from './test-utils';
 
 describe('mfw-status', () => {
   function make(attrs: Record<string, string> = {}): HTMLElement {
-    const el = document.createElement('mfw-status');
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    document.body.appendChild(el);
-    return el;
+    return makeComponent('mfw-status', attrs);
   }
 
   afterEach(() => { document.body.textContent = ''; });

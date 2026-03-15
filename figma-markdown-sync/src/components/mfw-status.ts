@@ -1,5 +1,7 @@
 type StatusType = 'info' | 'error' | 'success';
 
+const VALID_STATUS_TYPES = new Set<string>(['info', 'error', 'success']);
+
 class MfwStatus extends HTMLElement {
   connectedCallback(): void {
     this.render();
@@ -9,7 +11,8 @@ class MfwStatus extends HTMLElement {
     while (this.firstChild) this.removeChild(this.firstChild);
 
     const message = this.getAttribute('message') ?? '';
-    const type = (this.getAttribute('type') ?? 'info') as StatusType;
+    const raw = this.getAttribute('type') ?? 'info';
+    const type: StatusType = VALID_STATUS_TYPES.has(raw) ? (raw as StatusType) : 'info';
 
     const p = document.createElement('p');
     p.className = 'status-message';

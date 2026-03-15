@@ -2,13 +2,11 @@
  * @jest-environment jsdom
  */
 import '../mfw-drop-zone';
+import { makeComponent } from './test-utils';
 
 describe('mfw-drop-zone', () => {
   function make(attrs: Record<string, string> = {}): HTMLElement {
-    const el = document.createElement('mfw-drop-zone');
-    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
-    document.body.appendChild(el);
-    return el;
+    return makeComponent('mfw-drop-zone', attrs);
   }
 
   afterEach(() => { document.body.textContent = ''; });
