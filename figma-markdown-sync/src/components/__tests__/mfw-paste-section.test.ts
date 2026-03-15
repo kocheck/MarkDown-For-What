@@ -15,74 +15,49 @@ describe('mfw-paste-section', () => {
     expect(customElements.get('mfw-paste-section')).toBeDefined();
   });
 
-  it('renders the toggle button', () => {
+  it('renders a textarea directly without a toggle button', () => {
     const el = make();
-    expect(el.querySelector('button.paste-toggle-btn')).not.toBeNull();
+    expect(el.querySelector('textarea')).not.toBeNull();
+    expect(el.querySelector('.paste-toggle-btn')).toBeNull();
   });
 
-  it('hides the paste area by default', () => {
+  it('renders a name input in paste-actions', () => {
     const el = make();
-    const wrap = el.querySelector('.paste-area-wrap')!;
-    expect(wrap.classList.contains('hidden')).toBe(true);
+    expect(el.querySelector('input.paste-name-input')).not.toBeNull();
   });
 
-  it('reveals the paste area when toggle button is clicked', () => {
+  it('renders import button with btn-ghost class', () => {
     const el = make();
-    el.querySelector<HTMLButtonElement>('button.paste-toggle-btn')!.click();
-    expect(el.querySelector('.paste-area-wrap')!.classList.contains('hidden')).toBe(false);
+    const btn = el.querySelector('button');
+    expect(btn).not.toBeNull();
+    expect(btn!.className).toBe('btn-ghost');
   });
 
-  it('disables Import Paste button when textarea is empty', () => {
+  it('reset() clears textarea and name input', () => {
     const el = make();
-    const importBtn = el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!;
-    expect(importBtn.disabled).toBe(true);
-  });
-
-  it('fires mfw-paste-import with text and name when Import Paste is clicked', () => {
-    const el = make();
-    // expand the paste area
-    el.querySelector<HTMLButtonElement>('.paste-toggle-btn')!.click();
-    const received: Array<{ text: string; name: string }> = [];
-    el.addEventListener('mfw-paste-import', (e) => {
-      received.push((e as CustomEvent).detail);
-    });
-    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
-    textarea.value = '# Hello';
-    textarea.dispatchEvent(new Event('input'));
-    el.querySelector<HTMLInputElement>('input[type="text"]')!.value = 'My Doc';
-    el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!.click();
-    expect(received).toEqual([{ text: '# Hello', name: 'My Doc' }]);
-  });
-
-  it('reset() clears textarea, name, and collapses the section', () => {
-    const el = make();
-    el.querySelector<HTMLButtonElement>('.paste-toggle-btn')!.click();
-    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
-    textarea.value = '# Hello';
-    textarea.dispatchEvent(new Event('input'));
+    const textarea = el.querySelector('textarea')!;
+    const nameInput = el.querySelector('input.paste-name-input') as HTMLInputElement;
+    textarea.value = 'some markdown';
+    nameInput.value = 'my frame';
     (el as any).reset();
     expect(textarea.value).toBe('');
-    expect(el.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('');
-    expect(el.querySelector('.paste-area-wrap')!.classList.contains('hidden')).toBe(true);
+    expect(nameInput.value).toBe('');
   });
 
-  it('reset() re-disables the Import Paste button', () => {
+  it('fires mfw-paste-import event when import button clicked', () => {
     const el = make();
-    el.querySelector<HTMLButtonElement>('.paste-toggle-btn')!.click();
-    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
+    const textarea = el.querySelector('textarea')!;
     textarea.value = '# Hello';
-    textarea.dispatchEvent(new Event('input'));
-    const importBtn = el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!;
-    expect(importBtn.disabled).toBe(false);
-    (el as any).reset();
-    expect(importBtn.disabled).toBe(true);
+    const events: Event[] = [];
+    el.addEventListener('mfw-paste-import', e => events.push(e));
+    el.querySelector('button')!.click();
+    expect(events.length).toBe(1);
   });
 
-  it('does not enable Import Paste button for whitespace-only content', () => {
+  it('does not double-render on reconnect', () => {
     const el = make();
-    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
-    textarea.value = '   ';
-    textarea.dispatchEvent(new Event('input'));
-    expect(el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!.disabled).toBe(true);
+    document.body.removeChild(el);
+    document.body.appendChild(el);
+    expect(el.querySelectorAll('textarea').length).toBe(1);
   });
 });

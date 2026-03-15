@@ -180,27 +180,15 @@ mfw-section-header {
     color: var(--color-gray11);
 }
 
-/* ── Paste section ───────────────────────────────────────── */
+/* ── Paste section ────────────────────────────────────────── */
+.paste-toggle-btn,
+.paste-area-wrap { display: none; }   /* remove old toggle artifacts */
+
 .paste-section {
-    margin-top: 12px;
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
-
-.paste-toggle-btn {
-    background: none;
-    border: none;
-    color: var(--color-gray11);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    cursor: pointer;
-    padding: 4px 0;
-    transition: color var(--transition-fast);
-}
-
-.paste-toggle-btn:hover { color: var(--color-gray2); }
-
-.paste-area-wrap { margin-top: 8px; text-align: left; }
-.paste-area-wrap.hidden { display: none; }
 
 .paste-area {
     width: 100%;
@@ -209,7 +197,7 @@ mfw-section-header {
     max-height: 160px;
     padding: 8px;
     border: 1px solid var(--color-gray6);
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
     line-height: 1.5;
@@ -225,7 +213,6 @@ mfw-section-header {
 .paste-actions {
     display: flex;
     gap: 8px;
-    margin-top: 8px;
     align-items: center;
 }
 
@@ -234,9 +221,10 @@ mfw-section-header {
     padding: 5px 8px;
     border: 1px solid var(--color-gray6);
     border-radius: var(--radius-sm);
-    font-size: var(--font-size-sm);
-    font-family: inherit;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-md);
     color: var(--color-gray12);
+    background: var(--color-gray3);
 }
 
 .paste-name-input:focus {

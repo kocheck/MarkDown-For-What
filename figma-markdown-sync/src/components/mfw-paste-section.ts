@@ -1,4 +1,7 @@
 class MfwPasteSection extends HTMLElement {
+  private _textarea: HTMLTextAreaElement | null = null;
+  private _nameInput: HTMLInputElement | null = null;
+
   connectedCallback(): void {
     this.render();
   }
@@ -9,68 +12,43 @@ class MfwPasteSection extends HTMLElement {
     const section = document.createElement('div');
     section.className = 'paste-section';
 
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'paste-toggle-btn';
-    toggleBtn.textContent = 'or paste Markdown text';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'paste-area-wrap hidden';
-
-    const textarea = document.createElement('textarea');
-    textarea.className = 'paste-area';
-    textarea.rows = 6;
-    textarea.placeholder = 'Paste your Markdown here...';
+    this._textarea = document.createElement('textarea');
+    this._textarea.className = 'paste-area';
+    this._textarea.rows = 3;
+    this._textarea.placeholder = 'Paste markdown content here...';
 
     const actionsDiv = document.createElement('div');
     actionsDiv.className = 'paste-actions';
 
-    const nameInput = document.createElement('input');
-    nameInput.type = 'text';
-    nameInput.className = 'paste-name-input';
-    nameInput.placeholder = 'Frame name (optional)';
+    this._nameInput = document.createElement('input');
+    this._nameInput.type = 'text';
+    this._nameInput.className = 'paste-name-input';
+    this._nameInput.placeholder = 'Frame name (optional)';
 
     const importBtn = document.createElement('button');
-    importBtn.dataset.role = 'paste-import-btn';
-    importBtn.className = 'btn-secondary';
-    importBtn.textContent = 'Import Paste';
-    importBtn.disabled = true;
+    importBtn.className = 'btn-ghost';
+    importBtn.textContent = 'Import';
 
-    actionsDiv.appendChild(nameInput);
-    actionsDiv.appendChild(importBtn);
-    wrap.appendChild(textarea);
-    wrap.appendChild(actionsDiv);
-    section.appendChild(toggleBtn);
-    section.appendChild(wrap);
-    this.appendChild(section);
-
-    // Events
-    toggleBtn.addEventListener('click', () => {
-      wrap.classList.toggle('hidden');
-    });
-
-    textarea.addEventListener('input', () => {
-      importBtn.disabled = textarea.value.trim().length === 0;
-    });
+    const textarea = this._textarea;
+    const nameInput = this._nameInput;
 
     importBtn.addEventListener('click', () => {
-      const text = textarea.value.trim();
-      if (!text) return;
       this.dispatchEvent(new CustomEvent('mfw-paste-import', {
-        detail: { text, name: nameInput.value.trim() },
         bubbles: true,
+        detail: { content: textarea.value, name: nameInput.value.trim() },
       }));
     });
+
+    actionsDiv.appendChild(this._nameInput);
+    actionsDiv.appendChild(importBtn);
+    section.appendChild(this._textarea);
+    section.appendChild(actionsDiv);
+    this.appendChild(section);
   }
 
   reset(): void {
-    const textarea = this.querySelector<HTMLTextAreaElement>('textarea');
-    const nameInput = this.querySelector<HTMLInputElement>('input[type="text"]');
-    const importBtn = this.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]');
-    const wrap = this.querySelector<HTMLElement>('.paste-area-wrap');
-    if (textarea) textarea.value = '';
-    if (nameInput) nameInput.value = '';
-    if (importBtn) importBtn.disabled = true;
-    if (wrap) wrap.classList.add('hidden');
+    if (this._textarea) this._textarea.value = '';
+    if (this._nameInput) this._nameInput.value = '';
   }
 }
 
