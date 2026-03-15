@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFW UI Preview</title>
+    <!-- Links source CSS directly — edit src/styles.css and refresh, no build needed -->
+    <!-- tokens.css is @imported by styles.css in the webpack bundle, but the browser
+         needs it linked separately here since it can't process @import without a bundler -->
+    <link rel="stylesheet" href="src/tokens.css">
+    <link rel="stylesheet" href="src/styles.css">
+    <style>
+        /* Preview shell — not part of the plugin UI */
+        body {
+            background: #2C2C2C;
+            margin: 0;
+            padding: 40px 20px;
+            font-family: Inter, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .preview-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+        .preview-label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .plugin-frame {
+            width: 320px;
+            height: 500px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            background: #EFF4F2;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Catalog */
+        .catalog { width: 320px; }
+        .catalog-section { margin-bottom: 32px; }
+        .catalog-section-title {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #444;
+        }
+        .catalog-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            background: #EFF4F2;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .catalog-row-label {
+            color: #666;
+            font-size: 10px;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="preview-shell">
+
+    <!-- Plugin Frame -->
+    <div>
+        <p class="preview-label">Plugin UI &mdash; 320&times;500</p>
+        <div class="plugin-frame">
+
+            <!-- Tab bar -->
+            <nav class="tab-bar">
+                <button class="tab active" data-tab="import">Import</button>
+                <button class="tab" data-tab="history">History</button>
+                <button class="tab" data-tab="settings">Settings</button>
+                <button class="tab" data-tab="export">Export</button>
+            </nav>
+
+            <!-- PANEL:import -->
+
+            <!-- PANEL:history -->
+
+            <!-- PANEL:settings -->
+
+            <!-- PANEL:export -->
+
+        </div>
+    </div>
+
+    <!-- Component Catalog — add a catalog-section for each new component below -->
+    <div>
+        <p class="preview-label">Component Catalog</p>
+        <div class="catalog">
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-button</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="primary" (default)</span>
+                    <mfw-button label="Import"></mfw-button>
+                    <mfw-button label="Disabled" disabled></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="secondary"</span>
+                    <mfw-button variant="secondary" label="Cancel"></mfw-button>
+                    <mfw-button variant="secondary" label="Reset to defaults"></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="link"</span>
+                    <mfw-button variant="link" label="All"></mfw-button>
+                    <mfw-button variant="link" label="None"></mfw-button>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-status</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="info" (default)</span>
+                    <mfw-status message="3 files ready to import"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="success"</span>
+                    <mfw-status type="success" message="Import complete"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="error"</span>
+                    <mfw-status type="error" message="Failed to parse file"></mfw-status>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-drop-zone</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">default</span>
+                    <mfw-drop-zone style="width:100%"></mfw-drop-zone>
+                </div>
+            </div>
+
+            <!-- NEW COMPONENT CATALOG ENTRIES GO HERE -->
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Loads component definitions only. Do NOT swap this for dist/ui.js. -->
+<script src="dist/components.js"></script>
+<script>
+    // Tab switching for the preview frame
+    document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-panel').forEach(function(p) {
+                p.classList.add('hidden');
+                p.classList.remove('active');
+            });
+            tab.classList.add('active');
+            var panel = document.getElementById('tab-' + tab.dataset.tab);
+            if (panel) {
+                panel.classList.remove('hidden');
+                panel.classList.add('active');
+            }
+        });
+    });
+</script>
+</body>
+</html>
