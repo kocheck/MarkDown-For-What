@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFW UI Preview</title>
+    <!-- Links source CSS directly — edit src/styles.css and refresh, no build needed -->
+    <link rel="stylesheet" href="src/styles.css">
+    <style>
+        /* Preview shell — not part of the plugin UI */
+        body {
+            background: #2C2C2C;
+            margin: 0;
+            padding: 40px 20px;
+            font-family: Inter, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .preview-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+        .preview-label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .plugin-frame {
+            width: 320px;
+            height: 500px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            background: #EFF4F2;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Catalog */
+        .catalog { width: 320px; }
+        .catalog-section { margin-bottom: 32px; }
+        .catalog-section-title {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #444;
+        }
+        .catalog-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            background: #EFF4F2;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .catalog-row-label {
+            color: #666;
+            font-size: 10px;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="preview-shell">
+
+    <!-- Plugin Frame -->
+    <div>
+        <p class="preview-label">Plugin UI &mdash; 320&times;500</p>
+        <div class="plugin-frame">
+
+            <!-- SYNC: keep identical to ui.html nav -->
+            <nav class="tab-bar">
+                <button class="tab active" data-tab="import">Import</button>
+                <button class="tab" data-tab="history">History</button>
+                <button class="tab" data-tab="settings">Settings</button>
+                <button class="tab" data-tab="export">Export</button>
+            </nav>
+
+            <!-- SYNC: keep identical to ui.html #tab-import -->
+            <div id="tab-import" class="tab-panel active">
+
+                <div id="import-section" class="import-color-block">
+                    <span class="plugin-wordmark">Markdown For What</span>
+
+                    <div id="drop-zone" class="drop-zone">
+                        <span class="drop-zone-icon">&darr;</span>
+                        <p class="drop-zone-label">Drop your Markdown here</p>
+                        <p class="drop-zone-sub">or click to browse &middot; .md .markdown .txt</p>
+                        <input type="file" id="file-input" accept=".md,.markdown,.txt" multiple aria-label="Choose Markdown files">
+                    </div>
+
+                    <!-- Paste section -->
+                    <div class="paste-section">
+                        <button id="paste-toggle" class="paste-toggle-btn">or paste Markdown text</button>
+                        <div id="paste-area-wrap" class="paste-area-wrap hidden">
+                            <textarea id="paste-area" class="paste-area" rows="6" placeholder="Paste your Markdown here..."></textarea>
+                            <div class="paste-actions">
+                                <input type="text" id="paste-name" class="paste-name-input" placeholder="Frame name (optional)">
+                                <button id="paste-import-btn" class="btn-secondary" disabled>Import Paste</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <ul id="file-list" class="file-list"></ul>
+
+                <!-- Preview pane (hidden by default, shown after file drop) -->
+                <div id="preview-pane" class="preview-pane hidden">
+                    <div class="preview-header">
+                        <span class="preview-title">Preview</span>
+                        <span id="preview-summary" class="preview-summary"></span>
+                        <span class="preview-select-controls">
+                            <button id="select-all-btn" class="btn-link">All</button>
+                            <button id="deselect-all-btn" class="btn-link">None</button>
+                        </span>
+                    </div>
+                    <div id="preview-content" class="preview-content"></div>
+                </div>
+
+                <div class="bottom-bar">
+                    <p id="status-message" class="status-message"></p>
+                    <button id="preview-cancel" class="btn-secondary hidden">Cancel</button>
+                    <button id="import-btn" disabled>Import</button>
+                </div>
+
+            </div>
+
+            <!-- SYNC: keep identical to ui.html #tab-history -->
+            <div id="tab-history" class="tab-panel hidden">
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Recent Imports</h3>
+                    <p id="history-empty" class="settings-hint">No imports yet.</p>
+                    <ul id="history-list" class="history-list"></ul>
+                </div>
+                <div class="settings-footer">
+                    <button id="clear-history-btn" class="btn-secondary">Clear history</button>
+                </div>
+            </div>
+
+            <!-- SYNC: keep identical to ui.html #tab-settings -->
+            <div id="tab-settings" class="tab-panel hidden">
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Theme</h3>
+                    <div class="theme-selector">
+                        <button class="theme-btn active" data-theme="minimal-light">Light</button>
+                        <button class="theme-btn" data-theme="dark-mode">Dark</button>
+                        <button class="theme-btn" data-theme="documentation">Docs</button>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Spacing</h3>
+                    <label class="settings-row">
+                        <span class="settings-label">Block spacing</span>
+                        <div class="settings-input-wrap"><input type="number" id="blockSpacing" min="0" max="200"><span class="settings-unit">px</span></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">List spacing</span>
+                        <div class="settings-input-wrap"><input type="number" id="listSpacing" min="0" max="100"><span class="settings-unit">px</span></div>
+                    </label>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Frame</h3>
+                    <label class="settings-row">
+                        <span class="settings-label">Padding</span>
+                        <div class="settings-input-wrap"><input type="number" id="framePadding" min="0" max="200"><span class="settings-unit">px</span></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">Width</span>
+                        <div class="settings-input-wrap">
+                            <select id="widthMode" class="settings-select">
+                                <option value="narrow">Narrow (480px)</option>
+                                <option value="medium" selected>Medium (800px)</option>
+                                <option value="wide">Wide (960px)</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                        </div>
+                    </label>
+                    <label class="settings-row" id="customWidthRow" style="display:none">
+                        <span class="settings-label">Custom width</span>
+                        <div class="settings-input-wrap"><input type="number" id="customWidth" min="200" max="4000"><span class="settings-unit">px</span></div>
+                    </label>
+                </div>
+
+                <div class="settings-section" id="style-mapping-section">
+                    <h3 class="settings-section-title">Style Mapping</h3>
+                    <p class="settings-hint">Map elements to existing local text styles. "Auto" creates Markdown/* styles.</p>
+                    <label class="settings-row"><span class="settings-label">H1</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h1"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">H2</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h2"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">H3</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h3"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Body</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="body"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Code</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="code"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">List</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="list"><option value="auto">Auto</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Quote</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="quote"><option value="auto">Auto</option></select></div></label>
+                </div>
+
+                <div class="settings-section" id="component-mapping-section">
+                    <h3 class="settings-section-title">Component Mapping</h3>
+                    <p class="settings-hint">Map block types to components on this page. Components need a <code>#content</code> (or <code>#body</code>) text layer. An optional <code>#title</code> (or <code>#label</code>) layer receives context like language or callout type.</p>
+                    <label class="settings-row"><span class="settings-label">Code Block</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="codeBlock"><option value="">None</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Blockquote</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="blockquote"><option value="">None</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Callout</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="callout"><option value="">None</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Table</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="table"><option value="">None</option></select></div></label>
+                    <label class="settings-row"><span class="settings-label">Image</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="image"><option value="">None</option></select></div></label>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Content</h3>
+                    <label class="settings-row">
+                        <span class="settings-label">Generate TOC</span>
+                        <div class="settings-input-wrap"><input type="checkbox" id="generateToc" class="settings-checkbox"></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">Component names</span>
+                        <div class="settings-input-wrap"><input type="checkbox" id="componentNames" class="settings-checkbox"></div>
+                    </label>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="settings-section-title">Colors</h3>
+                    <label class="settings-row">
+                        <span class="settings-label">Frame fill</span>
+                        <div class="settings-input-wrap"><input type="text" id="frameFillColor" maxlength="7" placeholder="#FFFFFF"><input type="color" class="color-swatch" id="frameFillColor-swatch"></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">Code background</span>
+                        <div class="settings-input-wrap"><input type="text" id="codeBackground" maxlength="7" placeholder="#F2F2F2"><input type="color" class="color-swatch" id="codeBackground-swatch"></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">Table header</span>
+                        <div class="settings-input-wrap"><input type="text" id="tableHeaderBackground" maxlength="7" placeholder="#F2F2F7"><input type="color" class="color-swatch" id="tableHeaderBackground-swatch"></div>
+                    </label>
+                    <label class="settings-row">
+                        <span class="settings-label">Separator</span>
+                        <div class="settings-input-wrap"><input type="text" id="separatorColor" maxlength="7" placeholder="#CCCCCC"><input type="color" class="color-swatch" id="separatorColor-swatch"></div>
+                    </label>
+                </div>
+
+                <div class="settings-footer">
+                    <button id="reset-btn" class="btn-secondary">Reset to defaults</button>
+                </div>
+
+            </div>
+
+            <!-- SYNC: keep identical to ui.html #tab-export -->
+            <div id="tab-export" class="tab-panel hidden">
+                <div id="export-no-selection" class="export-empty">
+                    <p>Select one or more frames on the canvas to export them as Markdown.</p>
+                </div>
+
+                <div id="export-frame-summary" hidden>
+                    <div id="export-frame-info"></div>
+                    <div id="export-block-counts"></div>
+                    <div id="export-truncated-warning" class="export-warning" hidden>
+                        Source too large to store — using current state only.
+                    </div>
+                    <div id="export-actions">
+                        <button id="export-btn" class="btn-primary" disabled>Export .md</button>
+                        <button id="export-review-btn" class="btn-secondary" hidden>Review changes</button>
+                    </div>
+                </div>
+
+                <div id="export-review-panel" hidden>
+                    <div id="export-review-breadcrumb" hidden></div>
+                    <div id="export-review-blocks"></div>
+                    <button id="export-review-back" class="btn-link">Back to export</button>
+                    <button id="export-confirm-btn" class="btn-primary">Export .md</button>
+                </div>
+
+                <div id="export-log-panel" hidden>
+                    <details>
+                        <summary>Export log</summary>
+                        <pre id="export-log-content"></pre>
+                    </details>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Component Catalog -->
+    <div>
+        <p class="preview-label">Component Catalog</p>
+        <div class="catalog">
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-button</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="primary" (default)</span>
+                    <mfw-button label="Import"></mfw-button>
+                    <mfw-button label="Disabled" disabled></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="secondary"</span>
+                    <mfw-button variant="secondary" label="Cancel"></mfw-button>
+                    <mfw-button variant="secondary" label="Reset to defaults"></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="link"</span>
+                    <mfw-button variant="link" label="All"></mfw-button>
+                    <mfw-button variant="link" label="None"></mfw-button>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-status</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="info" (default)</span>
+                    <mfw-status message="3 files ready to import"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="success"</span>
+                    <mfw-status type="success" message="Import complete"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="error"</span>
+                    <mfw-status type="error" message="Failed to parse file"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">no message (hidden)</span>
+                    <mfw-status></mfw-status>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-drop-zone</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">default</span>
+                    <mfw-drop-zone style="width:100%"></mfw-drop-zone>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Loads component definitions only. Do NOT swap this for dist/ui.js. -->
+<script src="dist/components.js"></script>
+<script>
+    // Tab switching for the preview frame
+    document.querySelectorAll('.tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            document.querySelectorAll('.tab').forEach(function(t) {
+                t.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-panel').forEach(function(p) {
+                p.classList.add('hidden');
+                p.classList.remove('active');
+            });
+            tab.classList.add('active');
+            var panel = document.getElementById('tab-' + tab.dataset.tab);
+            if (panel) {
+                panel.classList.remove('hidden');
+                panel.classList.add('active');
+            }
+        });
+    });
+</script>
+</body>
+</html>
