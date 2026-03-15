@@ -3,3 +3,4 @@
 // and is also imported by src/ui.ts (production bundle).
 import './mfw-button';
 import './mfw-status';
+import './mfw-drop-zone';
