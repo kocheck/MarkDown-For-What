@@ -886,3 +886,72 @@ button {
 
 #export-log-panel { margin-top: 16px; }
 #export-log-content { font-size: var(--font-size-sm); font-family: var(--font-mono); white-space: pre-wrap; }
+
+/* ── Import panel ─────────────────────────────────────────── */
+.import-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 24px 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.divider-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.divider-line {
+    flex: 1;
+    height: 1px;
+    background: var(--color-gray6);
+}
+
+.divider-text {
+    font-family: var(--font-mono-brand);
+    font-size: var(--font-size-sm);
+    color: var(--color-gray11);
+    white-space: nowrap;
+    text-transform: capitalize;
+}
+
+/* ── Error state ──────────────────────────────────────────── */
+.error-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 48px 0;
+}
+
+.error-icon-container {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-red10);
+    border: 1px solid var(--color-red8);
+    border-radius: var(--radius-sm);
+    color: white;
+    box-shadow: 0 2px 16px -8px var(--color-red10),
+                0 3px 12px -4px rgba(242,85,90,0.32),
+                inset 0 1px 12px 4px var(--color-red8);
+}
+
+.error-title {
+    font-family: var(--font-sans-serif);
+    font-size: var(--font-size-xxxl);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-gray12);
+}
+
+.error-message {
+    font-family: var(--font-mono-brand);
+    font-size: var(--font-size-sm);
+    color: var(--color-gray11);
+    text-align: center;
+    line-height: 1.6;
+}

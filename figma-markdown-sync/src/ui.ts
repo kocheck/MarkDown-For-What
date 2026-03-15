@@ -66,6 +66,42 @@ function initBottomBar(): void {
 
 initBottomBar();
 
+function initErrorIconContainer(): void {
+  const container = document.getElementById('error-icon-container');
+  if (!container) return;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '24');
+  svg.setAttribute('height', '24');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'currentColor');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z');
+  svg.appendChild(path);
+  container.appendChild(svg);
+}
+initErrorIconContainer();
+
+function showImportError(invalidFiles: { name: string; ext: string }[]): void {
+  document.getElementById('import-normal-state')?.classList.add('hidden');
+  document.getElementById('import-error-state')?.classList.remove('hidden');
+
+  const errorFileList = document.getElementById('error-file-list') as HTMLElement & { setFiles(f: any[]): void } | null;
+  errorFileList?.setFiles(invalidFiles.map(f => ({
+    name: f.name,
+    meta: `unsupported format — ${f.ext}`,
+  })));
+}
+
+function hideImportError(): void {
+  document.getElementById('import-normal-state')?.classList.remove('hidden');
+  document.getElementById('import-error-state')?.classList.add('hidden');
+}
+
+document.querySelector('#import-error-state mfw-button')
+  ?.addEventListener('click', hideImportError);
+
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 import {
