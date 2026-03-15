@@ -1,9 +1,12 @@
-<div id="tab-history" class="tab-panel hidden">
-    <mfw-settings-section title="Recent Imports">
-        <p id="history-empty" class="settings-hint">No imports yet.</p>
-        <ul id="history-list" class="history-list"></ul>
-    </mfw-settings-section>
-    <div class="settings-footer">
-        <button id="clear-history-btn" class="btn-secondary">Clear history</button>
+<!-- History Panel -->
+<div class="tab-panel hidden" id="history-panel">
+  <div class="history-content">
+    <mfw-section-header label="RECENT IMPORTS"></mfw-section-header>
+    <mfw-file-list id="history-file-list"></mfw-file-list>
+    <p id="history-empty" class="history-empty-text hidden">No imports yet.</p>
+    <div class="history-footer">
+      <span id="history-count" class="history-count-text"></span>
+      <mfw-button id="clear-history-btn" variant="destructive" label="Clear History"></mfw-button>
     </div>
+  </div>
 </div>

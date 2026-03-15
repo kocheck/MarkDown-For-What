@@ -806,8 +806,8 @@ tabBar.addEventListener('mfw-tab-change', (e) => {
     const tab = (e as CustomEvent<{ tab: string }>).detail.tab;
     const panels = document.querySelectorAll<HTMLElement>('.tab-panel');
     panels.forEach(p => {
-        p.classList.toggle('active', p.id === `tab-${tab}`);
-        p.classList.toggle('hidden', p.id !== `tab-${tab}`);
+        p.classList.toggle('active', p.id === `${tab}-panel`);
+        p.classList.toggle('hidden', p.id !== `${tab}-panel`);
     });
     if (tab === 'settings') {
         parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
@@ -834,36 +834,24 @@ exportConfirmBtn.addEventListener('click', startSequentialDownload);
 
 // ── History ─────────────────────────────────────────────────────────────────
 
-const historyList = document.getElementById('history-list') as HTMLUListElement;
-const historyEmpty = document.getElementById('history-empty') as HTMLElement;
+const historyFileList = document.getElementById('history-file-list') as HTMLElement & { setFiles(f: { name: string; meta: string }[]): void } | null;
+const historyEmpty = document.getElementById('history-empty') as HTMLElement | null;
+const historyCount = document.getElementById('history-count') as HTMLElement | null;
 const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement;
 
 function renderHistory(entries: Array<{ filename: string; timestamp: number; blockCount: number }>) {
-    historyList.textContent = '';
-    if (entries.length === 0) {
-        historyEmpty.style.display = '';
-        return;
-    }
-    historyEmpty.style.display = 'none';
-    for (const entry of entries) {
-        const li = document.createElement('li');
-        li.className = 'history-entry';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'history-filename';
-        nameSpan.textContent = entry.filename;
-
-        const meta = document.createElement('span');
-        meta.className = 'history-meta';
-        const date = new Date(entry.timestamp);
+    if (!historyFileList) return;
+    historyFileList.setFiles(entries.map(e => {
+        const date = new Date(e.timestamp);
         const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-        meta.textContent = `${dateStr} ${timeStr} · ${entry.blockCount} block${entry.blockCount === 1 ? '' : 's'}`;
-
-        li.appendChild(nameSpan);
-        li.appendChild(meta);
-        historyList.appendChild(li);
-    }
+        return {
+            name: e.filename,
+            meta: `${dateStr} ${timeStr} · ${e.blockCount} block${e.blockCount === 1 ? '' : 's'}`,
+        };
+    }));
+    if (historyEmpty) historyEmpty.hidden = entries.length > 0;
+    if (historyCount) historyCount.textContent = `${entries.length} FILE${entries.length !== 1 ? 's' : ''}`;
 }
 
 clearHistoryBtn.addEventListener('click', () => {
