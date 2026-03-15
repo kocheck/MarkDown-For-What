@@ -763,6 +763,19 @@ button {
     cursor: not-allowed;
 }
 
+.btn-primary:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
+.btn-ghost:hover:not(:disabled) {
+    border-color: var(--color-gray6);
+    color: var(--color-gray12);
+}
+
+.btn-destructive:hover:not(:disabled) {
+    opacity: 0.85;
+}
+
 /* ── Review Mode ──────────────────────────────────────────────────────────── */
 
 .review-block {
