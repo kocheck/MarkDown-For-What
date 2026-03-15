@@ -639,23 +639,23 @@ button {
     padding: 24px 16px;
     color: var(--figma-color-text-secondary, #666);
     text-align: center;
-    font-size: 13px;
+    font-size: var(--font-size-lg);
 }
 
 #export-frame-info {
-    font-weight: 600;
-    font-size: 13px;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-lg);
     margin-bottom: 8px;
 }
 
 #export-block-counts {
-    font-size: 12px;
+    font-size: var(--font-size-md);
     margin-bottom: 16px;
     color: var(--figma-color-text-secondary, #555);
 }
 
 .export-warning {
-    font-size: 12px;
+    font-size: var(--font-size-md);
     color: #9a6700;
     margin-bottom: 12px;
 }
@@ -670,11 +670,11 @@ button {
     background: var(--figma-color-bg-brand, #18a0fb);
     color: white;
     border: none;
-    font-size: 12px;
+    font-size: var(--font-size-md);
     padding: 7px 14px;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     cursor: pointer;
-    font-weight: 500;
+    font-weight: var(--font-weight-medium);
 }
 
 .btn-primary:hover:not(:disabled) { background: #0d8de0; }
@@ -684,7 +684,7 @@ button {
 
 .review-block {
     border: 1px solid var(--figma-color-border, #e0e0e0);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     padding: 12px;
     margin-bottom: 12px;
 }
@@ -693,13 +693,13 @@ button {
 .review-block--new      { border-left: 3px solid #0969da; }
 
 .review-block-header {
-    font-weight: 600;
-    font-size: 12px;
+    font-weight: var(--font-weight-bold);
+    font-size: var(--font-size-md);
     margin-bottom: 8px;
 }
 
 .review-fidelity-warning {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: #9a6700;
     margin-bottom: 8px;
 }
@@ -713,18 +713,18 @@ button {
 .review-diff-col { flex: 1; min-width: 0; }
 
 .review-diff-header {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: #666;
     margin-bottom: 4px;
 }
 
 .review-diff-text {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     font-family: 'Roboto Mono', monospace;
     white-space: pre-wrap;
     word-break: break-word;
     background: var(--figma-color-bg-secondary, #f5f5f5);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 6px 8px;
     margin: 0;
 }
@@ -735,9 +735,9 @@ button {
 }
 
 .btn-review {
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     border: 1px solid var(--figma-color-border, #ccc);
     background: transparent;
     cursor: pointer;
@@ -753,7 +753,7 @@ button {
     background: none;
     border: none;
     color: var(--figma-color-text-brand, #0969da);
-    font-size: 12px;
+    font-size: var(--font-size-md);
     cursor: pointer;
     padding: 0;
     margin-top: 12px;
@@ -761,4 +761,4 @@ button {
 }
 
 #export-log-panel { margin-top: 16px; }
-#export-log-content { font-size: 11px; font-family: monospace; white-space: pre-wrap; }
+#export-log-content { font-size: var(--font-size-sm); font-family: monospace; white-space: pre-wrap; }
