@@ -1,6 +1,4 @@
-function isValidHex(value: string): boolean {
-  return /^#[0-9A-Fa-f]{6}$/.test(value);
-}
+import { isValidHex } from '../../utils';
 
 class MfwColorInput extends HTMLElement {
   connectedCallback(): void {

@@ -44,4 +44,9 @@ describe('mfw-theme-selector', () => {
     const activeBtn = el.querySelector('button.theme-btn.active');
     expect(activeBtn!.getAttribute('data-theme')).toBe('minimal-light');
   });
+
+  it('shows no active button when active="custom"', () => {
+    const el = make({ active: 'custom' });
+    expect(el.querySelector('button.theme-btn.active')).toBeNull();
+  });
 });

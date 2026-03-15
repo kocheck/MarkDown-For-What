@@ -25,9 +25,14 @@ class MfwThemeSelector extends HTMLElement {
     while (this.firstChild) this.removeChild(this.firstChild);
 
     const raw = this.getAttribute('active') ?? 'minimal-light';
-    const active: ThemeId = isThemeId(raw) ? raw : 'minimal-light';
-    if (!isThemeId(raw)) {
+    let active: ThemeId | null;
+    if (raw === 'custom') {
+      active = null;
+    } else if (isThemeId(raw)) {
+      active = raw;
+    } else {
       console.warn(`[mfw-theme-selector] Unknown theme "${raw}", falling back to "minimal-light".`);
+      active = 'minimal-light';
     }
 
     const container = document.createElement('div');
@@ -40,7 +45,6 @@ class MfwThemeSelector extends HTMLElement {
       btn.textContent = option.label;
       btn.addEventListener('click', () => {
         this.setAttribute('active', option.id);
-        this.render();
         this.dispatchEvent(new CustomEvent('mfw-theme-change', {
           detail: { theme: option.id },
           bubbles: true,

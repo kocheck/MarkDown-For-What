@@ -6,7 +6,10 @@ class MfwLoader extends HTMLElement {
   }
 
   attributeChangedCallback(): void {
-    this.render();
+    const overlay = this.querySelector('.loader-overlay');
+    if (overlay) {
+      overlay.classList.toggle('hidden', !this.hasAttribute('visible'));
+    }
   }
 
   render(): void {
