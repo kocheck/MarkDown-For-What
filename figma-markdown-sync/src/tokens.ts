@@ -1,17 +1,26 @@
 export const Color = {
-  block:         '#1B3543',
-  accent:        '#52C7A0',
-  bg:            '#EFF4F2',
-  bgAlt:         '#E6EDEB',
-  border:        '#D8E5E0',
-  borderSubtle:  '#F0F0F0',
-  textPrimary:   '#333333',
-  textSecondary: '#555555',
-  textMuted:     '#888888',
-  textHint:      '#6B8E82',
-  success:       '#18A449',
-  warning:       '#9B6E00',
-  error:         '#D32F2F',
+  // Backgrounds
+  gray1:  '#161616',  // main bg
+  gray2:  '#1c1c1c',  // elevated surface (tab bar, file rows)
+  gray3:  '#232323',  // input bg, drop bg, subtle surface
+  gray6:  '#343434',  // border muted, dividers
+  gray8:  '#505050',  // border strong, version text
+  gray11: '#a0a0a0',  // text muted, meta, labels
+  gray12: '#ededed',  // text default
+
+  // Mint (accent)
+  mint8:  '#006d5b',  // accent border + inset shadow
+  mint9:  '#70e1c8',  // accent glow (box-shadow)
+  mint10: '#25d0ab',  // accent fill — interactive backgrounds
+  mint11: '#25d0ab',  // accent text — foreground on dark surfaces (same hex, semantic distinction)
+
+  // Red (error / destructive)
+  red8:   '#aa2429',  // error border + inset shadow
+  red10:  '#f2555a',  // error fill
+  red11:  '#ff6369',  // error text
+
+  // Orange (in-progress)
+  orange11: '#ff8b3e',
 } as const;
 
 export const Spacing = {
@@ -29,13 +38,26 @@ export const Radius = {
 } as const;
 
 export const Font = {
-  sizeXs:       '10px',
-  sizeSm:       '11px',
-  sizeMd:       '12px',
-  sizeLg:       '13px',
-  weightNormal: '400',
-  weightMedium: '500',
-  weightBold:   '600',
+  // Font family stacks
+  sansSerif:  '"Space Grotesk", sans-serif',  // file names, headings, drop zone label, error title
+  mono:       '"Geist Mono", monospace',       // buttons, labels, values, log entries
+  monoBrand:  '"Geist Pixel", monospace',      // meta text, status, section headers, unit suffixes
+
+  // Sizes (toKebab produces --font-size-xs through --font-size-display)
+  sizeXs:      '8px',
+  sizeSm:      '9px',
+  sizeMd:      '10px',
+  sizeLg:      '11px',
+  sizeXl:      '12px',
+  sizeXxl:     '13px',
+  sizeXxxl:    '14px',
+  sizeDisplay: '16px',
+
+  // Weights
+  weightNormal:   '400',
+  weightMedium:   '500',
+  weightSemiBold: '600',
+  weightBold:     '700',
 } as const;
 
 export const Transition = {
@@ -53,7 +75,7 @@ const NAMESPACES: Record<string, TokenRecord> = {
   transition: Transition as unknown as TokenRecord,
 };
 
-/** Converts camelCase to kebab-case: "bgAlt" → "bg-alt", "sizeXs" → "size-xs" */
+/** Converts camelCase to kebab-case: "bgAlt" → "bg-alt", "sizeXxl" → "size-xxl" */
 function toKebab(camel: string): string {
   return camel.replace(/([A-Z])/g, '-$1').toLowerCase();
 }
