@@ -1,5 +1,25 @@
 import './styles.css';
 import './components/mfw-index';
+
+// Wire bottom-bar slots — must run after mfw-index import upgrades the custom element
+const _bottomBar = document.querySelector('mfw-bottom-bar')!;
+const _statusSlot = _bottomBar.querySelector('[data-slot="status"]')!;
+const _actionsSlot = _bottomBar.querySelector('[data-slot="actions"]')!;
+
+const statusMsg = document.createElement('p');
+statusMsg.className = 'status-message';
+_statusSlot.appendChild(statusMsg);
+
+const previewCancelBtn = document.createElement('button');
+previewCancelBtn.className = 'btn-secondary hidden';
+previewCancelBtn.textContent = 'Cancel';
+_actionsSlot.appendChild(previewCancelBtn);
+
+const importBtn = document.createElement('button');
+importBtn.disabled = true;
+importBtn.textContent = 'Import';
+_actionsSlot.appendChild(importBtn);
+
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 import {
@@ -30,31 +50,25 @@ marked.use({
 
 // ── DOM references ──────────────────────────────────────────────────────────
 
-const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
-const tabPanels = document.querySelectorAll<HTMLElement>('.tab-panel');
+const tabBar = document.querySelector('mfw-tab-bar') as HTMLElement;
+const loader = document.querySelector('mfw-loader') as HTMLElement;
 
 const importSection = document.getElementById('import-section') as HTMLElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
-const fileList = document.getElementById('file-list') as HTMLUListElement;
-const importBtn = document.getElementById('import-btn') as HTMLButtonElement;
-const statusMsg = document.getElementById('status-message') as HTMLParagraphElement;
-const loader = document.getElementById('loader') as HTMLElement;
+const fileListEl = document.querySelector('mfw-file-list') as HTMLElement & {
+    setFiles(files: Array<{ name: string }>): void;
+};
 
 // Preview elements
 const previewPane = document.getElementById('preview-pane') as HTMLElement;
 const previewContent = document.getElementById('preview-content') as HTMLElement;
 const previewSummary = document.getElementById('preview-summary') as HTMLElement;
-const previewCancelBtn = document.getElementById('preview-cancel') as HTMLButtonElement;
 const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
 const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButtonElement;
 
-// Paste elements
-const pasteToggle = document.getElementById('paste-toggle') as HTMLButtonElement;
-const pasteAreaWrap = document.getElementById('paste-area-wrap') as HTMLElement;
-const pasteArea = document.getElementById('paste-area') as HTMLTextAreaElement;
-const pasteName = document.getElementById('paste-name') as HTMLInputElement;
-const pasteImportBtn = document.getElementById('paste-import-btn') as HTMLButtonElement;
+// Paste section
+const pasteSectionEl = document.querySelector('mfw-paste-section') as HTMLElement & { reset(): void };
 
 // Settings inputs
 const settingInputIds = [
@@ -64,8 +78,8 @@ const settingInputIds = [
 
 const checkboxSettingIds = ['generateToc', 'componentNames'] as const;
 
-// Theme buttons
-const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
+// Theme selector
+const themeSelectorEl = document.querySelector('mfw-theme-selector') as HTMLElement;
 
 // Style binding selects
 const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
@@ -334,30 +348,7 @@ function renderExportLog(frames: ExportFrameResult[]) {
 }
 
 // ── Tab switching ───────────────────────────────────────────────────────────
-
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const targetId = 'tab-' + tab.dataset.tab;
-
-        tabs.forEach(t => t.classList.toggle('active', t === tab));
-        tabPanels.forEach(p => {
-            p.classList.toggle('active', p.id === targetId);
-            p.classList.toggle('hidden', p.id !== targetId);
-        });
-
-        if (tab.dataset.tab === 'settings') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
-            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
-            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
-        }
-        if (tab.dataset.tab === 'history') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
-        }
-        if (tab.dataset.tab === 'export') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_SELECTION } }, '*');
-        }
-    });
-});
+// (handled by mfw-tab-bar component — no manual querySelectorAll('.tab') needed)
 
 // ── Drop zone ───────────────────────────────────────────────────────────────
 
@@ -412,13 +403,7 @@ async function handleFiles(files: FileList) {
 }
 
 function renderFileList(files: { name: string; content: string }[]) {
-    fileList.textContent = '';
-
-    for (const file of files) {
-        const li = document.createElement('li');
-        li.textContent = file.name;
-        fileList.appendChild(li);
-    }
+    fileListEl.setFiles(files.map(f => ({ name: f.name })));
 }
 
 // ── Preview ─────────────────────────────────────────────────────────────────
@@ -496,7 +481,7 @@ function showPreview(files: { name: string; content: string }[]) {
 
     // Show preview, hide drop/paste
     importSection.style.display = 'none';
-    fileList.style.display = 'none';
+    (fileListEl as HTMLElement).style.display = 'none';
     previewPane.classList.remove('hidden');
     previewCancelBtn.classList.remove('hidden');
     importBtn.disabled = false;
@@ -508,26 +493,15 @@ function hidePreview() {
     previewCancelBtn.classList.add('hidden');
     previewContent.innerHTML = '';
     importSection.style.display = '';
-    fileList.style.display = '';
+    (fileListEl as HTMLElement).style.display = '';
     importBtn.textContent = 'Import';
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
 
-pasteToggle.addEventListener('click', () => {
-    pasteAreaWrap.classList.toggle('hidden');
-});
-
-pasteArea.addEventListener('input', () => {
-    pasteImportBtn.disabled = pasteArea.value.trim().length === 0;
-});
-
-pasteImportBtn.addEventListener('click', () => {
-    const content = pasteArea.value.trim();
-    if (!content) return;
-
-    const name = pasteName.value.trim() || 'Pasted Markdown';
-    currentFiles = [{ name: `${name}.md`, content }];
+pasteSectionEl.addEventListener('mfw-paste-import', (e) => {
+    const { text, name } = (e as CustomEvent<{ text: string; name: string }>).detail;
+    currentFiles = [{ name: `${name || 'Pasted Markdown'}.md`, content: text }];
     showPreview(currentFiles);
 });
 
@@ -535,7 +509,7 @@ pasteImportBtn.addEventListener('click', () => {
 
 importBtn.addEventListener('click', () => {
     if (currentFiles.length === 0) return;
-    loader.classList.remove('hidden');
+    loader.setAttribute('visible', '');
     importBtn.disabled = true;
 
     // Collect unchecked block indices per file
@@ -600,11 +574,9 @@ function populateSettings(settings: Record<string, unknown>) {
         if (cb && id in settings) cb.checked = !!settings[id];
     }
 
-    // Handle theme button active state
+    // Handle theme selector active state
     const theme = settings.theme as string ?? 'minimal-light';
-    themeBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.theme === theme);
-    });
+    themeSelectorEl.setAttribute('active', theme);
 
     // Handle style and component bindings
     restoreBindings(styleBindingSelects, (settings.styleBindings ?? {}) as Record<string, string>, 'auto');
@@ -672,8 +644,8 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             if (id === 'widthMode') updateCustomWidthVisibility();
-            // Manual change → deactivate theme preset buttons
-            themeBtns.forEach(b => b.classList.remove('active'));
+            // Manual change → deactivate theme preset
+            themeSelectorEl.setAttribute('active', 'custom');
             sendCurrentSettings();
             if (swatch && input instanceof HTMLInputElement && isValidHex(input.value)) {
                 swatch.value = input.value;
@@ -683,7 +655,7 @@ function setupSettingListeners() {
         swatch?.addEventListener('input', () => {
             if (input && input instanceof HTMLInputElement) {
                 input.value = swatch.value;
-                themeBtns.forEach(b => b.classList.remove('active'));
+                themeSelectorEl.setAttribute('active', 'custom');
                 sendCurrentSettings();
             }
         });
@@ -694,28 +666,21 @@ function setupSettingListeners() {
         document.getElementById(id)?.addEventListener('change', () => sendCurrentSettings());
     }
 
-    // Theme buttons
-    themeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.dataset.theme;
-            if (!theme || !THEME_PRESETS[theme]) return;
-
-            // Activate this button
-            themeBtns.forEach(b => b.classList.toggle('active', b === btn));
-
-            // Apply preset values to settings inputs
-            const preset = THEME_PRESETS[theme];
-            for (const [key, value] of Object.entries(preset)) {
-                const input = document.getElementById(key) as HTMLInputElement | null;
-                if (input) {
-                    input.value = String(value);
-                    const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
-                    if (swatch && typeof value === 'string') swatch.value = value;
-                }
+    // Theme selector
+    themeSelectorEl.addEventListener('mfw-theme-change', (e) => {
+        const theme = (e as CustomEvent<{ theme: string }>).detail.theme;
+        if (!THEME_PRESETS[theme]) return;
+        const preset = THEME_PRESETS[theme];
+        for (const [key, value] of Object.entries(preset)) {
+            const input = document.getElementById(key) as HTMLInputElement | null;
+            if (input) {
+                input.value = String(value);
+                const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
+                if (swatch && typeof value === 'string') swatch.value = value;
             }
-            updateCustomWidthVisibility();
-            sendCurrentSettings();
-        });
+        }
+        updateCustomWidthVisibility();
+        sendCurrentSettings();
     });
 
     // Style and component binding selects
@@ -753,8 +718,7 @@ function sendCurrentSettings() {
     settings.componentBindings = collectBindings(componentBindingSelects, '');
 
     // Determine active theme
-    const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
-    settings.theme = activeThemeBtn?.dataset.theme ?? 'custom';
+    settings.theme = themeSelectorEl.getAttribute('active') ?? 'custom';
 
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
@@ -768,6 +732,26 @@ function sendCurrentSettings() {
 }
 
 setupSettingListeners();
+
+tabBar.addEventListener('mfw-tab-change', (e) => {
+    const tab = (e as CustomEvent<{ tab: string }>).detail.tab;
+    const panels = document.querySelectorAll<HTMLElement>('.tab-panel');
+    panels.forEach(p => {
+        p.classList.toggle('active', p.id === `tab-${tab}`);
+        p.classList.toggle('hidden', p.id !== `tab-${tab}`);
+    });
+    if (tab === 'settings') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
+    }
+    if (tab === 'history') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
+    }
+    if (tab === 'export') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_SELECTION } }, '*');
+    }
+});
 
 // ── Export button listeners ──────────────────────────────────────────────────
 
@@ -832,15 +816,13 @@ window.onmessage = event => {
 
     switch (msg.type) {
         case MSG_STATUS:
-            loader.classList.add('hidden');
+            loader.removeAttribute('visible');
             if (!previewPane.classList.contains('hidden')) hidePreview();
             importBtn.disabled = currentFiles.length === 0;
             showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
             // Clear paste area on successful import (but not for export-domain status messages)
             if (!msg.error && msg.domain !== STATUS_DOMAIN_EXPORT) {
-                pasteArea.value = '';
-                pasteName.value = '';
-                pasteImportBtn.disabled = true;
+                pasteSectionEl.reset();
                 currentFiles = [];
                 renderFileList([]);
             }

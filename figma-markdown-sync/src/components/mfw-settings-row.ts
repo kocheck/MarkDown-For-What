@@ -52,6 +52,10 @@ class MfwSettingsRow extends HTMLElement {
     } else if (type === 'select') {
       const select = document.createElement('select');
       select.className = 'settings-select';
+      const selectClass = this.getAttribute('select-class');
+      if (selectClass) select.classList.add(selectClass);
+      const binding = this.getAttribute('data-binding');
+      if (binding) select.setAttribute('data-binding', binding);
       if (inputId) select.id = inputId;
       wrap.appendChild(select);
     } else {

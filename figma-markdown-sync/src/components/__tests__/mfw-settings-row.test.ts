@@ -54,6 +54,16 @@ describe('mfw-settings-row', () => {
     expect(cb.id).toBe('generateToc');
   });
 
+  it('forwards select-class and data-binding to the rendered select', () => {
+    const el = makeComponent('mfw-settings-row', {
+      label: 'H1', type: 'select', 'input-id': 'style-h1',
+      'select-class': 'style-binding-select', 'data-binding': 'h1',
+    });
+    const select = el.querySelector<HTMLSelectElement>('select')!;
+    expect(select.classList.contains('style-binding-select')).toBe(true);
+    expect(select.getAttribute('data-binding')).toBe('h1');
+  });
+
   it('warns and falls back to number for unknown type', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const el = makeComponent('mfw-settings-row', { label: 'Test', type: 'color', 'input-id': 'x' });

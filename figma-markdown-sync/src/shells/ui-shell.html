@@ -8,12 +8,7 @@
 <body>
 
     <!-- Tab bar -->
-    <nav class="tab-bar">
-        <button class="tab active" data-tab="import">Import</button>
-        <button class="tab" data-tab="history">History</button>
-        <button class="tab" data-tab="settings">Settings</button>
-        <button class="tab" data-tab="export">Export</button>
-    </nav>
+    <mfw-tab-bar></mfw-tab-bar>
 
     <!-- PANEL:import -->
 
@@ -24,12 +19,7 @@
     <!-- PANEL:export -->
 
     <!-- Loading overlay -->
-    <div id="loader" class="loader-overlay hidden">
-        <div class="loader-content">
-            <div class="spinner"></div>
-            <p>Importing&hellip;<br>Please do not close this window.</p>
-        </div>
-    </div>
+    <mfw-loader></mfw-loader>
 
 </body>
 </html>

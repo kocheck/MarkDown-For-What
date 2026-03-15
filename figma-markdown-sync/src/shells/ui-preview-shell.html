@@ -81,12 +81,7 @@
         <div class="plugin-frame">
 
             <!-- Tab bar -->
-            <nav class="tab-bar">
-                <button class="tab active" data-tab="import">Import</button>
-                <button class="tab" data-tab="history">History</button>
-                <button class="tab" data-tab="settings">Settings</button>
-                <button class="tab" data-tab="export">Export</button>
-            </nav>
+            <mfw-tab-bar></mfw-tab-bar>
 
             <!-- PANEL:import -->
 
@@ -157,24 +152,17 @@
 <!-- Loads component definitions only. Do NOT swap this for dist/ui.js. -->
 <script src="dist/components.js"></script>
 <script>
-    // Tab switching for the preview frame
-    document.querySelectorAll('.tab').forEach(function(tab) {
-        tab.addEventListener('click', function() {
-            document.querySelectorAll('.tab').forEach(function(t) {
-                t.classList.remove('active');
-            });
+    // Tab switching for the preview frame via mfw-tab-bar component
+    var tabBar = document.querySelector('mfw-tab-bar');
+    if (tabBar) {
+        tabBar.addEventListener('mfw-tab-change', function(e) {
+            var tab = e.detail.tab;
             document.querySelectorAll('.tab-panel').forEach(function(p) {
-                p.classList.add('hidden');
-                p.classList.remove('active');
+                p.classList.toggle('active', p.id === 'tab-' + tab);
+                p.classList.toggle('hidden', p.id !== 'tab-' + tab);
             });
-            tab.classList.add('active');
-            var panel = document.getElementById('tab-' + tab.dataset.tab);
-            if (panel) {
-                panel.classList.remove('hidden');
-                panel.classList.add('active');
-            }
         });
-    });
+    }
 </script>
 </body>
 </html>
