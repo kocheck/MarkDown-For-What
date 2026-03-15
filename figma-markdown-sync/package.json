@@ -9,7 +9,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "build:tokens": "ts-node scripts/build-tokens.ts"
+    "build:tokens": "ts-node scripts/build-tokens.ts",
+    "build:html":  "ts-node scripts/build-html.ts",
+    "build:ui":    "npm run build:tokens && npm run build:html && npm run build"
   },
   "dependencies": {
     "marked": "^4.3.0"
