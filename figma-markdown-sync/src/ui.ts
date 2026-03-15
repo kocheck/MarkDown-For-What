@@ -475,7 +475,17 @@ async function handleFiles(files: FileList) {
     showStatus('Reading files\u2026', 'success');
 
     try {
-        const validFiles = Array.from(files).filter(f => hasSupportedExtension(f.name));
+        const allFiles = Array.from(files);
+        const validFiles = allFiles.filter(f => hasSupportedExtension(f.name));
+        const invalidFiles = allFiles
+            .filter(f => !hasSupportedExtension(f.name))
+            .map(f => ({ name: f.name, ext: f.name.slice(f.name.lastIndexOf('.')) || f.name }));
+
+        if (invalidFiles.length > 0 && validFiles.length === 0) {
+            showImportError(invalidFiles);
+            return;
+        }
+
         currentFiles = await Promise.all(validFiles.map(readFile));
 
         if (currentFiles.length === 0) {

@@ -935,7 +935,7 @@ button {
     background: var(--color-red10);
     border: 1px solid var(--color-red8);
     border-radius: var(--radius-sm);
-    color: white;
+    color: var(--color-gray1);
     box-shadow: 0 2px 16px -8px var(--color-red10),
                 0 3px 12px -4px rgba(242,85,90,0.32),
                 inset 0 1px 12px 4px var(--color-red8);
