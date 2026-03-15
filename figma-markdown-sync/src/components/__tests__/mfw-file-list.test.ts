@@ -43,4 +43,11 @@ describe('mfw-file-list', () => {
     (el as any).setFiles([{ name: 'b.md' }, { name: 'c.md' }]);
     expect(el.querySelectorAll('li').length).toBe(2);
   });
+
+  it('setFiles([]) clears a previously populated list', () => {
+    const el = make();
+    (el as any).setFiles([{ name: 'a.md' }, { name: 'b.md' }]);
+    (el as any).setFiles([]);
+    expect(el.querySelectorAll('li').length).toBe(0);
+  });
 });

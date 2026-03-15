@@ -1,7 +1,7 @@
 import './styles.css';
 import './components/mfw-index';
 
-// Bottom-bar slot elements — initialised by initBottomBar() after the custom element upgrades
+// Bottom-bar slot elements — assigned by initBottomBar() once the custom element is defined and connected
 let statusMsg: HTMLParagraphElement;
 let previewCancelBtn: HTMLButtonElement;
 let importBtn: HTMLButtonElement;
@@ -15,7 +15,7 @@ function initBottomBar(): void {
     const _statusSlot = _bottomBar.querySelector('[data-slot="status"]');
     const _actionsSlot = _bottomBar.querySelector('[data-slot="actions"]');
     if (!_statusSlot || !_actionsSlot) {
-        console.error('[MFW] mfw-bottom-bar slots not found — component may not have connected yet');
+        console.error('[MFW] mfw-bottom-bar rendered without expected slots');
         return;
     }
 
@@ -29,6 +29,7 @@ function initBottomBar(): void {
     _actionsSlot.appendChild(previewCancelBtn);
 
     importBtn = document.createElement('button');
+    importBtn.className = 'btn-primary';
     importBtn.disabled = true;
     importBtn.textContent = 'Import';
     _actionsSlot.appendChild(importBtn);
@@ -161,6 +162,7 @@ if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
 
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
 // IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
+// NOTE: ThemeId in mfw-theme-selector.ts lists valid theme ids; ensure both stay aligned.
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
         frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
@@ -439,7 +441,7 @@ function readFile(file: File): Promise<{ name: string; content: string }> {
 }
 
 async function handleFiles(files: FileList) {
-    importBtn.disabled = true;
+    if (importBtn) importBtn.disabled = true;
     showStatus('Reading files\u2026', 'success');
 
     try {
@@ -539,18 +541,20 @@ function showPreview(files: { name: string; content: string }[]) {
     importSection.style.display = 'none';
     (fileListEl as HTMLElement).style.display = 'none';
     previewPane.classList.remove('hidden');
-    previewCancelBtn.classList.remove('hidden');
-    importBtn.disabled = false;
-    importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
+    if (previewCancelBtn) previewCancelBtn.classList.remove('hidden');
+    if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
+    }
 }
 
 function hidePreview() {
     previewPane.classList.add('hidden');
-    previewCancelBtn.classList.add('hidden');
+    if (previewCancelBtn) previewCancelBtn.classList.add('hidden');
     previewContent.innerHTML = '';
     importSection.style.display = '';
     (fileListEl as HTMLElement).style.display = '';
-    importBtn.textContent = 'Import';
+    if (importBtn) importBtn.textContent = 'Import';
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
@@ -826,6 +830,7 @@ clearHistoryBtn.addEventListener('click', () => {
 // ── Status helper ───────────────────────────────────────────────────────────
 
 function showStatus(message: string, type: 'success' | 'warning' | 'error' = 'success') {
+    if (!statusMsg) return;
     statusMsg.textContent = message;
     statusMsg.className = `status-message ${type}`;
 }
@@ -894,6 +899,7 @@ window.onmessage = event => {
             break;
         }
         default:
+            console.warn('[MFW] Unknown plugin message type:', msg.type);
             break;
     }
 };

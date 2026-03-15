@@ -35,6 +35,16 @@ describe('mfw-color-input', () => {
     expect(swatch.value).toBe('#1b3543');
   });
 
+  it('does not update swatch when text changes to invalid hex', () => {
+    const el = makeComponent('mfw-color-input', { 'input-id': 'codeBackground', placeholder: '#F2F2F2' });
+    const textInput = el.querySelector<HTMLInputElement>('input[type="text"]')!;
+    const swatch = el.querySelector<HTMLInputElement>('input[type="color"]')!;
+    const before = swatch.value;
+    textInput.value = 'notacolor';
+    textInput.dispatchEvent(new Event('change'));
+    expect(swatch.value).toBe(before);
+  });
+
   it('syncs text input to swatch when swatch changes', () => {
     const el = makeComponent('mfw-color-input', { 'input-id': 'separatorColor', placeholder: '#CCCCCC' });
     const textInput = el.querySelector<HTMLInputElement>('input[type="text"]')!;

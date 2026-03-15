@@ -11,15 +11,11 @@ class MfwBottomBar extends HTMLElement {
 
     const statusDiv = document.createElement('div');
     statusDiv.setAttribute('data-slot', 'status');
-    statusDiv.style.flex = '1';
-    statusDiv.style.display = 'flex';
-    statusDiv.style.alignItems = 'center';
+    statusDiv.className = 'bottom-bar-status';
 
     const actionsDiv = document.createElement('div');
     actionsDiv.setAttribute('data-slot', 'actions');
-    actionsDiv.style.display = 'flex';
-    actionsDiv.style.gap = '8px';
-    actionsDiv.style.alignItems = 'center';
+    actionsDiv.className = 'bottom-bar-actions';
 
     bar.appendChild(statusDiv);
     bar.appendChild(actionsDiv);

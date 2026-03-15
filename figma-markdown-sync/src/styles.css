@@ -359,6 +359,9 @@ body {
 .preview-block a { color: #0969DA; text-decoration: underline; }
 
 /* ── Bottom bar ───────────────────────────────────────────── */
+.bottom-bar-status { flex: 1; }
+.bottom-bar-actions { display: flex; gap: 8px; }
+
 .bottom-bar {
     border-top: 1px solid #E5E5E5;
     padding: 10px 16px;

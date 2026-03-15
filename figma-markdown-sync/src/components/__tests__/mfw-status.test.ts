@@ -35,12 +35,12 @@ describe('mfw-status', () => {
 
   it('applies success modifier class', () => {
     const el = make({ message: 'Done', type: 'success' });
-    expect(el.querySelector('p')!.classList.contains('status-message--success')).toBe(true);
+    expect(el.querySelector('p')!.classList.contains('success')).toBe(true);
   });
 
   it('applies error modifier class', () => {
     const el = make({ message: 'Failed', type: 'error' });
-    expect(el.querySelector('p')!.classList.contains('status-message--error')).toBe(true);
+    expect(el.querySelector('p')!.classList.contains('error')).toBe(true);
   });
 
   it('applies no modifier class for info type', () => {

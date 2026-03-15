@@ -65,4 +65,24 @@ describe('mfw-paste-section', () => {
     expect(el.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('');
     expect(el.querySelector('.paste-area-wrap')!.classList.contains('hidden')).toBe(true);
   });
+
+  it('reset() re-disables the Import Paste button', () => {
+    const el = make();
+    el.querySelector<HTMLButtonElement>('.paste-toggle-btn')!.click();
+    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
+    textarea.value = '# Hello';
+    textarea.dispatchEvent(new Event('input'));
+    const importBtn = el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!;
+    expect(importBtn.disabled).toBe(false);
+    (el as any).reset();
+    expect(importBtn.disabled).toBe(true);
+  });
+
+  it('does not enable Import Paste button for whitespace-only content', () => {
+    const el = make();
+    const textarea = el.querySelector<HTMLTextAreaElement>('textarea')!;
+    textarea.value = '   ';
+    textarea.dispatchEvent(new Event('input'));
+    expect(el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!.disabled).toBe(true);
+  });
 });

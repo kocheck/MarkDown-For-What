@@ -31,6 +31,10 @@ All reusable UI elements live in `src/components/` as vanilla Web Components.
 
       while (this.firstChild) this.removeChild(this.firstChild)
 
+  **Exception:** `mfw-settings-section` intentionally skips this guard so that
+  host-projected (slotted) children added after connection are preserved across
+  re-renders triggered by attribute changes.
+
 - Use safe DOM methods only: `createElement`, `textContent`, `setAttribute`
   Never write raw HTML string content directly into the DOM
 

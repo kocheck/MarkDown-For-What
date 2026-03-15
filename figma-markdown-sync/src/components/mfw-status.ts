@@ -1,7 +1,7 @@
 const STATUS_CLASSES = {
   info: null,
-  error: 'status-message--error',
-  success: 'status-message--success',
+  error: 'error',
+  success: 'success',
 } as const;
 
 type StatusType = keyof typeof STATUS_CLASSES;
