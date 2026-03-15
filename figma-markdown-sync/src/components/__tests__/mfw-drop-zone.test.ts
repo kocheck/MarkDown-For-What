@@ -57,6 +57,7 @@ describe('mfw-drop-zone', () => {
     expect(svg.getAttribute('width')).toBe('24');
     expect(svg.getAttribute('height')).toBe('24');
     expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
+    expect(svg.getAttribute('fill')).toBe('currentColor');
   });
 
   it('dispatches mfw-drop-click on click', () => {
