@@ -13,3 +13,4 @@ import './mfw-settings-row';
 import './mfw-color-input';
 import './mfw-paste-section';
 import './mfw-file-list';
+import './mfw-section-header';
