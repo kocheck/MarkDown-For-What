@@ -988,3 +988,20 @@ button {
     text-align: center;
     line-height: 1.6;
 }
+
+/* ── Settings panel ───────────────────────────────────────── */
+.settings-card {
+    background: var(--color-gray2);
+    border: 1px solid var(--color-gray3);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.version-text {
+    font-family: var(--font-mono-brand);
+    font-size: var(--font-size-sm);
+    color: var(--color-gray8);
+}
