@@ -709,7 +709,7 @@ function renderHistory(entries: Array<{ filename: string; timestamp: number; blo
     if (historyCount) historyCount.textContent = `${entries.length} FILE${entries.length !== 1 ? 's' : ''}`;
 }
 
-clearHistoryBtn.addEventListener('click', () => {
+clearHistoryBtn?.addEventListener('click', () => {
     parent.postMessage({ pluginMessage: { type: MSG_CLEAR_HISTORY } }, '*');
 });
 
