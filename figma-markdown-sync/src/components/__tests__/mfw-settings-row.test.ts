@@ -15,13 +15,13 @@ describe('mfw-settings-row', () => {
     const el = makeComponent('mfw-settings-row', {
       label: 'Block spacing', type: 'number', 'input-id': 'blockSpacing', min: '0', max: '200', unit: 'px',
     });
-    expect(el.querySelector('span.settings-label')!.textContent).toBe('Block spacing');
+    expect(el.querySelector('span.settings-row-label')!.textContent).toBe('Block spacing');
     const input = el.querySelector<HTMLInputElement>('input[type="number"]')!;
     expect(input).not.toBeNull();
     expect(input.id).toBe('blockSpacing');
     expect(input.min).toBe('0');
     expect(input.max).toBe('200');
-    expect(el.querySelector('span.settings-unit')!.textContent).toBe('px');
+    expect(el.querySelector('span.settings-row-unit')!.textContent).toBe('px');
   });
 
   it('renders a select for type=select', () => {

@@ -519,49 +519,62 @@ button {
 
 .settings-row:last-child { margin-bottom: 0; }
 
-.settings-label {
-    font-size: var(--font-size-md);
-    color: var(--color-gray12);
-}
-
+/* ── Settings row ─────────────────────────────────────────── */
 .settings-input-wrap {
+    position: relative;   /* anchors the absolutely-positioned chevron */
     display: flex;
     align-items: center;
     gap: 4px;
 }
 
-.settings-input-wrap input[type="number"],
-.settings-input-wrap input[type="text"] {
-    width: 72px;
-    padding: 4px 6px;
-    border: 1px solid var(--color-gray6);
-    border-radius: var(--radius-sm);
-    font-size: var(--font-size-md);
-    font-family: inherit;
+.settings-row-label {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-medium);
     color: var(--color-gray12);
+    white-space: nowrap;
+}
+
+.settings-row-input {
+    height: 28px;
+    width: 64px;
+    padding: 4px 8px;
     text-align: right;
-}
-
-.settings-input-wrap input[type="number"]:focus,
-.settings-input-wrap input[type="text"]:focus {
-    outline: none;
-    border-color: var(--color-mint10);
-}
-
-.settings-select {
-    padding: 4px 6px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xl);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-gray12);
+    background: var(--color-gray3);
     border: 1px solid var(--color-gray6);
     border-radius: var(--radius-sm);
-    font-size: var(--font-size-md);
-    font-family: inherit;
-    color: var(--color-gray12);
-    background: var(--color-gray2);
-    cursor: pointer;
 }
 
-.settings-select:focus {
-    outline: none;
-    border-color: var(--color-mint10);
+.settings-row-unit {
+    font-family: var(--font-mono-brand);
+    font-size: var(--font-size-lg);
+    color: var(--color-gray11);
+}
+
+.settings-row-select {
+    appearance: none;
+    width: 130px;
+    height: 28px;
+    padding: 4px 28px 4px 8px;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-lg);
+    color: var(--color-gray12);
+    background: var(--color-gray3);
+    border: 1px solid var(--color-gray6);
+    border-radius: var(--radius-sm);
+}
+
+.settings-row-chevron {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--color-gray11);
 }
 
 .settings-checkbox {
@@ -569,12 +582,6 @@ button {
     height: 16px;
     accent-color: var(--color-mint10);
     cursor: pointer;
-}
-
-.settings-unit {
-    font-size: var(--font-size-sm);
-    color: var(--color-gray11);
-    width: 16px;
 }
 
 .color-swatch {
