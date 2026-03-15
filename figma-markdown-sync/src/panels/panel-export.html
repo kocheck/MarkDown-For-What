@@ -1,0 +1,32 @@
+    <!-- Export tab -->
+    <div id="tab-export" class="tab-panel hidden">
+        <div id="export-no-selection" class="export-empty">
+            <p>Select one or more frames on the canvas to export them as Markdown.</p>
+        </div>
+
+        <div id="export-frame-summary" hidden>
+            <div id="export-frame-info"></div>
+            <div id="export-block-counts"></div>
+            <div id="export-truncated-warning" class="export-warning" hidden>
+                Source too large to store — using current state only.
+            </div>
+            <div id="export-actions">
+                <button id="export-btn" class="btn-primary" disabled>Export .md</button>
+                <button id="export-review-btn" class="btn-secondary" hidden>Review changes</button>
+            </div>
+        </div>
+
+        <div id="export-review-panel" hidden>
+            <div id="export-review-breadcrumb" hidden></div>
+            <div id="export-review-blocks"></div>
+            <button id="export-review-back" class="btn-link">Back to export</button>
+            <button id="export-confirm-btn" class="btn-primary">Export .md</button>
+        </div>
+
+        <div id="export-log-panel" hidden>
+            <details>
+                <summary>Export log</summary>
+                <pre id="export-log-content"></pre>
+            </details>
+        </div>
+    </div>

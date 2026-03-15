@@ -1,0 +1,106 @@
+    <!-- Settings tab -->
+    <div id="tab-settings" class="tab-panel hidden">
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Theme</h3>
+            <div class="theme-selector">
+                <button class="theme-btn active" data-theme="minimal-light">Light</button>
+                <button class="theme-btn" data-theme="dark-mode">Dark</button>
+                <button class="theme-btn" data-theme="documentation">Docs</button>
+            </div>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Spacing</h3>
+            <label class="settings-row">
+                <span class="settings-label">Block spacing</span>
+                <div class="settings-input-wrap"><input type="number" id="blockSpacing" min="0" max="200"><span class="settings-unit">px</span></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">List spacing</span>
+                <div class="settings-input-wrap"><input type="number" id="listSpacing" min="0" max="100"><span class="settings-unit">px</span></div>
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Frame</h3>
+            <label class="settings-row">
+                <span class="settings-label">Padding</span>
+                <div class="settings-input-wrap"><input type="number" id="framePadding" min="0" max="200"><span class="settings-unit">px</span></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Width</span>
+                <div class="settings-input-wrap">
+                    <select id="widthMode" class="settings-select">
+                        <option value="narrow">Narrow (480px)</option>
+                        <option value="medium" selected>Medium (800px)</option>
+                        <option value="wide">Wide (960px)</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+            </label>
+            <label class="settings-row" id="customWidthRow" style="display:none">
+                <span class="settings-label">Custom width</span>
+                <div class="settings-input-wrap"><input type="number" id="customWidth" min="200" max="4000"><span class="settings-unit">px</span></div>
+            </label>
+        </div>
+
+        <div class="settings-section" id="style-mapping-section">
+            <h3 class="settings-section-title">Style Mapping</h3>
+            <p class="settings-hint">Map elements to existing local text styles. "Auto" creates Markdown/* styles.</p>
+            <label class="settings-row"><span class="settings-label">H1</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h1"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">H2</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h2"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">H3</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="h3"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Body</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="body"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Code</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="code"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">List</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="list"><option value="auto">Auto</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Quote</span><div class="settings-input-wrap"><select class="style-binding-select settings-select" data-binding="quote"><option value="auto">Auto</option></select></div></label>
+        </div>
+
+        <div class="settings-section" id="component-mapping-section">
+            <h3 class="settings-section-title">Component Mapping</h3>
+            <p class="settings-hint">Map block types to components on this page. Components need a <code>#content</code> (or <code>#body</code>) text layer. An optional <code>#title</code> (or <code>#label</code>) layer receives context like language or callout type.</p>
+            <label class="settings-row"><span class="settings-label">Code Block</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="codeBlock"><option value="">None</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Blockquote</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="blockquote"><option value="">None</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Callout</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="callout"><option value="">None</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Table</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="table"><option value="">None</option></select></div></label>
+            <label class="settings-row"><span class="settings-label">Image</span><div class="settings-input-wrap"><select class="component-binding-select settings-select" data-binding="image"><option value="">None</option></select></div></label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Content</h3>
+            <label class="settings-row">
+                <span class="settings-label">Generate TOC</span>
+                <div class="settings-input-wrap"><input type="checkbox" id="generateToc" class="settings-checkbox"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Component names</span>
+                <div class="settings-input-wrap"><input type="checkbox" id="componentNames" class="settings-checkbox"></div>
+            </label>
+        </div>
+
+        <div class="settings-section">
+            <h3 class="settings-section-title">Colors</h3>
+            <label class="settings-row">
+                <span class="settings-label">Frame fill</span>
+                <div class="settings-input-wrap"><input type="text" id="frameFillColor" maxlength="7" placeholder="#FFFFFF"><input type="color" class="color-swatch" id="frameFillColor-swatch"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Code background</span>
+                <div class="settings-input-wrap"><input type="text" id="codeBackground" maxlength="7" placeholder="#F2F2F2"><input type="color" class="color-swatch" id="codeBackground-swatch"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Table header</span>
+                <div class="settings-input-wrap"><input type="text" id="tableHeaderBackground" maxlength="7" placeholder="#F2F2F7"><input type="color" class="color-swatch" id="tableHeaderBackground-swatch"></div>
+            </label>
+            <label class="settings-row">
+                <span class="settings-label">Separator</span>
+                <div class="settings-input-wrap"><input type="text" id="separatorColor" maxlength="7" placeholder="#CCCCCC"><input type="color" class="color-swatch" id="separatorColor-swatch"></div>
+            </label>
+        </div>
+
+        <div class="settings-footer">
+            <button id="reset-btn" class="btn-secondary">Reset to defaults</button>
+        </div>
+
+    </div>
