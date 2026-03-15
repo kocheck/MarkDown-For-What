@@ -1,0 +1,33 @@
+/* GENERATED — do not edit by hand. Run: npm run build:tokens */
+:root {
+  --color-block: #1B3543;
+  --color-accent: #52C7A0;
+  --color-bg: #EFF4F2;
+  --color-bg-alt: #E6EDEB;
+  --color-border: #D8E5E0;
+  --color-border-subtle: #F0F0F0;
+  --color-text-primary: #333333;
+  --color-text-secondary: #555555;
+  --color-text-muted: #888888;
+  --color-text-hint: #6B8E82;
+  --color-success: #18A449;
+  --color-warning: #9B6E00;
+  --color-error: #D32F2F;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-size-xs: 10px;
+  --font-size-sm: 11px;
+  --font-size-md: 12px;
+  --font-size-lg: 13px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 600;
+  --transition-fast: 0.15s;
+  --transition-spinner: 0.7s linear;
+}
