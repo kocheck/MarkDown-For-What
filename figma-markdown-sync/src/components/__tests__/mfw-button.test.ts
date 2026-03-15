@@ -2,7 +2,7 @@
  * @jest-environment jsdom
  */
 import '../mfw-button';
-import { makeComponent } from './test-utils';
+import { makeComponent } from '../test-helpers';
 
 describe('mfw-button', () => {
   function make(attrs: Record<string, string> = {}): HTMLElement {
@@ -31,6 +31,11 @@ describe('mfw-button', () => {
   it('renders btn-link when variant is link', () => {
     const el = make({ variant: 'link', label: 'All' });
     expect(el.querySelector('button')!.className).toBe('btn-link');
+  });
+
+  it('falls back to btn-primary for an unrecognised variant', () => {
+    const el = make({ variant: 'jumbo', label: 'Go' });
+    expect(el.querySelector('button')!.className).toBe('btn-primary');
   });
 
   it('passes disabled attribute to inner button', () => {

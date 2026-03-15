@@ -1,10 +1,14 @@
-type ButtonVariant = 'primary' | 'secondary' | 'link';
-
-const VARIANT_CLASS: Record<ButtonVariant, string> = {
+const VARIANT_CLASS = {
   primary: 'btn-primary',
   secondary: 'btn-secondary',
   link: 'btn-link',
-};
+} as const;
+
+type ButtonVariant = keyof typeof VARIANT_CLASS;
+
+function isButtonVariant(value: string): value is ButtonVariant {
+  return value in VARIANT_CLASS;
+}
 
 class MfwButton extends HTMLElement {
   connectedCallback(): void {
@@ -15,7 +19,13 @@ class MfwButton extends HTMLElement {
     while (this.firstChild) this.removeChild(this.firstChild);
 
     const raw = this.getAttribute('variant') ?? 'primary';
-    const variant: ButtonVariant = raw in VARIANT_CLASS ? (raw as ButtonVariant) : 'primary';
+    let variant: ButtonVariant;
+    if (isButtonVariant(raw)) {
+      variant = raw;
+    } else {
+      console.warn(`[mfw-button] Unknown variant "${raw}", falling back to "primary".`);
+      variant = 'primary';
+    }
     const label = this.getAttribute('label') ?? '';
     const isDisabled = this.hasAttribute('disabled');
 

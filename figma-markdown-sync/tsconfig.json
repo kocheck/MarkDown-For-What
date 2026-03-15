@@ -3,8 +3,7 @@
     "target": "es2017",
     "lib": [
       "dom",
-      "es5",
-      "es6"
+      "es2017"
     ],
     "strict": true,
     "allowJs": true,

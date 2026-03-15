@@ -1,6 +1,14 @@
-type StatusType = 'info' | 'error' | 'success';
+const STATUS_CLASSES = {
+  info: null,
+  error: 'status-message--error',
+  success: 'status-message--success',
+} as const;
 
-const VALID_STATUS_TYPES = new Set<string>(['info', 'error', 'success']);
+type StatusType = keyof typeof STATUS_CLASSES;
+
+function isStatusType(value: string): value is StatusType {
+  return value in STATUS_CLASSES;
+}
 
 class MfwStatus extends HTMLElement {
   connectedCallback(): void {
@@ -12,11 +20,18 @@ class MfwStatus extends HTMLElement {
 
     const message = this.getAttribute('message') ?? '';
     const raw = this.getAttribute('type') ?? 'info';
-    const type: StatusType = VALID_STATUS_TYPES.has(raw) ? (raw as StatusType) : 'info';
+    let type: StatusType;
+    if (isStatusType(raw)) {
+      type = raw;
+    } else {
+      console.warn(`[mfw-status] Unknown type "${raw}", falling back to "info".`);
+      type = 'info';
+    }
 
     const p = document.createElement('p');
     p.className = 'status-message';
-    if (type !== 'info') p.classList.add(`status-message--${type}`);
+    const modifier = STATUS_CLASSES[type];
+    if (modifier !== null) p.classList.add(modifier);
     p.textContent = message;
     p.hidden = message === '';
 

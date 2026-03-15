@@ -29,7 +29,11 @@ class MfwDropZone extends HTMLElement {
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     const inputId = this.getAttribute('input-id');
-    if (inputId) fileInput.id = inputId;
+    if (inputId) {
+      fileInput.id = inputId;
+    } else {
+      console.warn('[mfw-drop-zone] No "input-id" attribute provided. The file input will have no id, which prevents external code from wiring event listeners to it by id.');
+    }
     fileInput.accept = accept;
     fileInput.multiple = true;
     fileInput.setAttribute('aria-label', 'Choose Markdown files');
