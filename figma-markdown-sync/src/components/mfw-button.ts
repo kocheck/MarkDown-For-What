@@ -1,7 +1,7 @@
 const VARIANT_CLASS = {
-  primary: 'btn-primary',
-  secondary: 'btn-secondary',
-  link: 'btn-link',
+  primary:     'btn-primary',
+  ghost:       'btn-ghost',
+  destructive: 'btn-destructive',
 } as const;
 
 type ButtonVariant = keyof typeof VARIANT_CLASS;

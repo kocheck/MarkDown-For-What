@@ -23,14 +23,14 @@ describe('mfw-button', () => {
     expect(btn!.textContent).toBe('Click me');
   });
 
-  it('renders btn-secondary when variant is secondary', () => {
-    const el = make({ variant: 'secondary', label: 'Cancel' });
-    expect(el.querySelector('button')!.className).toBe('btn-secondary');
+  it('renders btn-ghost when variant is ghost', () => {
+    const el = make({ variant: 'ghost', label: 'Cancel' });
+    expect(el.querySelector('button')!.className).toBe('btn-ghost');
   });
 
-  it('renders btn-link when variant is link', () => {
-    const el = make({ variant: 'link', label: 'All' });
-    expect(el.querySelector('button')!.className).toBe('btn-link');
+  it('renders btn-destructive when variant is destructive', () => {
+    const el = make({ variant: 'destructive', label: 'Delete' });
+    expect(el.querySelector('button')!.className).toBe('btn-destructive');
   });
 
   it('falls back to btn-primary for an unrecognised variant', () => {
@@ -38,7 +38,7 @@ describe('mfw-button', () => {
     expect(el.querySelector('button')!.className).toBe('btn-primary');
   });
 
-  it('passes disabled attribute to inner button', () => {
+  it('disables the button when disabled attribute present', () => {
     const el = make({ label: 'Go', disabled: '' });
     expect(el.querySelector('button')!.disabled).toBe(true);
   });
