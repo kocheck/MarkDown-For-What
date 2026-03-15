@@ -70,7 +70,7 @@ function initBottomBar(): void {
     });
 }
 
-customElements.whenDefined('mfw-bottom-bar').then(() => initBottomBar());
+initBottomBar();
 
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
@@ -554,7 +554,10 @@ function hidePreview() {
     previewContent.innerHTML = '';
     importSection.style.display = '';
     (fileListEl as HTMLElement).style.display = '';
-    if (importBtn) importBtn.textContent = 'Import';
+    if (importBtn) {
+        importBtn.textContent = 'Import';
+        importBtn.disabled = currentFiles.length === 0;
+    }
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
