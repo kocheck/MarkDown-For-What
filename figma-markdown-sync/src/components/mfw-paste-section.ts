@@ -30,7 +30,7 @@ class MfwPasteSection extends HTMLElement {
     nameInput.placeholder = 'Frame name (optional)';
 
     const importBtn = document.createElement('button');
-    importBtn.id = 'paste-import-btn';
+    importBtn.dataset.role = 'paste-import-btn';
     importBtn.className = 'btn-secondary';
     importBtn.textContent = 'Import Paste';
     importBtn.disabled = true;
@@ -65,7 +65,7 @@ class MfwPasteSection extends HTMLElement {
   reset(): void {
     const textarea = this.querySelector<HTMLTextAreaElement>('textarea');
     const nameInput = this.querySelector<HTMLInputElement>('input[type="text"]');
-    const importBtn = this.querySelector<HTMLButtonElement>('#paste-import-btn');
+    const importBtn = this.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]');
     const wrap = this.querySelector<HTMLElement>('.paste-area-wrap');
     if (textarea) textarea.value = '';
     if (nameInput) nameInput.value = '';

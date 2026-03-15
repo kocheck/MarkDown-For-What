@@ -25,22 +25,22 @@ describe('mfw-file-list', () => {
   it('setFiles renders one li per file', () => {
     const el = make();
     (el as any).setFiles([
-      { name: 'readme.md', size: 1024 },
-      { name: 'notes.md', size: 512 },
+      { name: 'readme.md' },
+      { name: 'notes.md' },
     ]);
     expect(el.querySelectorAll('li').length).toBe(2);
   });
 
   it('setFiles shows file names as text content', () => {
     const el = make();
-    (el as any).setFiles([{ name: 'design.md', size: 200 }]);
+    (el as any).setFiles([{ name: 'design.md' }]);
     expect(el.querySelector('li')!.textContent).toBe('design.md');
   });
 
   it('setFiles clears previous list before rendering', () => {
     const el = make();
-    (el as any).setFiles([{ name: 'a.md', size: 100 }]);
-    (el as any).setFiles([{ name: 'b.md', size: 200 }, { name: 'c.md', size: 300 }]);
+    (el as any).setFiles([{ name: 'a.md' }]);
+    (el as any).setFiles([{ name: 'b.md' }, { name: 'c.md' }]);
     expect(el.querySelectorAll('li').length).toBe(2);
   });
 });

@@ -1,6 +1,5 @@
 interface FileItem {
   name: string;
-  size: number;
 }
 
 class MfwFileList extends HTMLElement {

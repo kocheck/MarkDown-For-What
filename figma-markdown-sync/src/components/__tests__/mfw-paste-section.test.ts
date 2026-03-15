@@ -34,7 +34,7 @@ describe('mfw-paste-section', () => {
 
   it('disables Import Paste button when textarea is empty', () => {
     const el = make();
-    const importBtn = el.querySelector<HTMLButtonElement>('#paste-import-btn')!;
+    const importBtn = el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!;
     expect(importBtn.disabled).toBe(true);
   });
 
@@ -50,7 +50,7 @@ describe('mfw-paste-section', () => {
     textarea.value = '# Hello';
     textarea.dispatchEvent(new Event('input'));
     el.querySelector<HTMLInputElement>('input[type="text"]')!.value = 'My Doc';
-    el.querySelector<HTMLButtonElement>('#paste-import-btn')!.click();
+    el.querySelector<HTMLButtonElement>('[data-role="paste-import-btn"]')!.click();
     expect(received).toEqual([{ text: '# Hello', name: 'My Doc' }]);
   });
 
@@ -62,6 +62,7 @@ describe('mfw-paste-section', () => {
     textarea.dispatchEvent(new Event('input'));
     (el as any).reset();
     expect(textarea.value).toBe('');
+    expect(el.querySelector<HTMLInputElement>('input[type="text"]')!.value).toBe('');
     expect(el.querySelector('.paste-area-wrap')!.classList.contains('hidden')).toBe(true);
   });
 });
