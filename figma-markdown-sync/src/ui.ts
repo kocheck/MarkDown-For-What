@@ -1,4 +1,5 @@
 import './styles.css';
+import './components/mfw-index';
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 import {
