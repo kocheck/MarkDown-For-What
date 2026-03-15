@@ -2,37 +2,38 @@ import './styles.css';
 import './components/mfw-index';
 
 // Bottom-bar slot elements — assigned by initBottomBar() once the custom element is defined and connected
-let statusMsg: HTMLParagraphElement;
+let statusDot: HTMLElement;
+let statusText: HTMLElement;
 let previewCancelBtn: HTMLButtonElement;
 let importBtn: HTMLButtonElement;
 
 function initBottomBar(): void {
-    const _bottomBar = document.querySelector('mfw-bottom-bar');
-    if (!_bottomBar) {
-        console.error('[MFW] mfw-bottom-bar not found in DOM');
-        return;
-    }
-    const _statusSlot = _bottomBar.querySelector('[data-slot="status"]');
-    const _actionsSlot = _bottomBar.querySelector('[data-slot="actions"]');
-    if (!_statusSlot || !_actionsSlot) {
-        console.error('[MFW] mfw-bottom-bar rendered without expected slots');
-        return;
-    }
+    const bar = document.querySelector('mfw-bottom-bar') as HTMLElement | null;
+    if (!bar) return;
 
-    statusMsg = document.createElement('p');
-    statusMsg.className = 'status-message';
-    _statusSlot.appendChild(statusMsg);
+    const statusSlot = bar.querySelector('[data-slot="status"]') as HTMLElement | null;
+    const actionsSlot = bar.querySelector('[data-slot="actions"]') as HTMLElement | null;
+    if (!statusSlot || !actionsSlot) return;
+
+    statusDot = document.createElement('span');
+    statusDot.className = 'status-dot';
+
+    statusText = document.createElement('span');
+    statusText.className = 'status-text';
+
+    statusSlot.appendChild(statusDot);
+    statusSlot.appendChild(statusText);
 
     previewCancelBtn = document.createElement('button');
     previewCancelBtn.className = 'btn-secondary hidden';
     previewCancelBtn.textContent = 'Cancel';
-    _actionsSlot.appendChild(previewCancelBtn);
+    actionsSlot.appendChild(previewCancelBtn);
 
     importBtn = document.createElement('button');
     importBtn.className = 'btn-primary';
     importBtn.disabled = true;
     importBtn.textContent = 'Import';
-    _actionsSlot.appendChild(importBtn);
+    actionsSlot.appendChild(importBtn);
 
     // Wire event listeners that depend on bottom-bar elements
     importBtn.addEventListener('click', () => {
@@ -832,10 +833,18 @@ clearHistoryBtn.addEventListener('click', () => {
 
 // ── Status helper ───────────────────────────────────────────────────────────
 
-function showStatus(message: string, type: 'success' | 'warning' | 'error' = 'success') {
-    if (!statusMsg) return;
-    statusMsg.textContent = message;
-    statusMsg.className = `status-message ${type}`;
+function showStatus(message: string, type: 'success' | 'error' = 'success') {
+    if (!statusText || !statusDot) return;
+
+    statusText.textContent = message;
+
+    // Reset classes on the parent slot
+    const slot = statusDot.parentElement;
+    if (slot) {
+        slot.classList.remove('status--success', 'status--error');
+        if (type === 'error') slot.classList.add('status--error');
+        else if (type === 'success') slot.classList.add('status--success');
+    }
 }
 
 // ── Plugin → UI messages ─────────────────────────────────────────────────────
@@ -848,7 +857,7 @@ window.onmessage = event => {
         case MSG_STATUS:
             loader.removeAttribute('visible');
             if (!previewPane.classList.contains('hidden')) hidePreview();
-            showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
+            showStatus(msg.message, msg.error ? 'error' : 'success');
             // Clear paste area on successful import (but not for export-domain status messages)
             if (!msg.error && msg.domain !== STATUS_DOMAIN_EXPORT) {
                 pasteSectionEl.reset();

@@ -1,7 +1,7 @@
 const STATUS_CLASSES = {
-  info: null,
-  error: 'error',
-  success: 'success',
+  info:    null,
+  error:   'status--error',
+  success: 'status--success',
 } as const;
 
 type StatusType = keyof typeof STATUS_CLASSES;
@@ -20,22 +20,24 @@ class MfwStatus extends HTMLElement {
 
     const message = this.getAttribute('message') ?? '';
     const raw = this.getAttribute('type') ?? 'info';
-    let type: StatusType;
-    if (isStatusType(raw)) {
-      type = raw;
-    } else {
-      console.warn(`[mfw-status] Unknown type "${raw}", falling back to "info".`);
-      type = 'info';
-    }
+    const type: StatusType = isStatusType(raw) ? raw : 'info';
 
-    const p = document.createElement('p');
-    p.className = 'status-message';
+    this.hidden = message === '';
+
+    // Remove old type classes before applying new one
+    this.classList.remove('status--success', 'status--error');
     const modifier = STATUS_CLASSES[type];
-    if (modifier !== null) p.classList.add(modifier);
-    p.textContent = message;
-    p.hidden = message === '';
+    if (modifier) this.classList.add(modifier);
 
-    this.appendChild(p);
+    const dot = document.createElement('span');
+    dot.className = 'status-dot';
+
+    const text = document.createElement('span');
+    text.className = 'status-text';
+    text.textContent = message;
+
+    this.appendChild(dot);
+    this.appendChild(text);
   }
 }
 

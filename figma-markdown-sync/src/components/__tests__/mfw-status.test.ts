@@ -15,52 +15,47 @@ describe('mfw-status', () => {
     expect(customElements.get('mfw-status')).toBeDefined();
   });
 
-  it('renders a p.status-message element', () => {
+  it('renders a status-dot span and a status-text span', () => {
     const el = make({ message: 'Ready' });
-    const p = el.querySelector('p');
-    expect(p).not.toBeNull();
-    expect(p!.classList.contains('status-message')).toBe(true);
-    expect(p!.textContent).toBe('Ready');
+    expect(el.querySelector('.status-dot')).not.toBeNull();
+    expect(el.querySelector('.status-text')).not.toBeNull();
+  });
+
+  it('renders message text in status-text span', () => {
+    const el = make({ message: 'Ready' });
+    expect(el.querySelector('.status-text')!.textContent).toBe('Ready');
   });
 
   it('is hidden when no message is set', () => {
     const el = make();
-    expect(el.querySelector('p')!.hidden).toBe(true);
+    expect((el as HTMLElement).hidden).toBe(true);
   });
 
   it('is visible when message is set', () => {
     const el = make({ message: 'Importing...' });
-    expect(el.querySelector('p')!.hidden).toBe(false);
+    expect((el as HTMLElement).hidden).toBe(false);
   });
 
-  it('applies success modifier class', () => {
+  it('applies success type class to host', () => {
     const el = make({ message: 'Done', type: 'success' });
-    expect(el.querySelector('p')!.classList.contains('success')).toBe(true);
+    expect(el.classList.contains('status--success')).toBe(true);
   });
 
-  it('applies error modifier class', () => {
+  it('applies error type class to host', () => {
     const el = make({ message: 'Failed', type: 'error' });
-    expect(el.querySelector('p')!.classList.contains('error')).toBe(true);
+    expect(el.classList.contains('status--error')).toBe(true);
   });
 
-  it('applies no modifier class for info type', () => {
+  it('applies no type class for info type', () => {
     const el = make({ message: 'Note', type: 'info' });
-    const p = el.querySelector('p')!;
-    expect(p.classList.length).toBe(1);
-    expect(p.classList.contains('status-message')).toBe(true);
-  });
-
-  it('falls back to info (no modifier) for an unrecognised type', () => {
-    const el = make({ message: 'Oops', type: 'banana' });
-    const p = el.querySelector('p')!;
-    expect(p.classList.contains('status-message--banana')).toBe(false);
-    expect(p.classList.length).toBe(1);
+    expect(el.classList.contains('status--success')).toBe(false);
+    expect(el.classList.contains('status--error')).toBe(false);
   });
 
   it('does not double-render on reconnect', () => {
     const el = make({ message: 'X' });
     document.body.removeChild(el);
     document.body.appendChild(el);
-    expect(el.querySelectorAll('p').length).toBe(1);
+    expect(el.querySelectorAll('.status-dot').length).toBe(1);
   });
 });

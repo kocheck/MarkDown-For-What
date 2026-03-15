@@ -425,15 +425,35 @@ mfw-section-header {
     background: var(--color-gray2);
 }
 
-.status-message {
-    flex: 1;
-    font-size: var(--font-size-sm);
-    color: var(--color-gray11);
+/* ── Status ───────────────────────────────────────────────── */
+mfw-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.status-message.success { color: var(--color-mint10); }
-.status-message.warning { color: var(--color-orange11); }
-.status-message.error   { color: var(--color-red11); }
+mfw-status[hidden] { display: none; }
+
+.status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--color-gray11);
+}
+
+.status-text {
+    font-family: var(--font-mono-brand);
+    font-size: var(--font-size-sm);
+    color: var(--color-gray11);
+    white-space: nowrap;
+}
+
+mfw-status.status--success .status-dot { background: var(--color-mint10); }
+mfw-status.status--success .status-text { color: var(--color-gray11); }
+
+mfw-status.status--error .status-dot { background: var(--color-red10); }
+mfw-status.status--error .status-text { color: var(--color-red11); }
 
 /* ── Buttons ──────────────────────────────────────────────── */
 button {
