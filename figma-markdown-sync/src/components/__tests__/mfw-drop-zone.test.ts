@@ -22,7 +22,7 @@ describe('mfw-drop-zone', () => {
 
   it('renders the default label when none is provided', () => {
     const el = make();
-    expect(el.querySelector('p.drop-zone-label')!.textContent).toBe('Drop your Markdown here');
+    expect(el.querySelector('p.drop-zone-label')!.textContent).toBe('Drop .md files here');
   });
 
   it('renders a custom label text', () => {
@@ -30,46 +30,41 @@ describe('mfw-drop-zone', () => {
     expect(el.querySelector('p.drop-zone-label')!.textContent).toBe('Drop Markdown here');
   });
 
-  it('renders the default sub-label when none is provided', () => {
+  it('renders the default sublabel when none is provided', () => {
     const el = make();
-    expect(el.querySelector('p.drop-zone-sub')!.textContent).toBe('or click to browse');
+    expect(el.querySelector('p.drop-zone-sublabel')!.textContent).toBe('or click to browse');
   });
 
-  it('renders a custom sub-label text', () => {
-    const el = make({ 'sub-label': 'or click to browse' });
-    expect(el.querySelector('p.drop-zone-sub')!.textContent).toBe('or click to browse');
+  it('renders a custom sublabel text', () => {
+    const el = make({ sublabel: 'or drag a file' });
+    expect(el.querySelector('p.drop-zone-sublabel')!.textContent).toBe('or drag a file');
   });
 
-  it('renders a file input with the default accept attribute', () => {
+  it('renders the icon container', () => {
     const el = make();
-    const input = el.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input.accept).toBe('.md,.markdown,.txt');
+    expect(el.querySelector('div.drop-zone-icon-container')).not.toBeNull();
   });
 
-  it('renders a file input with a custom accept attribute', () => {
-    const el = make({ accept: '.md,.txt' });
-    const input = el.querySelector('input[type="file"]') as HTMLInputElement;
-    expect(input.accept).toBe('.md,.txt');
-  });
-
-  it('sets the file input id when input-id is provided', () => {
-    const el = make({ 'input-id': 'md-upload' });
-    expect((el.querySelector('input[type="file"]') as HTMLInputElement).id).toBe('md-upload');
-  });
-
-  it('does not set a file input id when input-id is absent', () => {
+  it('renders an SVG inside the icon container', () => {
     const el = make();
-    expect((el.querySelector('input[type="file"]') as HTMLInputElement).id).toBe('');
+    const svg = el.querySelector('div.drop-zone-icon-container svg');
+    expect(svg).not.toBeNull();
   });
 
-  it('sets the file input to accept multiple files', () => {
+  it('SVG has correct dimensions', () => {
     const el = make();
-    expect((el.querySelector('input[type="file"]') as HTMLInputElement).multiple).toBe(true);
+    const svg = el.querySelector('div.drop-zone-icon-container svg')!;
+    expect(svg.getAttribute('width')).toBe('24');
+    expect(svg.getAttribute('height')).toBe('24');
+    expect(svg.getAttribute('viewBox')).toBe('0 0 24 24');
   });
 
-  it('sets an aria-label on the file input', () => {
+  it('dispatches mfw-drop-click on click', () => {
     const el = make();
-    expect(el.querySelector('input[type="file"]')!.getAttribute('aria-label')).toBe('Choose Markdown files');
+    let fired = false;
+    el.addEventListener('mfw-drop-click', () => { fired = true; });
+    (el.querySelector('div.drop-zone') as HTMLElement).click();
+    expect(fired).toBe(true);
   });
 
   it('does not double-render on reconnect', () => {

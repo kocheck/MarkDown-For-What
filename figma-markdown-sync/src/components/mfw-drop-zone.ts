@@ -6,44 +6,53 @@ class MfwDropZone extends HTMLElement {
   render(): void {
     while (this.firstChild) this.removeChild(this.firstChild);
 
-    const icon = this.getAttribute('icon') ?? '\u2193';
-    const label = this.getAttribute('label') ?? 'Drop your Markdown here';
-    const subLabel = this.getAttribute('sub-label') ?? 'or click to browse';
-    const accept = this.getAttribute('accept') ?? '.md,.markdown,.txt';
+    const zone = document.createElement('div');
+    zone.className = 'drop-zone';
 
-    const wrapper = document.createElement('div');
-    wrapper.className = 'drop-zone';
+    // Icon container box
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'drop-zone-icon-container';
 
-    const iconSpan = document.createElement('span');
-    iconSpan.className = 'drop-zone-icon';
-    iconSpan.textContent = icon;
+    // Download SVG via createElementNS (no innerHTML — per CLAUDE.md)
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '24');
+    svg.setAttribute('height', '24');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'currentColor');
 
-    const labelP = document.createElement('p');
-    labelP.className = 'drop-zone-label';
-    labelP.textContent = label;
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', 'M13 10h5l-6 6-6-6h5V3h2v7zm-9 9h16v-7h2v8a1 1 0 01-1 1H3a1 1 0 01-1-1v-8h2v7z');
+    svg.appendChild(path);
+    iconContainer.appendChild(svg);
 
-    const subP = document.createElement('p');
-    subP.className = 'drop-zone-sub';
-    subP.textContent = subLabel;
+    const label = document.createElement('p');
+    label.className = 'drop-zone-label';
+    label.textContent = this.getAttribute('label') ?? 'Drop .md files here';
 
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    const inputId = this.getAttribute('input-id');
-    if (inputId) {
-      fileInput.id = inputId;
-    } else {
-      console.warn('[mfw-drop-zone] No "input-id" attribute provided. The file input will have no id, which prevents external code from wiring event listeners to it by id.');
-    }
-    fileInput.accept = accept;
-    fileInput.multiple = true;
-    fileInput.setAttribute('aria-label', 'Choose Markdown files');
+    const sublabel = document.createElement('p');
+    sublabel.className = 'drop-zone-sublabel';
+    sublabel.textContent = this.getAttribute('sublabel') ?? 'or click to browse';
 
-    wrapper.appendChild(iconSpan);
-    wrapper.appendChild(labelP);
-    wrapper.appendChild(subP);
-    wrapper.appendChild(fileInput);
+    zone.appendChild(iconContainer);
+    zone.appendChild(label);
+    zone.appendChild(sublabel);
+    this.appendChild(zone);
 
-    this.appendChild(wrapper);
+    // Re-attach drag events
+    zone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      zone.classList.add('drag-over');
+    });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer?.files ?? []);
+      this.dispatchEvent(new CustomEvent('mfw-drop', { bubbles: true, detail: { files } }));
+    });
+    zone.addEventListener('click', () => {
+      this.dispatchEvent(new CustomEvent('mfw-drop-click', { bubbles: true }));
+    });
   }
 }
 
