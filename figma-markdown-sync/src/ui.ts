@@ -177,7 +177,9 @@ if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
     console.error('[MFW] One or more critical elements missing from DOM. Check shell template and build:html output.');
 }
 
-// Populate static width options — mfw-settings-row renders an empty <select> by default
+// Populate static width options — mfw-settings-row renders an empty <select> by default.
+// Pixel values duplicated from WIDTH_PRESETS in settings.ts (UI runs in a separate iframe
+// bundle and cannot import from the plugin sandbox). IMPORTANT: Keep in sync with settings.ts.
 const widthModeRow = document.querySelector<HTMLElement & {
     setOptions(items: Array<{ value: string; label: string }>): void;
 }>('mfw-settings-row[input-id="widthMode"]');
