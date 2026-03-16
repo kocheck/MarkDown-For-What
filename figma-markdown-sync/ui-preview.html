@@ -354,6 +354,20 @@
                 </div>
             </div>
 
+        <div class="catalog-section">
+            <h3 class="catalog-section-title">mfw-bottom-bar</h3>
+            <div class="catalog-row">
+                <mfw-bottom-bar id="catalog-bottom-bar" style="flex:1"></mfw-bottom-bar>
+            </div>
+        </div>
+
+        <div class="catalog-section">
+            <h3 class="catalog-section-title">mfw-file-list</h3>
+            <div class="catalog-row">
+                <mfw-file-list id="catalog-file-list"></mfw-file-list>
+            </div>
+        </div>
+
         </div>
     </div>
 
@@ -362,6 +376,33 @@
 <!-- Loads component definitions only. Do NOT swap this for dist/ui.js. -->
 <script src="dist/components.js"></script>
 <script>
+    // mfw-bottom-bar demo
+    customElements.whenDefined('mfw-bottom-bar').then(function() {
+        var bar = document.getElementById('catalog-bottom-bar');
+        if (bar) {
+            var slot = bar.querySelector('[data-slot="status"]');
+            if (slot) slot.textContent = 'Ready';
+            var actions = bar.querySelector('[data-slot="actions"]');
+            if (actions) {
+                var btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.textContent = 'Import';
+                actions.appendChild(btn);
+            }
+        }
+    });
+
+    // mfw-file-list demo
+    customElements.whenDefined('mfw-file-list').then(function() {
+        var list = document.getElementById('catalog-file-list');
+        if (list && list.setFiles) {
+            list.setFiles([
+                { name: 'getting-started.md', meta: '3 blocks' },
+                { name: 'api-reference.md',   meta: '12 blocks' },
+            ]);
+        }
+    });
+
     // Tab switching for the preview frame via mfw-tab-bar component
     var tabBar = document.querySelector('mfw-tab-bar');
     if (tabBar) {
