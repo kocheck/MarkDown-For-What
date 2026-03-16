@@ -135,7 +135,7 @@ marked.use({
 const tabBar = document.querySelector('mfw-tab-bar') as HTMLElement;
 const loader = document.querySelector('mfw-loader') as HTMLElement;
 
-const importSection = document.getElementById('import-section') as HTMLElement;
+const importSection = document.getElementById('import-normal-state') as HTMLElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const fileListEl = document.querySelector('mfw-file-list') as HTMLElement & {
