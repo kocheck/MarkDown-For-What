@@ -117,7 +117,6 @@ mfw-section-header {
     overflow: hidden;
 }
 
-.tab-panel.hidden { display: none; }
 
 /* ── Import header ────────────────────────────────────────── */
 .import-color-block {
@@ -147,7 +146,7 @@ mfw-section-header {
     border-radius: var(--radius-sm);
     cursor: pointer;
     background-color: var(--color-gray3);
-    background-image: radial-gradient(ellipse at 50% 50%, rgba(35,35,35,0) 48%, rgba(35,35,35,0.8) 100%);
+    background-image: radial-gradient(ellipse at 50% 50%, rgb(from var(--color-gray3) r g b / 0) 48%, rgb(from var(--color-gray3) r g b / 0.8) 100%);
     transition: border-color var(--transition-fast);
 }
 
@@ -280,7 +279,6 @@ mfw-section-header {
     overflow: hidden;
 }
 
-.preview-pane.hidden { display: none; }
 
 .preview-header {
     padding: 10px 16px 8px;
@@ -645,7 +643,6 @@ button {
     z-index: 100;
 }
 
-.loader-overlay.hidden { display: none; }
 
 .loader-content {
     text-align: center;
