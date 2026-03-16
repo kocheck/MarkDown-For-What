@@ -177,6 +177,17 @@ if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
     console.error('[MFW] One or more critical elements missing from DOM. Check shell template and build:html output.');
 }
 
+// Populate static width options — mfw-settings-row renders an empty <select> by default
+const widthModeRow = document.querySelector<HTMLElement & {
+    setOptions(items: Array<{ value: string; label: string }>): void;
+}>('mfw-settings-row[input-id="widthMode"]');
+widthModeRow?.setOptions([
+    { value: 'narrow', label: 'Narrow (480px)' },
+    { value: 'medium', label: 'Medium (800px)' },
+    { value: 'wide',   label: 'Wide (960px)' },
+    { value: 'custom', label: 'Custom' },
+]);
+
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
 // IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
 // NOTE: ThemeId in mfw-theme-selector.ts lists valid theme ids; ensure both stay aligned.
