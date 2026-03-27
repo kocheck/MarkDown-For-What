@@ -1,4 +1,107 @@
 import './styles.css';
+import './components/mfw-index';
+
+// Bottom-bar slot elements — assigned by initBottomBar() once the custom element is defined and connected
+let statusEl: HTMLElement;
+let previewCancelBtn: HTMLButtonElement;
+let importBtn: HTMLButtonElement;
+
+function initBottomBar(): void {
+    const bar = document.querySelector('mfw-bottom-bar') as HTMLElement | null;
+    if (!bar) return;
+
+    const statusSlot = bar.querySelector('[data-slot="status"]') as HTMLElement | null;
+    const actionsSlot = bar.querySelector('[data-slot="actions"]') as HTMLElement | null;
+    if (!statusSlot || !actionsSlot) return;
+
+    statusEl = document.createElement('mfw-status');
+    statusSlot.appendChild(statusEl);
+
+    previewCancelBtn = document.createElement('button');
+    previewCancelBtn.className = 'btn-ghost hidden';
+    previewCancelBtn.textContent = 'Cancel';
+    actionsSlot.appendChild(previewCancelBtn);
+
+    importBtn = document.createElement('button');
+    importBtn.className = 'btn-primary';
+    importBtn.disabled = true;
+    importBtn.textContent = 'Import';
+    actionsSlot.appendChild(importBtn);
+
+    // Wire event listeners that depend on bottom-bar elements
+    importBtn.addEventListener('click', () => {
+        if (currentFiles.length === 0) return;
+        loader.setAttribute('visible', '');
+        importBtn.disabled = true;
+
+        // Collect unchecked block indices per file
+        const excludedBlocks: Record<number, number[]> = {};
+        const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
+        checkboxes.forEach(cb => {
+            if (!cb.checked) {
+                const fi = Number(cb.dataset.fileIndex ?? 0);
+                const bi = Number(cb.dataset.blockIndex ?? 0);
+                if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
+                excludedBlocks[fi].push(bi);
+            }
+        });
+
+        parent.postMessage({
+            pluginMessage: {
+                type: MSG_IMPORT_BATCH,
+                files: currentFiles,
+                excludedBlocks,
+            }
+        }, '*');
+    });
+
+    previewCancelBtn.addEventListener('click', () => {
+        hidePreview();
+        currentFiles = [];
+        renderFileList([]);
+        showStatus('', 'success');
+        importBtn.disabled = true;
+    });
+}
+
+initBottomBar();
+
+function initErrorIconContainer(): void {
+  const container = document.getElementById('error-icon-container');
+  if (!container) return;
+
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('width', '24');
+  svg.setAttribute('height', '24');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'currentColor');
+
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z');
+  svg.appendChild(path);
+  container.appendChild(svg);
+}
+initErrorIconContainer();
+
+function showImportError(invalidFiles: { name: string; ext: string }[]): void {
+  document.getElementById('import-normal-state')?.classList.add('hidden');
+  document.getElementById('import-error-state')?.classList.remove('hidden');
+
+  const errorFileList = document.getElementById('error-file-list') as HTMLElement & { setFiles(f: any[]): void } | null;
+  errorFileList?.setFiles(invalidFiles.map(f => ({
+    name: f.name,
+    meta: `unsupported format — ${f.ext}`,
+  })));
+}
+
+function hideImportError(): void {
+  document.getElementById('import-normal-state')?.classList.remove('hidden');
+  document.getElementById('import-error-state')?.classList.add('hidden');
+}
+
+document.querySelector('#import-error-state mfw-button')
+  ?.addEventListener('click', hideImportError);
+
 import { marked } from 'marked';
 import { isValidHex, hasSupportedExtension } from '../utils';
 import {
@@ -10,7 +113,7 @@ import {
     MSG_EXPORT_RESULT, MSG_EXPORT_MARKDOWN, MSG_SELECTION_CHANGED,
     STATUS_DOMAIN_EXPORT,
 } from '../messages';
-import type { ExportBlock, BlockSelection, ExportFrameResult } from '../exporter';
+import type { BlockSelection, ExportFrameResult } from '../exporter';
 
 function escapeHtml(str: string): string {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -29,31 +132,25 @@ marked.use({
 
 // ── DOM references ──────────────────────────────────────────────────────────
 
-const tabs = document.querySelectorAll<HTMLButtonElement>('.tab');
-const tabPanels = document.querySelectorAll<HTMLElement>('.tab-panel');
+const tabBar = document.querySelector('mfw-tab-bar') as HTMLElement;
+const loader = document.querySelector('mfw-loader') as HTMLElement;
 
-const importSection = document.getElementById('import-section') as HTMLElement;
+const importSection = document.getElementById('import-normal-state') as HTMLElement;
 const dropZone = document.getElementById('drop-zone') as HTMLElement;
 const fileInput = document.getElementById('file-input') as HTMLInputElement;
-const fileList = document.getElementById('file-list') as HTMLUListElement;
-const importBtn = document.getElementById('import-btn') as HTMLButtonElement;
-const statusMsg = document.getElementById('status-message') as HTMLParagraphElement;
-const loader = document.getElementById('loader') as HTMLElement;
+const fileListEl = document.querySelector('mfw-file-list') as HTMLElement & {
+    setFiles(files: Array<{ name: string }>): void;
+};
 
 // Preview elements
 const previewPane = document.getElementById('preview-pane') as HTMLElement;
 const previewContent = document.getElementById('preview-content') as HTMLElement;
 const previewSummary = document.getElementById('preview-summary') as HTMLElement;
-const previewCancelBtn = document.getElementById('preview-cancel') as HTMLButtonElement;
 const selectAllBtn = document.getElementById('select-all-btn') as HTMLButtonElement;
 const deselectAllBtn = document.getElementById('deselect-all-btn') as HTMLButtonElement;
 
-// Paste elements
-const pasteToggle = document.getElementById('paste-toggle') as HTMLButtonElement;
-const pasteAreaWrap = document.getElementById('paste-area-wrap') as HTMLElement;
-const pasteArea = document.getElementById('paste-area') as HTMLTextAreaElement;
-const pasteName = document.getElementById('paste-name') as HTMLInputElement;
-const pasteImportBtn = document.getElementById('paste-import-btn') as HTMLButtonElement;
+// Paste section
+const pasteSectionEl = document.querySelector('mfw-paste-section') as HTMLElement & { reset(): void };
 
 // Settings inputs
 const settingInputIds = [
@@ -63,8 +160,8 @@ const settingInputIds = [
 
 const checkboxSettingIds = ['generateToc', 'componentNames'] as const;
 
-// Theme buttons
-const themeBtns = document.querySelectorAll<HTMLButtonElement>('.theme-btn');
+// Theme selector
+const themeSelectorEl = document.querySelector('mfw-theme-selector') as HTMLElement;
 
 // Style binding selects
 const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style-binding-select');
@@ -73,23 +170,29 @@ const styleBindingSelects = document.querySelectorAll<HTMLSelectElement>('.style
 const componentBindingSelects = document.querySelectorAll<HTMLSelectElement>('.component-binding-select');
 
 // Export tab elements
-const exportNoSelection      = document.getElementById('export-no-selection') as HTMLElement;
-const exportFrameSummary     = document.getElementById('export-frame-summary') as HTMLElement;
-const exportFrameInfo        = document.getElementById('export-frame-info') as HTMLElement;
-const exportBlockCounts      = document.getElementById('export-block-counts') as HTMLElement;
-const exportTruncatedWarning = document.getElementById('export-truncated-warning') as HTMLElement;
-const exportBtn              = document.getElementById('export-btn') as HTMLButtonElement;
-const exportReviewBtn        = document.getElementById('export-review-btn') as HTMLButtonElement;
-const exportReviewPanel      = document.getElementById('export-review-panel') as HTMLElement;
-const exportReviewBreadcrumb = document.getElementById('export-review-breadcrumb') as HTMLElement;
-const exportReviewBlocks     = document.getElementById('export-review-blocks') as HTMLElement;
-const exportReviewBack       = document.getElementById('export-review-back') as HTMLButtonElement;
-const exportConfirmBtn       = document.getElementById('export-confirm-btn') as HTMLButtonElement;
-const exportLogPanel         = document.getElementById('export-log-panel') as HTMLElement;
-const exportLogContent       = document.getElementById('export-log-content') as HTMLElement;
+const exportBtn = document.getElementById('export-btn') as HTMLButtonElement;
+
+// After DOM refs are established
+if (!tabBar || !loader || !pasteSectionEl || !fileListEl || !themeSelectorEl) {
+    console.error('[MFW] One or more critical elements missing from DOM. Check shell template and build:html output.');
+}
+
+// Populate static width options — mfw-settings-row renders an empty <select> by default.
+// Pixel values duplicated from WIDTH_PRESETS in settings.ts (UI runs in a separate iframe
+// bundle and cannot import from the plugin sandbox). IMPORTANT: Keep in sync with settings.ts.
+const widthModeRow = document.querySelector<HTMLElement & {
+    setOptions(items: Array<{ value: string; label: string }>): void;
+}>('mfw-settings-row[input-id="widthMode"]');
+widthModeRow?.setOptions([
+    { value: 'narrow', label: 'Narrow (480px)' },
+    { value: 'medium', label: 'Medium (800px)' },
+    { value: 'wide',   label: 'Wide (960px)' },
+    { value: 'custom', label: 'Custom' },
+]);
 
 // Theme presets (duplicated from settings.ts — UI runs in a separate iframe bundle).
 // IMPORTANT: Keep in sync with THEME_PRESETS in settings.ts.
+// NOTE: ThemeId in mfw-theme-selector.ts lists valid theme ids; ensure both stay aligned.
 const THEME_PRESETS: Record<string, Record<string, unknown>> = {
     'minimal-light': {
         frameFillColor: '#FFFFFF', codeBackground: '#F2F2F2',
@@ -114,170 +217,61 @@ let currentFiles: { name: string; content: string }[] = [];
 
 // Export state
 let exportFrameResults: ExportFrameResult[] = [];
-let exportReviewSelections: Map<number, Map<number, 'use-original' | 'use-inferred' | 'skip'>> = new Map();
-let exportCurrentFrameIndex = 0;
 let pendingDownloadIndex = 0;
 let downloadBatchId = 0;
 const DOWNLOAD_STAGGER_MS = 300; // delay between triggering successive file downloads to avoid browser download-manager throttling
 
 // ── Export UI helpers ────────────────────────────────────────────────────────
 
-function showExportNoSelection() {
-    exportNoSelection.hidden = false;
-    exportFrameSummary.hidden = true;
-    exportReviewPanel.hidden = true;
+function buildLogEntry(text: string, status: 'done' | 'progress'): HTMLElement {
+    const entry = document.createElement('div');
+    entry.className = 'export-log-entry';
+
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.setAttribute('width', '12');
+    icon.setAttribute('height', '12');
+    icon.setAttribute('viewBox', '0 0 24 24');
+    icon.setAttribute('fill', 'none');
+    icon.setAttribute('stroke', 'currentColor');
+    icon.setAttribute('stroke-width', '2.5');
+
+    if (status === 'done') {
+        const check = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+        check.setAttribute('points', '20 6 9 17 4 12');
+        icon.appendChild(check);
+        icon.classList.add('log-icon-done');
+    } else {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '12');
+        circle.setAttribute('cy', '12');
+        circle.setAttribute('r', '10');
+        icon.appendChild(circle);
+        icon.classList.add('log-icon-progress');
+    }
+
+    const label = document.createElement('span');
+    label.textContent = text;
+    label.className = status === 'progress' ? 'log-text-progress' : 'log-text-done';
+
+    entry.appendChild(icon);
+    entry.appendChild(label);
+    return entry;
 }
 
-function renderExportSummary(frames: ExportFrameResult[]) {
-    const incomingIds = frames.map(f => f.frameId).join(',');
-    const currentIds  = exportFrameResults.map(f => f.frameId).join(',');
-    if (incomingIds !== currentIds) {
-        exportReviewSelections = new Map();
-    }
-    exportFrameResults = frames;
-    exportNoSelection.hidden = true;
-    exportReviewPanel.hidden = true;
+function updateExportPanel(filename: string, meta: string, logEntries: { text: string; status: 'done' | 'progress' }[]): void {
+    const filenameEl = document.getElementById('export-filename');
+    const metaEl = document.getElementById('export-meta');
+    const logContainer = document.getElementById('export-log-entries');
 
-    if (frames.length === 0) { showExportNoSelection(); return; }
+    if (filenameEl) filenameEl.textContent = filename;
+    if (metaEl) metaEl.textContent = meta;
 
-    exportFrameSummary.hidden = false;
-    const frame = frames[0];
-
-    exportFrameInfo.textContent = frames.length === 1
-        ? `"${frame.filename.replace('.md', '')}"`
-        : `${frames.length} frames selected`;
-
-    exportTruncatedWarning.hidden = !frames.some(f => f.sourceStatus === 'truncated');
-
-    const unchanged = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'unchanged').length, 0);
-    const modified  = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'modified').length, 0);
-    const added     = frames.reduce((n, f) => n + f.blocks.filter(b => b.state === 'new').length, 0);
-
-    if (frame.sourceStatus === 'none' && frames.length === 1) {
-        exportFrameInfo.textContent = 'No import history found.';
-
-        const countText = added === 0
-            ? 'No Markdown content detected. This frame may not use Markdown/* styles.'
-            : `${added} block${added !== 1 ? 's' : ''} inferred`;
-        exportBlockCounts.textContent = `Inference works best on frames using Markdown/* text styles. Other frames may produce few or no blocks.\n\n${countText}`;
-
-        exportBtn.disabled = added === 0;
-        exportReviewBtn.hidden = true;
-    } else {
-        const parts = [
-            unchanged > 0 ? `${unchanged} unchanged ✓` : '',
-            modified  > 0 ? `${modified} modified ↻`  : '',
-            added     > 0 ? `${added} added +`         : '',
-        ].filter(Boolean);
-        exportBlockCounts.textContent = parts.join('  ');
-        exportBtn.disabled = false;
-        exportBtn.textContent = frames.length > 1 ? `Export all (${frames.length} files)` : 'Export .md';
-        exportReviewBtn.hidden = (modified + added) === 0;
-    }
-}
-
-function renderReviewPanel(frameIndex: number) {
-    exportCurrentFrameIndex = frameIndex;
-    const frame = exportFrameResults[frameIndex];
-    if (!frame) return;
-
-    exportFrameSummary.hidden = true;
-    exportReviewPanel.hidden = false;
-
-    if (exportFrameResults.length > 1) {
-        exportReviewBreadcrumb.textContent = `Frame ${frameIndex + 1} of ${exportFrameResults.length}: ${frame.filename}`;
-        exportReviewBreadcrumb.hidden = false;
-    } else {
-        exportReviewBreadcrumb.hidden = true;
-    }
-
-    // Clear existing content using safe DOM method
-    while (exportReviewBlocks.firstChild) exportReviewBlocks.removeChild(exportReviewBlocks.firstChild);
-
-    const reviewable = frame.blocks.filter(b => b.state !== 'unchanged');
-    const frameSelections = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
-
-    reviewable.forEach(block => {
-        const blockIndex = frame.blocks.indexOf(block);
-        const defaultAction: 'use-original' | 'use-inferred' | 'skip' = block.state === 'modified' ? 'use-original' : 'use-inferred';
-        const currentAction = frameSelections.get(blockIndex) ?? defaultAction;
-
-        const el = document.createElement('div');
-        el.className = `review-block review-block--${block.state}`;
-
-        const header = document.createElement('div');
-        header.className = 'review-block-header';
-        const stateIcon = block.state === 'modified' ? '↻' : '+';
-        const stateLabel = block.state === 'modified' ? 'modified' : 'added';
-        header.textContent = `${stateIcon} ${stateLabel}`;
-        el.appendChild(header);
-
-        if (block.fidelityWarning) {
-            const warn = document.createElement('div');
-            warn.className = 'review-fidelity-warning';
-            warn.textContent = `⚠ ${block.fidelityWarning}`;
-            el.appendChild(warn);
+    if (logContainer) {
+        while (logContainer.firstChild) logContainer.removeChild(logContainer.firstChild);
+        for (const entry of logEntries) {
+            logContainer.appendChild(buildLogEntry(entry.text, entry.status));
         }
-
-        // Diff panes
-        const diff = document.createElement('div');
-        diff.className = 'review-diff';
-
-        if (block.state === 'modified') {
-            const origCol = document.createElement('div');
-            origCol.className = 'review-diff-col';
-            const origLabel = document.createElement('div');
-            origLabel.className = 'review-diff-header';
-            origLabel.textContent = 'Original';
-            const origPre = document.createElement('pre');
-            origPre.className = 'review-diff-text';
-            origPre.textContent = block.originalText;
-            origCol.appendChild(origLabel);
-            origCol.appendChild(origPre);
-            diff.appendChild(origCol);
-        }
-
-        const currCol = document.createElement('div');
-        currCol.className = 'review-diff-col';
-        const currLabel = document.createElement('div');
-        currLabel.className = 'review-diff-header';
-        currLabel.textContent = 'Current';
-        const currPre = document.createElement('pre');
-        currPre.className = 'review-diff-text';
-        currPre.textContent = block.inferredText;
-        currCol.appendChild(currLabel);
-        currCol.appendChild(currPre);
-        diff.appendChild(currCol);
-        el.appendChild(diff);
-
-        // Action buttons
-        const actions = document.createElement('div');
-        actions.className = 'review-block-actions';
-
-        const makeBtn = (label: string, blockIdx: number, selAction: 'use-original' | 'use-inferred' | 'skip', active: boolean) => {
-            const btn = document.createElement('button');
-            btn.className = `btn-review${active ? ' btn-review--active' : ''}`;
-            btn.textContent = label;
-            btn.addEventListener('click', () => {
-                const sel = exportReviewSelections.get(frameIndex) ?? new Map<number, 'use-original' | 'use-inferred' | 'skip'>();
-                sel.set(blockIdx, selAction);
-                exportReviewSelections.set(frameIndex, sel);
-                renderReviewPanel(frameIndex);
-            });
-            return btn;
-        };
-
-        if (block.state === 'modified') {
-            actions.appendChild(makeBtn('✓ Keep original', blockIndex, 'use-original', currentAction === 'use-original'));
-            actions.appendChild(makeBtn('Use current',     blockIndex, 'use-inferred', currentAction === 'use-inferred'));
-        } else {
-            actions.appendChild(makeBtn('✓ Include', blockIndex, 'use-inferred', currentAction === 'use-inferred'));
-            actions.appendChild(makeBtn('Skip',      blockIndex, 'skip',         currentAction === 'skip'));
-        }
-
-        el.appendChild(actions);
-        exportReviewBlocks.appendChild(el);
-    });
+    }
 }
 
 function triggerDownload(filename: string, content: string): boolean {
@@ -304,10 +298,7 @@ function triggerDownload(filename: string, content: string): boolean {
 function downloadFrame(frameIndex: number, batchId = downloadBatchId) {
     const frame = exportFrameResults[frameIndex];
     if (!frame) return;
-    const sel = exportReviewSelections.get(frameIndex);
-    const selections: BlockSelection[] = sel
-        ? Array.from(sel.entries()).map(([blockIndex, action]) => ({ blockIndex, action }))
-        : [];
+    const selections: BlockSelection[] = [];
     parent.postMessage({ pluginMessage: { type: MSG_EXPORT_DOWNLOAD, frameId: frame.frameId, selections, batchId } }, '*');
 }
 
@@ -318,45 +309,8 @@ function startSequentialDownload() {
     downloadFrame(pendingDownloadIndex, batchId);
 }
 
-function renderExportLog(frames: ExportFrameResult[]) {
-    const lines: string[] = [];
-    for (const frame of frames) {
-        if (frame.skippedLayers && frame.skippedLayers.length > 0) {
-            lines.push(`--- ${frame.filename} ---`);
-            for (const s of frame.skippedLayers) {
-                lines.push(`  Skipped: "${s.name}" — ${s.reason}`);
-            }
-        }
-    }
-    exportLogPanel.hidden = lines.length === 0;
-    exportLogContent.textContent = lines.join('\n');
-}
-
 // ── Tab switching ───────────────────────────────────────────────────────────
-
-tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const targetId = 'tab-' + tab.dataset.tab;
-
-        tabs.forEach(t => t.classList.toggle('active', t === tab));
-        tabPanels.forEach(p => {
-            p.classList.toggle('active', p.id === targetId);
-            p.classList.toggle('hidden', p.id !== targetId);
-        });
-
-        if (tab.dataset.tab === 'settings') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
-            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
-            parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
-        }
-        if (tab.dataset.tab === 'history') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
-        }
-        if (tab.dataset.tab === 'export') {
-            parent.postMessage({ pluginMessage: { type: MSG_GET_SELECTION } }, '*');
-        }
-    });
-});
+// (handled by mfw-tab-bar component — no manual querySelectorAll('.tab') needed)
 
 // ── Drop zone ───────────────────────────────────────────────────────────────
 
@@ -391,11 +345,21 @@ function readFile(file: File): Promise<{ name: string; content: string }> {
 }
 
 async function handleFiles(files: FileList) {
-    importBtn.disabled = true;
+    if (importBtn) importBtn.disabled = true;
     showStatus('Reading files\u2026', 'success');
 
     try {
-        const validFiles = Array.from(files).filter(f => hasSupportedExtension(f.name));
+        const allFiles = Array.from(files);
+        const validFiles = allFiles.filter(f => hasSupportedExtension(f.name));
+        const invalidFiles = allFiles
+            .filter(f => !hasSupportedExtension(f.name))
+            .map(f => ({ name: f.name, ext: f.name.slice(f.name.lastIndexOf('.')) || f.name }));
+
+        if (invalidFiles.length > 0 && validFiles.length === 0) {
+            showImportError(invalidFiles);
+            return;
+        }
+
         currentFiles = await Promise.all(validFiles.map(readFile));
 
         if (currentFiles.length === 0) {
@@ -411,13 +375,7 @@ async function handleFiles(files: FileList) {
 }
 
 function renderFileList(files: { name: string; content: string }[]) {
-    fileList.textContent = '';
-
-    for (const file of files) {
-        const li = document.createElement('li');
-        li.textContent = file.name;
-        fileList.appendChild(li);
-    }
+    fileListEl.setFiles(files.map(f => ({ name: f.name })));
 }
 
 // ── Preview ─────────────────────────────────────────────────────────────────
@@ -495,68 +453,36 @@ function showPreview(files: { name: string; content: string }[]) {
 
     // Show preview, hide drop/paste
     importSection.style.display = 'none';
-    fileList.style.display = 'none';
+    (fileListEl as HTMLElement).style.display = 'none';
     previewPane.classList.remove('hidden');
-    previewCancelBtn.classList.remove('hidden');
-    importBtn.disabled = false;
-    importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
+    if (previewCancelBtn) previewCancelBtn.classList.remove('hidden');
+    if (importBtn) {
+        importBtn.disabled = false;
+        importBtn.textContent = files.length === 1 ? 'Import to Canvas' : `Import ${files.length} Files`;
+    }
 }
 
 function hidePreview() {
     previewPane.classList.add('hidden');
-    previewCancelBtn.classList.add('hidden');
+    if (previewCancelBtn) previewCancelBtn.classList.add('hidden');
     previewContent.innerHTML = '';
     importSection.style.display = '';
-    fileList.style.display = '';
-    importBtn.textContent = 'Import';
+    (fileListEl as HTMLElement).style.display = '';
+    if (importBtn) {
+        importBtn.textContent = 'Import';
+        importBtn.disabled = currentFiles.length === 0;
+    }
 }
 
 // ── Paste ───────────────────────────────────────────────────────────────────
 
-pasteToggle.addEventListener('click', () => {
-    pasteAreaWrap.classList.toggle('hidden');
-});
-
-pasteArea.addEventListener('input', () => {
-    pasteImportBtn.disabled = pasteArea.value.trim().length === 0;
-});
-
-pasteImportBtn.addEventListener('click', () => {
-    const content = pasteArea.value.trim();
-    if (!content) return;
-
-    const name = pasteName.value.trim() || 'Pasted Markdown';
-    currentFiles = [{ name: `${name}.md`, content }];
+pasteSectionEl.addEventListener('mfw-paste-import', (e) => {
+    const { text, name } = (e as CustomEvent<{ text: string; name: string }>).detail;
+    currentFiles = [{ name: `${name || 'Pasted Markdown'}.md`, content: text }];
     showPreview(currentFiles);
 });
 
 // ── Import ──────────────────────────────────────────────────────────────────
-
-importBtn.addEventListener('click', () => {
-    if (currentFiles.length === 0) return;
-    loader.classList.remove('hidden');
-    importBtn.disabled = true;
-
-    // Collect unchecked block indices per file
-    const excludedBlocks: Record<number, number[]> = {};
-    const checkboxes = previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox');
-    checkboxes.forEach(cb => {
-        if (!cb.checked) {
-            const fi = Number(cb.dataset.fileIndex ?? 0);
-            const bi = Number(cb.dataset.blockIndex ?? 0);
-            if (!excludedBlocks[fi]) excludedBlocks[fi] = [];
-            excludedBlocks[fi].push(bi);
-        }
-    });
-
-    parent.postMessage({
-        pluginMessage: {
-            type: MSG_IMPORT_BATCH,
-            files: currentFiles,
-            excludedBlocks,
-        }
-    }, '*');
-});
 
 function setAllCheckboxes(checked: boolean) {
     previewContent.querySelectorAll<HTMLInputElement>('.preview-block-checkbox').forEach(cb => {
@@ -567,14 +493,6 @@ function setAllCheckboxes(checked: boolean) {
 
 selectAllBtn.addEventListener('click', () => setAllCheckboxes(true));
 deselectAllBtn.addEventListener('click', () => setAllCheckboxes(false));
-
-previewCancelBtn.addEventListener('click', () => {
-    hidePreview();
-    currentFiles = [];
-    renderFileList([]);
-    showStatus('', 'success');
-    importBtn.disabled = true;
-});
 
 // ── Settings ────────────────────────────────────────────────────────────────
 
@@ -599,11 +517,9 @@ function populateSettings(settings: Record<string, unknown>) {
         if (cb && id in settings) cb.checked = !!settings[id];
     }
 
-    // Handle theme button active state
+    // Handle theme selector active state
     const theme = settings.theme as string ?? 'minimal-light';
-    themeBtns.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.theme === theme);
-    });
+    themeSelectorEl.setAttribute('active', theme);
 
     // Handle style and component bindings
     restoreBindings(styleBindingSelects, (settings.styleBindings ?? {}) as Record<string, string>, 'auto');
@@ -671,8 +587,8 @@ function setupSettingListeners() {
 
         input?.addEventListener('change', () => {
             if (id === 'widthMode') updateCustomWidthVisibility();
-            // Manual change → deactivate theme preset buttons
-            themeBtns.forEach(b => b.classList.remove('active'));
+            // Manual change → deactivate theme preset
+            themeSelectorEl.setAttribute('active', 'custom');
             sendCurrentSettings();
             if (swatch && input instanceof HTMLInputElement && isValidHex(input.value)) {
                 swatch.value = input.value;
@@ -682,7 +598,7 @@ function setupSettingListeners() {
         swatch?.addEventListener('input', () => {
             if (input && input instanceof HTMLInputElement) {
                 input.value = swatch.value;
-                themeBtns.forEach(b => b.classList.remove('active'));
+                themeSelectorEl.setAttribute('active', 'custom');
                 sendCurrentSettings();
             }
         });
@@ -693,28 +609,21 @@ function setupSettingListeners() {
         document.getElementById(id)?.addEventListener('change', () => sendCurrentSettings());
     }
 
-    // Theme buttons
-    themeBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const theme = btn.dataset.theme;
-            if (!theme || !THEME_PRESETS[theme]) return;
-
-            // Activate this button
-            themeBtns.forEach(b => b.classList.toggle('active', b === btn));
-
-            // Apply preset values to settings inputs
-            const preset = THEME_PRESETS[theme];
-            for (const [key, value] of Object.entries(preset)) {
-                const input = document.getElementById(key) as HTMLInputElement | null;
-                if (input) {
-                    input.value = String(value);
-                    const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
-                    if (swatch && typeof value === 'string') swatch.value = value;
-                }
+    // Theme selector
+    themeSelectorEl.addEventListener('mfw-theme-change', (e) => {
+        const theme = (e as CustomEvent<{ theme: string }>).detail.theme;
+        if (!THEME_PRESETS[theme]) return;
+        const preset = THEME_PRESETS[theme];
+        for (const [key, value] of Object.entries(preset)) {
+            const input = document.getElementById(key) as HTMLInputElement | null;
+            if (input) {
+                input.value = String(value);
+                const swatch = document.getElementById(`${key}-swatch`) as HTMLInputElement | null;
+                if (swatch && typeof value === 'string') swatch.value = value;
             }
-            updateCustomWidthVisibility();
-            sendCurrentSettings();
-        });
+        }
+        updateCustomWidthVisibility();
+        sendCurrentSettings();
     });
 
     // Style and component binding selects
@@ -752,8 +661,7 @@ function sendCurrentSettings() {
     settings.componentBindings = collectBindings(componentBindingSelects, '');
 
     // Determine active theme
-    const activeThemeBtn = document.querySelector('.theme-btn.active') as HTMLButtonElement | null;
-    settings.theme = activeThemeBtn?.dataset.theme ?? 'custom';
+    settings.theme = themeSelectorEl.getAttribute('active') ?? 'custom';
 
     // Compute frameWidth from widthMode/customWidth for backwards compat with validateSettings.
     // Duplicated from settings.ts WIDTH_PRESETS — UI runs in a separate iframe bundle,
@@ -768,59 +676,62 @@ function sendCurrentSettings() {
 
 setupSettingListeners();
 
+tabBar.addEventListener('mfw-tab-change', (e) => {
+    const tab = (e as CustomEvent<{ tab: string }>).detail.tab;
+    const panels = document.querySelectorAll<HTMLElement>('.tab-panel');
+    panels.forEach(p => {
+        p.classList.toggle('active', p.id === `${tab}-panel`);
+        p.classList.toggle('hidden', p.id !== `${tab}-panel`);
+    });
+    if (tab === 'settings') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_SETTINGS } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_STYLES } }, '*');
+        parent.postMessage({ pluginMessage: { type: MSG_GET_LOCAL_COMPONENTS } }, '*');
+    }
+    if (tab === 'history') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_HISTORY } }, '*');
+    }
+    if (tab === 'export') {
+        parent.postMessage({ pluginMessage: { type: MSG_GET_SELECTION } }, '*');
+    }
+});
+
 // ── Export button listeners ──────────────────────────────────────────────────
 
-exportBtn.addEventListener('click', startSequentialDownload);
-exportReviewBtn.addEventListener('click', () => renderReviewPanel(0));
-exportReviewBack.addEventListener('click', () => {
-    exportReviewPanel.hidden = true;
-    exportFrameSummary.hidden = false;
-});
-exportConfirmBtn.addEventListener('click', startSequentialDownload);
+exportBtn?.addEventListener('click', startSequentialDownload);
 
 // ── History ─────────────────────────────────────────────────────────────────
 
-const historyList = document.getElementById('history-list') as HTMLUListElement;
-const historyEmpty = document.getElementById('history-empty') as HTMLElement;
-const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLButtonElement;
+const historyFileList = document.getElementById('history-file-list') as HTMLElement & { setFiles(f: { name: string; meta: string }[]): void } | null;
+const historyEmpty = document.getElementById('history-empty') as HTMLElement | null;
+const historyCount = document.getElementById('history-count') as HTMLElement | null;
+const clearHistoryBtn = document.getElementById('clear-history-btn') as HTMLElement | null;
 
 function renderHistory(entries: Array<{ filename: string; timestamp: number; blockCount: number }>) {
-    historyList.textContent = '';
-    if (entries.length === 0) {
-        historyEmpty.style.display = '';
-        return;
-    }
-    historyEmpty.style.display = 'none';
-    for (const entry of entries) {
-        const li = document.createElement('li');
-        li.className = 'history-entry';
-
-        const nameSpan = document.createElement('span');
-        nameSpan.className = 'history-filename';
-        nameSpan.textContent = entry.filename;
-
-        const meta = document.createElement('span');
-        meta.className = 'history-meta';
-        const date = new Date(entry.timestamp);
+    if (!historyFileList) return;
+    historyFileList.setFiles(entries.map(e => {
+        const date = new Date(e.timestamp);
         const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
         const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-        meta.textContent = `${dateStr} ${timeStr} · ${entry.blockCount} block${entry.blockCount === 1 ? '' : 's'}`;
-
-        li.appendChild(nameSpan);
-        li.appendChild(meta);
-        historyList.appendChild(li);
-    }
+        return {
+            name: e.filename,
+            meta: `${dateStr} ${timeStr} · ${e.blockCount} block${e.blockCount === 1 ? '' : 's'}`,
+        };
+    }));
+    if (historyEmpty) historyEmpty.hidden = entries.length > 0;
+    if (historyCount) historyCount.textContent = `${entries.length} FILE${entries.length !== 1 ? 's' : ''}`;
 }
 
-clearHistoryBtn.addEventListener('click', () => {
+clearHistoryBtn?.addEventListener('click', () => {
     parent.postMessage({ pluginMessage: { type: MSG_CLEAR_HISTORY } }, '*');
 });
 
 // ── Status helper ───────────────────────────────────────────────────────────
 
-function showStatus(message: string, type: 'success' | 'warning' | 'error' = 'success') {
-    statusMsg.textContent = message;
-    statusMsg.className = `status-message ${type}`;
+function showStatus(message: string, type: 'success' | 'error' = 'success') {
+    if (!statusEl) return;
+    statusEl.setAttribute('message', message);
+    statusEl.setAttribute('type', type);
 }
 
 // ── Plugin → UI messages ─────────────────────────────────────────────────────
@@ -831,18 +742,16 @@ window.onmessage = event => {
 
     switch (msg.type) {
         case MSG_STATUS:
-            loader.classList.add('hidden');
+            loader.removeAttribute('visible');
             if (!previewPane.classList.contains('hidden')) hidePreview();
-            importBtn.disabled = currentFiles.length === 0;
-            showStatus(msg.message, msg.error ? 'error' : msg.warning ? 'warning' : 'success');
+            showStatus(msg.message, msg.error ? 'error' : 'success');
             // Clear paste area on successful import (but not for export-domain status messages)
             if (!msg.error && msg.domain !== STATUS_DOMAIN_EXPORT) {
-                pasteArea.value = '';
-                pasteName.value = '';
-                pasteImportBtn.disabled = true;
+                pasteSectionEl.reset();
                 currentFiles = [];
                 renderFileList([]);
             }
+            if (importBtn) importBtn.disabled = currentFiles.length === 0;
             break;
         case MSG_SETTINGS:
             populateSettings(msg.settings);
@@ -860,18 +769,30 @@ window.onmessage = event => {
             break;
         case MSG_SELECTION_CHANGED: {
             const activePanel = document.querySelector<HTMLElement>('.tab-panel:not(.hidden)');
-            if (activePanel?.id === 'tab-export') {
+            if (activePanel?.id === 'export-panel') {
                 if (msg.frameIds.length > 0) {
                     parent.postMessage({ pluginMessage: { type: MSG_EXPORT_REQUEST, frameIds: msg.frameIds } }, '*');
-                } else {
-                    showExportNoSelection();
                 }
             }
             break;
         }
         case MSG_EXPORT_RESULT:
-            renderExportSummary(msg.frames);
-            renderExportLog(msg.frames);
+            exportFrameResults = msg.frames;
+            if (msg.frames?.length > 0) {
+                const frame = msg.frames[0] as ExportFrameResult;
+                const blockCount = frame.blocks.length;
+                const skipped = frame.skippedLayers.length;
+                const meta = `${blockCount} block${blockCount !== 1 ? 's' : ''}` +
+                    (skipped > 0 ? ` · ${skipped} layer${skipped !== 1 ? 's' : ''} skipped` : '');
+                updateExportPanel(
+                    frame.filename,
+                    meta,
+                    frame.blocks.map((_b, i) => ({
+                        text: `exported block ${i + 1}`,
+                        status: 'done' as const,
+                    })),
+                );
+            }
             break;
         case MSG_EXPORT_MARKDOWN: {
             if (msg.batchId !== downloadBatchId) break; // stale batch — ignore
@@ -889,6 +810,7 @@ window.onmessage = event => {
             break;
         }
         default:
+            console.warn('[MFW] Unknown plugin message type:', msg.type);
             break;
     }
 };

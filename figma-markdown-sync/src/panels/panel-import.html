@@ -1,0 +1,42 @@
+<!-- Import Panel -->
+<div class="tab-panel" id="import-panel">
+  <div class="import-content" id="import-normal-state">
+    <mfw-section-header label="MARKDOWN_FOR_WHAT"></mfw-section-header>
+    <mfw-drop-zone></mfw-drop-zone>
+    <div class="divider-row">
+      <div class="divider-line"></div>
+      <span class="divider-text">or paste Markdown text</span>
+      <div class="divider-line"></div>
+    </div>
+    <mfw-paste-section></mfw-paste-section>
+    <mfw-section-header label="SELECTED"></mfw-section-header>
+    <mfw-file-list></mfw-file-list>
+  </div>
+
+  <div class="import-content import-error-state hidden" id="import-error-state">
+    <mfw-section-header label="IMPORT_ERROR"></mfw-section-header>
+    <div class="error-center">
+      <div class="error-icon-container" id="error-icon-container"></div>
+      <p class="error-title">invalid file type</p>
+      <p class="error-message">only .md and .txt files are supported.<br>please select a valid markdown file.</p>
+      <mfw-file-list id="error-file-list"></mfw-file-list>
+      <mfw-button variant="destructive" label="Try Again"></mfw-button>
+    </div>
+  </div>
+
+  <!-- Preview pane (hidden by default, shown after file drop) -->
+  <div id="preview-pane" class="preview-pane hidden">
+      <div class="preview-header">
+          <span class="preview-title">Preview</span>
+          <span id="preview-summary" class="preview-summary"></span>
+          <span class="preview-select-controls">
+              <button id="select-all-btn" class="btn-link">All</button>
+              <button id="deselect-all-btn" class="btn-link">None</button>
+          </span>
+      </div>
+      <div id="preview-content" class="preview-content"></div>
+  </div>
+
+  <mfw-bottom-bar></mfw-bottom-bar>
+
+</div>

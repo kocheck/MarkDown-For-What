@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MFW UI Preview</title>
+    <!-- Links source CSS directly — edit src/styles.css and refresh, no build needed -->
+    <!-- tokens.css is @imported by styles.css in the webpack bundle, but the browser
+         needs it linked separately here since it can't process @import without a bundler -->
+    <link rel="stylesheet" href="src/tokens.css">
+    <link rel="stylesheet" href="src/styles.css">
+    <style>
+        /* Preview shell — not part of the plugin UI */
+        body {
+            background: #2C2C2C;
+            margin: 0;
+            padding: 40px 20px;
+            font-family: Inter, -apple-system, sans-serif;
+            min-height: 100vh;
+        }
+        .preview-shell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 40px;
+        }
+        .preview-label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .plugin-frame {
+            width: 320px;
+            height: 500px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            background: #EFF4F2;
+            display: flex;
+            flex-direction: column;
+        }
+        /* Catalog */
+        .catalog { width: 320px; }
+        .catalog-section { margin-bottom: 32px; }
+        .catalog-section-title {
+            color: #888;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 0 0 12px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #444;
+        }
+        .catalog-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            background: #EFF4F2;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+        .catalog-row-label {
+            color: #666;
+            font-size: 10px;
+            width: 100%;
+            margin-bottom: 4px;
+        }
+    </style>
+</head>
+<body>
+<div class="preview-shell">
+
+    <!-- Plugin Frame -->
+    <div>
+        <p class="preview-label">Plugin UI &mdash; 320&times;500</p>
+        <div class="plugin-frame">
+
+            <!-- Tab bar -->
+            <mfw-tab-bar active="import"></mfw-tab-bar>
+
+            <!-- PANEL:import -->
+
+            <!-- PANEL:history -->
+
+            <!-- PANEL:settings -->
+
+            <!-- PANEL:export -->
+
+        </div>
+    </div>
+
+    <!-- Component Catalog — add a catalog-section for each new component below -->
+    <div>
+        <p class="preview-label">Component Catalog</p>
+        <div class="catalog">
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-button</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="primary" (default)</span>
+                    <mfw-button label="Import"></mfw-button>
+                    <mfw-button label="Disabled" disabled></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="ghost"</span>
+                    <mfw-button variant="ghost" label="Cancel"></mfw-button>
+                    <mfw-button variant="ghost" label="Reset to defaults"></mfw-button>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">variant="destructive"</span>
+                    <mfw-button variant="destructive" label="Delete All"></mfw-button>
+                    <mfw-button variant="destructive" label="Remove" disabled></mfw-button>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-status</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="info" (default)</span>
+                    <mfw-status message="3 files ready to import"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="success"</span>
+                    <mfw-status type="success" message="Import complete"></mfw-status>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">type="error"</span>
+                    <mfw-status type="error" message="Failed to parse file"></mfw-status>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-drop-zone</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">default</span>
+                    <mfw-drop-zone style="width:100%"></mfw-drop-zone>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-tab-bar</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="import" (default)</span>
+                    <mfw-tab-bar active="import" style="width:100%"></mfw-tab-bar>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-theme-selector</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="minimal-light"</span>
+                    <mfw-theme-selector active="minimal-light"></mfw-theme-selector>
+                </div>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">active="dark-mode"</span>
+                    <mfw-theme-selector active="dark-mode"></mfw-theme-selector>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-settings-section</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">with title</span>
+                    <mfw-settings-section title="Example Section" style="width:100%">
+                        <p style="font-size:11px;color:#888;margin:4px 0;">Child content preserved</p>
+                    </mfw-settings-section>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-settings-row</h3>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">type=number</span>
+                    <mfw-settings-row label="Block spacing" type="number" input-id="cat-blockSpacing" min="0" max="200" unit="px" style="width:100%"></mfw-settings-row>
+                </div>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">type=checkbox</span>
+                    <mfw-settings-row label="Generate TOC" type="checkbox" input-id="cat-generateToc" style="width:100%"></mfw-settings-row>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-color-input</h3>
+                <div class="catalog-row" style="background:#fff;">
+                    <span class="catalog-row-label">with placeholder</span>
+                    <mfw-color-input input-id="cat-frameFill" placeholder="#FFFFFF" style="display:flex;gap:4px;"></mfw-color-input>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-paste-section</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">collapsed (default)</span>
+                    <mfw-paste-section style="width:100%"></mfw-paste-section>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-loader</h3>
+                <div class="catalog-row">
+                    <span class="catalog-row-label">visible=absent (hidden)</span>
+                    <mfw-loader></mfw-loader><span style="color:#888;font-size:11px;">(overlay hidden)</span>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-section-header</h3>
+                <div class="catalog-row">
+                    <mfw-section-header label="SECTION_LABEL"></mfw-section-header>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-bottom-bar</h3>
+                <div class="catalog-row">
+                    <mfw-bottom-bar id="catalog-bottom-bar" style="flex:1"></mfw-bottom-bar>
+                </div>
+            </div>
+
+            <div class="catalog-section">
+                <h3 class="catalog-section-title">mfw-file-list</h3>
+                <div class="catalog-row">
+                    <mfw-file-list id="catalog-file-list"></mfw-file-list>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- Loads component definitions only. Do NOT swap this for dist/ui.js. -->
+<script src="dist/components.js"></script>
+<script>
+    // mfw-bottom-bar demo
+    customElements.whenDefined('mfw-bottom-bar').then(function() {
+        var bar = document.getElementById('catalog-bottom-bar');
+        if (bar) {
+            var slot = bar.querySelector('[data-slot="status"]');
+            if (slot) slot.textContent = 'Ready';
+            var actions = bar.querySelector('[data-slot="actions"]');
+            if (actions) {
+                var btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.textContent = 'Import';
+                actions.appendChild(btn);
+            }
+        }
+    });
+
+    // mfw-file-list demo
+    customElements.whenDefined('mfw-file-list').then(function() {
+        var list = document.getElementById('catalog-file-list');
+        if (list && list.setFiles) {
+            list.setFiles([
+                { name: 'getting-started.md', meta: '3 blocks' },
+                { name: 'api-reference.md',   meta: '12 blocks' },
+            ]);
+        }
+    });
+
+    // Tab switching for the preview frame via mfw-tab-bar component
+    var tabBar = document.querySelector('mfw-tab-bar');
+    if (tabBar) {
+        tabBar.addEventListener('mfw-tab-change', function(e) {
+            var tab = e.detail.tab;
+            document.querySelectorAll('.tab-panel').forEach(function(p) {
+                p.classList.toggle('active', p.id === 'tab-' + tab);
+                p.classList.toggle('hidden', p.id !== 'tab-' + tab);
+            });
+        });
+    }
+</script>
+</body>
+</html>

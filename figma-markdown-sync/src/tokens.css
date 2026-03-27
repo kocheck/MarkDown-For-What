@@ -1,0 +1,43 @@
+/* GENERATED — do not edit by hand. Run: npm run build:tokens */
+:root {
+  --color-gray1: #161616;
+  --color-gray2: #1c1c1c;
+  --color-gray3: #232323;
+  --color-gray6: #343434;
+  --color-gray8: #505050;
+  --color-gray11: #a0a0a0;
+  --color-gray12: #ededed;
+  --color-mint8: #006d5b;
+  --color-mint9: #70e1c8;
+  --color-mint10: #25d0ab;
+  --color-mint11: #25d0ab;
+  --color-red8: #aa2429;
+  --color-red10: #f2555a;
+  --color-red11: #ff6369;
+  --color-orange11: #ff8b3e;
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --font-sans-serif: "Space Grotesk", sans-serif;
+  --font-mono: "Geist Mono", monospace;
+  --font-mono-brand: "Geist Pixel", monospace;
+  --font-size-xs: 8px;
+  --font-size-sm: 9px;
+  --font-size-md: 10px;
+  --font-size-lg: 11px;
+  --font-size-xl: 12px;
+  --font-size-xxl: 13px;
+  --font-size-xxxl: 14px;
+  --font-size-display: 16px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semi-bold: 600;
+  --font-weight-bold: 700;
+  --transition-fast: 0.15s;
+  --transition-spinner: 0.7s linear;
+}

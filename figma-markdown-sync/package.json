@@ -8,7 +8,10 @@
     "watch": "webpack --mode=development --watch",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "build:tokens": "ts-node scripts/build-tokens.ts",
+    "build:html":  "ts-node scripts/build-html.ts",
+    "build:ui":    "npm run build:tokens && npm run build:html && npm run build"
   },
   "dependencies": {
     "marked": "^4.3.0"
@@ -21,9 +24,11 @@
     "html-inline-script-webpack-plugin": "^3.2.1",
     "html-webpack-plugin": "^5.5.3",
     "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.3.0",
     "style-loader": "^3.3.3",
     "ts-jest": "^29.4.6",
     "ts-loader": "^9.4.4",
+    "ts-node": "^10.9.2",
     "typescript": "^5.1.6",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
